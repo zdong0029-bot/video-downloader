@@ -1,0 +1,21 @@
+# 下载产物，不入库
+Symphony_Videos/
+Web_Videos/
+Logs/
+
+# 已下载记录（本机状态，换机器不该沿用）
+.web-archive.txt
+.archive.txt
+
+# 打包产物
+*.zip
+
+# 已被 Start-Downloader.ps1 取代的旧启动器
+Start-SymphonyDownloader.ps1
+
+# 媒体文件
+*.mp4
+*.webm
+*.mp3
+*.part
+*.ytdl
