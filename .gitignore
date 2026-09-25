@@ -19,3 +19,19 @@ Start-SymphonyDownloader.ps1
 *.mp3
 *.part
 *.ytdl
+
+# ---- 网页版 ----
+# Python 虚拟环境，几万个文件，按 requirements.txt 重建即可
+web/.venv/
+web/__pycache__/
+*.pyc
+
+# 下载产物
+web/downloads/
+
+# 账号数据：users.json 里有密码哈希，sessions.json 是登录凭据。
+# 这些是本机运行状态，绝不能入库。
+web/data/
+
+# 运行日志
+web/server.log

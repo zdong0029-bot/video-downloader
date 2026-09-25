@@ -1,0 +1,11 @@
+﻿# 安装： .venv\Scripts\python.exe -m pip install -r requirements.txt
+
+fastapi==0.141.1
+uvicorn[standard]==0.54.0
+
+# 必须带 curl-cffi 这个 extra。
+# yt-dlp 的独立 exe 自带它，但 pip 默认不装。
+# 少了它，TikTok 会报 "Unexpected response from webpage request" 直接失败——
+# 因为 TikTok 需要 TLS 指纹模拟才肯正常响应。
+# 这里不锁版本：各平台会持续改反爬策略，yt-dlp 需要保持更新。
+yt-dlp[default,curl-cffi]

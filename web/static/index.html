@@ -1,0 +1,615 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>视频下载器</title>
+<style>
+  :root{
+    --bg:#f6f7f9; --card:#fff; --text:#1b1d21; --muted:#6b7280;
+    --line:#e5e7eb; --accent:#0f766e; --accent-soft:#ccfbf1;
+    --ok:#15803d; --warn:#b45309; --err:#b91c1c; --radius:14px;
+  }
+  @media (prefers-color-scheme:dark){
+    :root:not([data-theme="light"]){
+      --bg:#14161a; --card:#1d2026; --text:#e8eaed; --muted:#9aa2af;
+      --line:#2c313a; --accent:#2dd4bf; --accent-soft:#134e4a;
+      --ok:#4ade80; --warn:#fbbf24; --err:#f87171;
+    }
+  }
+  *{box-sizing:border-box}
+  body{
+    margin:0; background:var(--bg); color:var(--text);
+    font:16px/1.6 -apple-system,BlinkMacSystemFont,"Segoe UI","Microsoft YaHei",sans-serif;
+    padding:24px 16px 60px;
+  }
+  .wrap{max-width:760px;margin:0 auto}
+  h1{font-size:22px;margin:0 0 4px;letter-spacing:-.01em}
+  .sub{color:var(--muted);font-size:14px;margin:0 0 22px}
+  .card{background:var(--card);border:1px solid var(--line);border-radius:var(--radius);padding:16px}
+  .row{display:flex;gap:10px;flex-wrap:wrap}
+  textarea{
+    width:100%;min-width:0;padding:13px 14px;font-size:16px;line-height:1.5;
+    border:1px solid var(--line);border-radius:10px;background:var(--bg);color:var(--text);
+    font-family:inherit;resize:vertical;min-height:84px;max-height:320px;
+  }
+  textarea:focus{outline:2px solid var(--accent);outline-offset:-1px;border-color:transparent}
+  button{
+    padding:13px 20px;font-size:16px;font-weight:600;border:0;border-radius:10px;
+    background:var(--accent);color:#fff;cursor:pointer;
+  }
+  button:disabled{opacity:.45;cursor:default}
+  button.ghost{
+    background:transparent;color:var(--muted);border:1px solid var(--line);
+    font-weight:500;padding:8px 14px;font-size:14px;
+  }
+  button.ghost:disabled{opacity:.4}
+  button.danger{color:var(--err);border-color:currentColor}
+  button.small{padding:8px 16px;font-size:14px}
+  .hint{font-size:13px;color:var(--muted);margin-top:10px}
+  .jobs{margin-top:22px;display:flex;flex-direction:column;gap:12px}
+  .job{background:var(--card);border:1px solid var(--line);border-radius:var(--radius);padding:14px 16px}
+  .job-top{display:flex;gap:10px;align-items:flex-start;justify-content:space-between}
+  .job-title{font-weight:600;word-break:break-all;font-size:15px}
+  .job-url{font-size:12px;color:var(--muted);word-break:break-all;margin-top:2px}
+  .tag{font-size:12px;padding:3px 9px;border-radius:999px;white-space:nowrap;background:var(--accent-soft);color:var(--accent)}
+  .tag.ok{background:transparent;color:var(--ok);border:1px solid currentColor}
+  .tag.err{background:transparent;color:var(--err);border:1px solid currentColor}
+  .tag.warn{background:transparent;color:var(--warn);border:1px solid currentColor}
+  .bar{height:6px;background:var(--line);border-radius:999px;overflow:hidden;margin:12px 0 6px}
+  .bar>i{display:block;height:100%;background:var(--accent);transition:width .3s}
+  .msg{font-size:13px;color:var(--muted);word-break:break-all}
+
+  .toolbar{
+    display:flex;align-items:center;gap:10px;flex-wrap:wrap;
+    margin-top:14px;padding:10px 12px;background:var(--bg);
+    border:1px solid var(--line);border-radius:10px;
+  }
+  .toolbar label{display:flex;align-items:center;gap:8px;font-size:14px;cursor:pointer;user-select:none}
+  .toolbar .spacer{flex:1}
+  .count{font-size:13px;color:var(--muted)}
+
+  .files{margin-top:10px;display:flex;flex-direction:column;gap:6px}
+  .file{
+    display:flex;align-items:center;gap:12px;
+    padding:10px 12px;background:var(--bg);border-radius:9px;font-size:14px;
+    border:1px solid transparent;
+  }
+  .file.sel{border-color:var(--accent);background:var(--accent-soft)}
+  .file label{display:flex;align-items:center;gap:12px;flex:1;min-width:0;cursor:pointer}
+  .fname{word-break:break-all;min-width:0}
+  .fsize{color:var(--muted);font-size:12px}
+  .file a{color:var(--accent);text-decoration:none;font-weight:600;white-space:nowrap}
+  input[type=checkbox]{width:18px;height:18px;accent-color:var(--accent);flex:none;cursor:pointer}
+
+  .acts{display:flex;gap:8px;margin-top:12px;flex-wrap:wrap}
+  .empty{text-align:center;color:var(--muted);padding:34px 0;font-size:14px}
+  .note{font-size:12px;color:var(--muted);margin-top:8px}
+
+  /* 页面内确认条。用它替代浏览器原生 confirm()——
+     原生弹窗会顶着"192.168.0.14:8000 显示"出现在屏幕正中，和页面割裂。 */
+  .mask{
+    position:fixed;inset:0;background:rgba(0,0,0,.35);
+    display:flex;justify-content:center;align-items:flex-start;
+    padding:0 16px;z-index:100;opacity:0;pointer-events:none;transition:opacity .16s;
+  }
+  .mask.on{opacity:1;pointer-events:auto}
+  .dialog{
+    width:100%;max-width:420px;margin-top:11vh;
+    background:var(--card);border:1px solid var(--line);border-radius:var(--radius);
+    padding:20px 22px;box-shadow:0 18px 50px rgba(0,0,0,.22);
+    transform:translateY(-14px);transition:transform .16s;
+  }
+  .mask.on .dialog{transform:none}
+  .dialog h3{margin:0 0 6px;font-size:17px;font-weight:600}
+  .dialog p{margin:0;font-size:14px;color:var(--muted);line-height:1.65}
+  .dialog .btns{display:flex;gap:10px;justify-content:flex-end;margin-top:20px}
+  .dialog button{padding:10px 18px;font-size:15px}
+
+  .topbar{display:flex;gap:14px;align-items:flex-start;justify-content:space-between;flex-wrap:wrap}
+  .who{display:flex;gap:8px;align-items:center;font-size:14px;color:var(--muted);flex-wrap:wrap}
+  .who #whoName{font-weight:600;color:var(--text)}
+  .gate{max-width:380px;margin-top:8vh}
+  .gate input{
+    width:100%;padding:13px 14px;font-size:16px;border:1px solid var(--line);
+    border-radius:10px;background:var(--bg);color:var(--text);font-family:inherit;
+  }
+  .gate input:focus{outline:2px solid var(--accent);outline-offset:-1px;border-color:transparent}
+  .user-row{display:flex;align-items:center;gap:10px;padding:10px 12px;background:var(--bg);border-radius:9px;font-size:14px}
+  .user-row .spacer{flex:1}
+  .badge{font-size:11px;padding:2px 8px;border-radius:999px;background:var(--accent-soft);color:var(--accent)}
+  .owner{font-size:11px;padding:2px 8px;border-radius:999px;border:1px solid var(--line);color:var(--muted);margin-left:6px}
+</style>
+</head>
+<body>
+<!-- 未登录时显示：首次初始化 / 登录 -->
+<div class="wrap gate" id="gate" hidden>
+  <h1 id="gateTitle">登录</h1>
+  <p class="sub" id="gateSub">请输入账号密码</p>
+  <div class="card">
+    <input id="gUser" type="text" placeholder="用户名" autocomplete="username" spellcheck="false">
+    <input id="gPass" type="password" placeholder="密码" autocomplete="current-password" style="margin-top:10px">
+    <div class="row" style="margin-top:14px;align-items:center">
+      <button id="gGo">登录</button>
+      <span class="hint" id="gMsg" style="margin:0"></span>
+    </div>
+  </div>
+</div>
+
+<div class="wrap" id="main" hidden>
+  <div class="topbar">
+    <div>
+      <h1>视频下载器</h1>
+      <p class="sub">粘贴链接，自动识别来源。TikTok 取无水印源，YouTube 取最高画质。</p>
+    </div>
+    <div class="who">
+      <span id="whoName"></span>
+      <button class="ghost" id="adminBtn" hidden onclick="toggleAdmin()">账号管理</button>
+      <button class="ghost" onclick="logout()">退出</button>
+    </div>
+  </div>
+
+  <div class="card" id="adminPanel" hidden style="margin-bottom:14px">
+    <h3 style="margin:0 0 12px;font-size:16px">账号管理</h3>
+    <div id="userList" class="files" style="margin:0 0 14px"></div>
+    <div class="row">
+      <input id="nUser" type="text" placeholder="新用户名" spellcheck="false" style="flex:1 1 140px">
+      <input id="nPass" type="text" placeholder="密码（至少 4 位）" spellcheck="false" style="flex:1 1 140px">
+      <button class="small" onclick="addUser()">添加</button>
+    </div>
+    <div class="note" id="adminMsg">新建的是普通账号，只能看到自己提交的记录。</div>
+  </div>
+
+  <div class="card">
+    <textarea id="url" rows="3" spellcheck="false" autocapitalize="off"
+      placeholder="粘贴视频链接或 Symphony 分享码&#10;可以一次贴多个，一行一个"></textarea>
+    <div class="row" style="margin-top:10px;align-items:center">
+      <button id="go">下载</button>
+      <span class="count" id="linkCount"></span>
+      <span class="spacer" style="flex:1"></span>
+      <span class="note" style="margin:0">Ctrl + Enter 也可提交</span>
+    </div>
+    <div class="hint" id="hint">支持 TikTok、YouTube、B站等 1000+ 站点，以及 Symphony 分享链接。</div>
+    <div class="note">「移出列表」只清理显示，文件不动；只有「删除文件」才会真的删。</div>
+  </div>
+
+  <div class="jobs" id="jobs"><div class="empty">还没有任务</div></div>
+</div>
+
+<div class="mask" id="mask">
+  <div class="dialog" role="dialog" aria-modal="true">
+    <h3 id="dlgTitle"></h3>
+    <p id="dlgBody"></p>
+    <div class="btns">
+      <button class="ghost" id="dlgNo">取消</button>
+      <button id="dlgYes"></button>
+    </div>
+  </div>
+</div>
+
+<script>
+const $ = s => document.querySelector(s);
+const jobsEl = $('#jobs'), urlEl = $('#url'), goEl = $('#go'), hintEl = $('#hint');
+
+// 勾选状态存在这里，不能只存在 DOM 上——页面每 1.2 秒自动刷新一次，
+// 重绘会把 DOM 里的勾选全部冲掉，用户正勾到一半就白勾了。
+const selected = new Set();
+const key = (jobId, name) => jobId + '\u0000' + name;
+
+// ---- 页面内确认框，替代原生 confirm() ----
+const maskEl = $('#mask'), dlgTitle = $('#dlgTitle'), dlgBody = $('#dlgBody'),
+      dlgYes = $('#dlgYes'), dlgNo = $('#dlgNo');
+let dlgResolve = null;
+
+function ask({title, body = '', ok = '确定', danger = false}){
+  dlgTitle.textContent = title;
+  dlgBody.textContent = body;
+  dlgBody.style.display = body ? '' : 'none';
+  dlgYes.textContent = ok;
+  dlgYes.className = danger ? 'danger-solid' : '';
+  dlgYes.style.background = danger ? 'var(--err)' : 'var(--accent)';
+  maskEl.classList.add('on');
+  dlgYes.focus();
+  return new Promise(res => { dlgResolve = res; });
+}
+
+function closeDlg(v){
+  maskEl.classList.remove('on');
+  if(dlgResolve){ dlgResolve(v); dlgResolve = null; }
+}
+
+dlgYes.onclick = () => closeDlg(true);
+dlgNo.onclick  = () => closeDlg(false);
+maskEl.addEventListener('click', e => { if(e.target === maskEl) closeDlg(false); });
+document.addEventListener('keydown', e => {
+  if(!maskEl.classList.contains('on')) return;
+  if(e.key === 'Escape') closeDlg(false);
+  if(e.key === 'Enter')  closeDlg(true);
+});
+
+let lastSnapshot = '';
+let busy = false;   // 批量操作进行中，暂停自动重绘
+
+const fmtSize = b => b >= 1048576 ? (b/1048576).toFixed(1)+' MB' : (b/1024).toFixed(0)+' KB';
+const esc = s => String(s ?? '').replace(/[&<>"']/g, c =>
+  ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+
+const STATUS = {
+  queued:  ['排队中', ''],
+  running: ['下载中', ''],
+  done:    ['完成',   'ok'],
+  partial: ['部分完成','warn'],
+  error:   ['失败',   'err'],
+};
+
+function selectedIn(job){
+  return (job.files || []).filter(f => selected.has(key(job.id, f.name)));
+}
+
+function render(jobs){
+  if(!jobs.length){ jobsEl.innerHTML = '<div class="empty">还没有任务</div>'; return; }
+
+  jobsEl.innerHTML = jobs.map(j => {
+    const [label, cls] = STATUS[j.status] || [j.status, ''];
+    const active = j.status === 'running' || j.status === 'queued';
+    const pct = Math.round((j.progress || 0) * 100);
+    const counter = j.total > 1 ? ` · ${j.finished}/${j.total}` : '';
+    const files = j.files || [];
+    const nSel = selectedIn(j).length;
+    const allSel = files.length > 0 && nSel === files.length;
+
+    const toolbar = files.length ? `
+      <div class="toolbar">
+        <label>
+          <input type="checkbox" ${allSel ? 'checked' : ''}
+                 onchange="toggleAll('${j.id}', this.checked)">
+          全选
+        </label>
+        <span class="count">已选 ${nSel} / ${files.length}</span>
+        <span class="spacer"></span>
+        <button class="small" ${nSel ? '' : 'disabled'}
+                onclick="downloadSelected('${j.id}')">下载选中</button>
+        <button class="ghost" ${nSel ? '' : 'disabled'}
+                onclick="removeSelected('${j.id}', false)"
+                title="只从这个列表里拿掉，电脑上的文件不动">移出列表</button>
+        <button class="ghost danger" ${nSel ? '' : 'disabled'}
+                onclick="removeSelected('${j.id}', true)"
+                title="连电脑上的文件一起删掉，不可恢复">删除文件</button>
+      </div>` : '';
+
+    const fileRows = files.map(f => {
+      const k = key(j.id, f.name);
+      const on = selected.has(k);
+      return `
+      <div class="file ${on ? 'sel' : ''}">
+        <label>
+          <input type="checkbox" ${on ? 'checked' : ''}
+                 onchange="toggleOne('${j.id}', ${JSON.stringify(f.name).replace(/"/g,'&quot;')}, this.checked)">
+          <span class="fname">${esc(f.name)}<br><span class="fsize">${fmtSize(f.size)}</span></span>
+        </label>
+        <a href="/api/files/${j.id}/${encodeURIComponent(f.name)}" download>保存</a>
+      </div>`;
+    }).join('');
+
+    return `<div class="job">
+      <div class="job-top">
+        <div style="min-width:0">
+          <div class="job-title">${esc(j.title || j.url)}${
+            // 管理员能看到所有人的记录，标出是谁提交的
+            (ME && ME.is_admin && j.owner && j.owner !== ME.name)
+              ? `<span class="owner">${esc(j.owner)}</span>` : ''
+          }</div>
+          <div class="job-url">${esc(j.url)}</div>
+        </div>
+        <span class="tag ${cls}">${label}${counter}</span>
+      </div>
+      ${active ? `<div class="bar"><i style="width:${pct}%"></i></div>` : ''}
+      ${j.message ? `<div class="msg">${esc(j.message)}</div>` : ''}
+      ${toolbar}
+      ${fileRows ? `<div class="files">${fileRows}</div>` : ''}
+      <div class="acts">
+        <button class="ghost" onclick="removeJob('${j.id}', false)">整个移出列表</button>
+        <button class="ghost danger" onclick="removeJob('${j.id}', true)">整个删除文件</button>
+      </div>
+    </div>`;
+  }).join('');
+}
+
+let cache = [];
+
+async function refresh(force){
+  if(busy && !force) return;
+  try{
+    const r = await fetch('/api/jobs');
+    if(r.status === 401){   // 会话过期，退回登录页而不是空转
+      ME = null;
+      await boot();
+      return;
+    }
+    const jobs = await r.json();
+    cache = jobs;
+
+    // 清掉已经不存在的文件的勾选，避免"已选 3"但只剩 1 个文件
+    const alive = new Set();
+    jobs.forEach(j => (j.files||[]).forEach(f => alive.add(key(j.id, f.name))));
+    [...selected].forEach(k => { if(!alive.has(k)) selected.delete(k); });
+
+    // 数据没变就不重绘，减少闪烁，也避免打断正在点的勾选框
+    const snap = JSON.stringify(jobs) + '|' + [...selected].sort().join('|');
+    if(snap === lastSnapshot) return;
+    lastSnapshot = snap;
+    render(jobs);
+  }catch(e){}
+}
+
+function repaint(){
+  lastSnapshot = '';
+  render(cache);
+}
+
+function toggleOne(jobId, name, on){
+  const k = key(jobId, name);
+  on ? selected.add(k) : selected.delete(k);
+  repaint();
+}
+
+function toggleAll(jobId, on){
+  const job = cache.find(j => j.id === jobId);
+  if(!job) return;
+  (job.files||[]).forEach(f => {
+    const k = key(jobId, f.name);
+    on ? selected.add(k) : selected.delete(k);
+  });
+  repaint();
+}
+
+async function downloadSelected(jobId){
+  const job = cache.find(j => j.id === jobId);
+  if(!job) return;
+  const names = selectedIn(job).map(f => f.name);
+  if(!names.length) return;
+
+  busy = true;
+  hintEl.style.color = '';
+  try{
+    for(let i = 0; i < names.length; i++){
+      hintEl.textContent = `正在保存第 ${i+1} / ${names.length} 个…`;
+      const a = document.createElement('a');
+      a.href = `/api/files/${jobId}/${encodeURIComponent(names[i])}`;
+      a.download = names[i];
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+      // 浏览器对连续触发的下载有节流，挨太近会被静默丢弃
+      await new Promise(r => setTimeout(r, 700));
+    }
+    hintEl.textContent = `已保存 ${names.length} 个视频到你的下载文件夹。`;
+  } finally { busy = false; }
+}
+
+// purge=false：只从列表拿掉，文件留在电脑上（默认，安全）
+// purge=true ：连文件一起删，不可恢复
+async function removeSelected(jobId, purge){
+  const job = cache.find(j => j.id === jobId);
+  if(!job) return;
+  const names = selectedIn(job).map(f => f.name);
+  if(!names.length) return;
+
+  const ok = purge
+    ? await ask({
+        title: `删除 ${names.length} 个视频？`,
+        body: '电脑上的文件会一并删除，无法恢复。',
+        ok: '删除', danger: true })
+    : await ask({
+        title: `从列表移出 ${names.length} 个？`,
+        ok: '移出' });
+  if(!ok) return;
+
+  busy = true;
+  try{
+    for(const n of names){
+      await fetch(`/api/files/${jobId}/${encodeURIComponent(n)}?purge=${purge}`, {method:'DELETE'});
+      selected.delete(key(jobId, n));
+    }
+  } finally {
+    busy = false;
+    await refresh(true);
+    repaint();
+  }
+}
+
+async function removeJob(id, purge){
+  const job = cache.find(j => j.id === id);
+  const n = job ? (job.files || []).length : 0;
+  const ok = purge
+    ? await ask({
+        title: `删除这个任务的 ${n} 个视频？`,
+        body: '电脑上的文件会一并删除，无法恢复。',
+        ok: '删除', danger: true })
+    : await ask({
+        title: '把这个任务从列表移出？',
+        ok: '移出' });
+  if(!ok) return;
+  await fetch(`/api/jobs/${id}?purge=${purge}`, {method:'DELETE'});
+  [...selected].forEach(k => { if(k.startsWith(id + '\u0000')) selected.delete(k); });
+  await refresh(true);
+}
+
+const countEl = $('#linkCount');
+
+function updateCount(){
+  const n = urlEl.value.split(/\s+/).filter(Boolean).length;
+  countEl.textContent = n > 1 ? `检测到 ${n} 个链接` : '';
+}
+
+async function submit(){
+  const url = urlEl.value.trim();
+  if(!url) return;
+  goEl.disabled = true;
+  try{
+    const r = await fetch('/api/jobs', {
+      method:'POST', headers:{'Content-Type':'application/json'},
+      body: JSON.stringify({url})
+    });
+    const data = await r.json().catch(() => ({}));
+    if(!r.ok){
+      hintEl.textContent = data.detail || '请求失败';
+      hintEl.style.color = 'var(--err)';
+    }else{
+      urlEl.value = '';
+      updateCount();
+      const n = (data.created || []).length;
+      const bad = (data.rejected || []).length;
+      hintEl.textContent = bad
+        ? `已加入 ${n} 个任务，${bad} 个无法识别已跳过。`
+        : `已加入 ${n} 个任务。`;
+      hintEl.style.color = bad ? 'var(--warn)' : '';
+      refresh(true);
+    }
+  } finally { goEl.disabled = false; }
+}
+
+goEl.onclick = submit;
+urlEl.addEventListener('input', updateCount);
+// 多行输入里回车要能换行，所以用 Ctrl/Cmd + Enter 提交
+urlEl.addEventListener('keydown', e => {
+  if(e.key === 'Enter' && (e.ctrlKey || e.metaKey)) { e.preventDefault(); submit(); }
+});
+
+// ================= 登录 / 账号 =================
+const gateEl = $('#gate'), mainEl = $('#main'), gUser = $('#gUser'), gPass = $('#gPass'),
+      gGo = $('#gGo'), gMsg = $('#gMsg'), gateTitle = $('#gateTitle'), gateSub = $('#gateSub');
+let ME = null, SETUP = false, timer = null;
+
+async function boot(){
+  const r = await fetch('/api/me');
+  const d = await r.json();
+  SETUP = d.setup;
+  ME = d.user;
+
+  if(ME){
+    gateEl.hidden = true; mainEl.hidden = false;
+    $('#whoName').textContent = ME.name + (ME.is_admin ? '（管理员）' : '');
+    $('#adminBtn').hidden = !ME.is_admin;
+    refresh(true);
+    if(!timer) timer = setInterval(refresh, 1200);
+    return;
+  }
+
+  if(timer){ clearInterval(timer); timer = null; }
+  mainEl.hidden = true; gateEl.hidden = false;
+  if(SETUP){
+    gateTitle.textContent = '首次使用';
+    gateSub.textContent = '创建管理员账号。之后可以在里面给家里人开子账号。';
+    gGo.textContent = '创建并登录';
+    gPass.autocomplete = 'new-password';
+  }else{
+    gateTitle.textContent = '登录';
+    gateSub.textContent = '请输入账号密码';
+    gGo.textContent = '登录';
+  }
+  gUser.focus();
+}
+
+async function doGate(){
+  const username = gUser.value.trim(), password = gPass.value;
+  if(!username || !password){ gMsg.textContent = '请填完整'; gMsg.style.color = 'var(--err)'; return; }
+  gGo.disabled = true;
+  try{
+    const r = await fetch(SETUP ? '/api/setup' : '/api/login', {
+      method:'POST', headers:{'Content-Type':'application/json'},
+      body: JSON.stringify({username, password})
+    });
+    if(!r.ok){
+      const e = await r.json().catch(()=>({}));
+      gMsg.textContent = e.detail || '失败'; gMsg.style.color = 'var(--err)';
+    }else{
+      gPass.value = ''; gMsg.textContent = '';
+      await boot();
+    }
+  } finally { gGo.disabled = false; }
+}
+
+gGo.onclick = doGate;
+[gUser, gPass].forEach(el => el.addEventListener('keydown', e => {
+  if(e.key === 'Enter') doGate();
+}));
+
+async function logout(){
+  if(!await ask({title:'退出登录？', ok:'退出'})) return;
+  await fetch('/api/logout', {method:'POST'});
+  ME = null;
+  selected.clear();
+  jobsEl.innerHTML = '';
+  cache = [];
+  await boot();
+}
+
+// ================= 账号管理（仅管理员） =================
+function toggleAdmin(){
+  const p = $('#adminPanel');
+  p.hidden = !p.hidden;
+  if(!p.hidden) loadUsers();
+}
+
+async function loadUsers(){
+  const r = await fetch('/api/users');
+  if(!r.ok) return;
+  const users = await r.json();
+  $('#userList').innerHTML = users.map(u => `
+    <div class="user-row">
+      <span><strong>${esc(u.name)}</strong>${u.is_admin ? ' <span class="badge">管理员</span>' : ''}</span>
+      <span class="fsize">${u.jobs} 条记录</span>
+      <span class="spacer"></span>
+      <button class="ghost" onclick="resetPwd('${esc(u.name)}')">改密码</button>
+      ${u.name === ME.name ? '' :
+        `<button class="ghost danger" onclick="delUser('${esc(u.name)}')">删除</button>`}
+    </div>`).join('');
+}
+
+async function addUser(){
+  const username = $('#nUser').value.trim(), password = $('#nPass').value;
+  const msg = $('#adminMsg');
+  if(!username || !password){ msg.textContent = '用户名和密码都要填'; msg.style.color='var(--err)'; return; }
+  const r = await fetch('/api/users', {
+    method:'POST', headers:{'Content-Type':'application/json'},
+    body: JSON.stringify({username, password, is_admin:false})
+  });
+  const d = await r.json().catch(()=>({}));
+  if(!r.ok){ msg.textContent = d.detail || '添加失败'; msg.style.color='var(--err)'; return; }
+  $('#nUser').value=''; $('#nPass').value='';
+  msg.textContent = `已添加「${username}」，把用户名和密码告诉他就能用了。`;
+  msg.style.color = 'var(--ok)';
+  loadUsers();
+}
+
+async function resetPwd(name){
+  const pwd = prompt(`给「${name}」设置新密码（至少 4 位）：`);
+  if(!pwd) return;
+  const r = await fetch(`/api/users/${encodeURIComponent(name)}/password`, {
+    method:'POST', headers:{'Content-Type':'application/json'},
+    body: JSON.stringify({password: pwd})
+  });
+  const d = await r.json().catch(()=>({}));
+  const msg = $('#adminMsg');
+  msg.textContent = r.ok ? `「${name}」的密码已重置，他需要重新登录。` : (d.detail || '失败');
+  msg.style.color = r.ok ? 'var(--ok)' : 'var(--err)';
+}
+
+async function delUser(name){
+  if(!await ask({
+    title: `删除账号「${name}」？`,
+    body: '他将无法再登录。已经下载的视频文件不受影响。',
+    ok: '删除', danger: true })) return;
+  const r = await fetch(`/api/users/${encodeURIComponent(name)}`, {method:'DELETE'});
+  const d = await r.json().catch(()=>({}));
+  const msg = $('#adminMsg');
+  msg.textContent = r.ok ? `已删除「${name}」。` : (d.detail || '失败');
+  msg.style.color = r.ok ? 'var(--ok)' : 'var(--err)';
+  loadUsers();
+}
+
+boot();
+</script>
+</body>
+</html>
