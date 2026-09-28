@@ -9,7 +9,14 @@
 from __future__ import annotations
 
 import json
+import hashlib
+import mimetypes
+import os
+import re
+import secrets
 import shutil
+import socket
+import subprocess
 import threading
 import time
 import uuid
@@ -18,17 +25,21 @@ from pathlib import Path
 from typing import Any, Literal
 
 import yt_dlp
-from fastapi import Cookie, Depends, FastAPI, HTTPException, Response
+from fastapi import Cookie, Depends, FastAPI, HTTPException, Request, Response
 from fastapi.responses import FileResponse
 from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel
 
 import auth
+from common import Cancelled
+
+import douyin
 import symphony
 
 ROOT = Path(__file__).parent
 DOWNLOADS = ROOT / "downloads"
 STATIC = ROOT / "static"
+COOKIES = ROOT / "cookies.txt"      # 可选：抖音等站点需要
 DOWNLOADS.mkdir(exist_ok=True)
 
 # 同时下载的任务数。家用场景不需要开太大，避免把上行带宽和代理打满。
@@ -47,8 +58,8 @@ class FileItem:
 class Job:
     id: str
     url: str
-    kind: Literal["symphony", "web"]
-    status: Literal["queued", "running", "done", "error", "partial"] = "queued"
+    kind: Literal["symphony", "douyin", "web"]
+    status: Literal["queued", "running", "done", "error", "partial", "cancelled"] = "queued"
     title: str = ""
     message: str = ""
     progress: float = 0.0          # 0~1，当前文件
@@ -57,7 +68,12 @@ class Job:
     failed: int = 0
     files: list[FileItem] = field(default_factory=list)
     created: float = field(default_factory=time.time)
-    owner: str = ""          # 提交这个任务的账号，用于隔离各人的记录
+    owner: str = ""          # 提交这个任务的设备标识，用于隔离各设备的记录
+    owner_label: str = ""    # 人类可读的设备名，只给管理员看
+    stop: threading.Event = field(default_factory=threading.Event, repr=False)
+
+    def cancelled(self) -> bool:
+        return self.stop.is_set()
 
     def public(self) -> dict[str, Any]:
         return {
@@ -72,7 +88,7 @@ class Job:
             "finished": self.finished,
             "failed": self.failed,
             "created": self.created,
-            "owner": self.owner,
+            "owner": (self.owner_label + " · " + self.owner[:6]) if self.owner_label else self.owner[:8],
             "files": [{"name": f.name, "size": f.size} for f in self.files if f.done],
         }
 
@@ -119,7 +135,7 @@ def _save_meta(job: Job) -> None:
     try:
         (DOWNLOADS / job.id / META).write_text(json.dumps({
             "id": job.id, "url": job.url, "kind": job.kind,
-            "title": job.title, "created": job.created, "owner": job.owner,
+            "title": job.title, "created": job.created, "owner": job.owner, "owner_label": job.owner_label,
         }, ensure_ascii=False), encoding="utf-8")
     except OSError:
         pass
@@ -163,6 +179,7 @@ def _restore_jobs() -> None:
             title=meta.get("title") or f"历史下载 × {len(files)}",
             created=meta.get("created") or d.stat().st_mtime,
             owner=meta.get("owner", ""),
+            owner_label=meta.get("owner_label", ""),
         )
         job.files = [FileItem(p.name, p.stat().st_size, True) for p in sorted(files)]
         job.total = job.finished = len(job.files)
@@ -172,6 +189,15 @@ def _restore_jobs() -> None:
 
 
 # ----------------------------------------------------------------- 下载逻辑
+
+def _firefox_profile() -> bool:
+    """有没有可用的 Firefox 配置文件。没装 Firefox 时直接跳过，
+    否则 yt-dlp 会因为找不到 cookie 库而让整个任务失败。"""
+    base = Path(os.environ.get("APPDATA", "")) / "Mozilla/Firefox/Profiles"
+    if not base.is_dir():
+        return False
+    return any((p / "cookies.sqlite").is_file() for p in base.iterdir() if p.is_dir())
+
 
 def _job_dir(job_id: str) -> Path:
     d = DOWNLOADS / job_id
@@ -186,23 +212,49 @@ def _run_symphony(job: Job) -> None:
     out = _job_dir(job.id)
 
     for i, asset in enumerate(assets, 1):
+        if job.cancelled():
+            raise Cancelled()
         job.message = f"({i}/{len(assets)}) {asset.name}"
         job.progress = 0.0
         try:
             path = symphony.download_asset(
-                asset, out, on_progress=lambda p: setattr(job, "progress", p)
+                asset, out, on_progress=lambda p: setattr(job, "progress", p),
+                should_stop=job.cancelled,
             )
             job.files.append(FileItem(path.name, path.stat().st_size, True))
             job.finished += 1
+        except Cancelled:
+            raise                      # 取消要穿透出去，不能算成这一条失败
         except Exception as e:  # noqa: BLE001
             job.failed += 1
             job.message = f"{asset.name} 失败：{e}"
+
+
+def _run_douyin(job: Job) -> None:
+    job.total = 1
+    job.message = "正在用浏览器解析…"
+    if job.cancelled():
+        raise Cancelled()
+    video = douyin.resolve(job.url)
+
+    job.title = video.title
+    job.message = f"{video.width}x{video.height}"
+    out = _job_dir(job.id)
+    path = out / douyin.safe_filename(video)
+
+    douyin.download(video, path, on_progress=lambda p: setattr(job, "progress", p),
+                    should_stop=job.cancelled)
+    job.files.append(FileItem(path.name, path.stat().st_size, True))
+    job.finished = 1
 
 
 def _run_web(job: Job) -> None:
     out = _job_dir(job.id)
 
     def hook(d: dict) -> None:
+        # yt-dlp 没有取消 API，只能在进度回调里抛异常把它打断
+        if job.cancelled():
+            raise Cancelled()
         if d.get("status") == "downloading":
             total = d.get("total_bytes") or d.get("total_bytes_estimate") or 0
             if total:
@@ -234,6 +286,19 @@ def _run_web(job: Job) -> None:
         "noprogress": True,
     }
 
+    # 部分站点（B站高清、小红书、微博等）要带浏览器 cookie 才给数据。
+    # 优先用手动导出的 cookies.txt；没有就尝试从 Firefox 读。
+    #
+    # 为什么是 Firefox 而不是 Chrome/Edge：
+    #   Chrome 运行时会锁住 cookie 数据库，拷不出来；
+    #   而且 Chromium 127+ 启用了应用绑定加密，即使关掉浏览器 yt-dlp 也解不开
+    #   （报错 Failed to decrypt with DPAPI）。
+    #   Firefox 的 cookie 是明文 SQLite，开着也能读。
+    if COOKIES.is_file():
+        opts["cookiefile"] = str(COOKIES)
+    elif _firefox_profile():
+        opts["cookiesfrombrowser"] = ("firefox", None, None, None)
+
     job.total = 1
     with yt_dlp.YoutubeDL(opts) as ydl:
         info = ydl.extract_info(job.url, download=True)
@@ -250,12 +315,31 @@ def _run_web(job: Job) -> None:
     job.finished = len(got)
 
 
+def _drop_empty_cancelled(job: Job) -> None:
+    """取消且一个文件都没下到的任务，从列表和磁盘上一并清掉，不留空壳。"""
+    job.status = "cancelled"
+    job.message = "已取消"
+    with _lock:
+        JOBS.pop(job.id, None)
+    shutil.rmtree(DOWNLOADS / job.id, ignore_errors=True)
+
+
 def _worker(job: Job) -> None:
+    # 排队等位时也要能取消——30 个任务里只有 2 个在跑，其余都卡在这里
+    if job.cancelled():
+        _drop_empty_cancelled(job)
+        return
+
     with _slots:
+        if job.cancelled():
+            _drop_empty_cancelled(job)
+            return
         job.status = "running"
         try:
             if job.kind == "symphony":
                 _run_symphony(job)
+            elif job.kind == "douyin":
+                _run_douyin(job)
             else:
                 _run_web(job)
 
@@ -269,12 +353,30 @@ def _worker(job: Job) -> None:
                 job.status = "done"
                 job.message = f"完成 {job.finished} 个"
                 job.progress = 1.0
+        except Cancelled:
+            # 已经下好的保留，没下的不再继续，列表里也不显示未完成的部分
+            job.status = "cancelled"
+            job.progress = 0.0
+            job.message = (f"已取消，保留已下载的 {len(job.files)} 个"
+                           if job.files else "已取消")
         except Exception as e:  # noqa: BLE001
-            job.status = "error"
-            job.message = str(e)
+            # yt-dlp 会把我们抛的 Cancelled 包进 DownloadError，要认出来
+            if isinstance(e.__cause__, Cancelled) or "Cancelled" in repr(e):
+                job.status = "cancelled"
+                job.progress = 0.0
+                job.message = (f"已取消，保留已下载的 {len(job.files)} 个"
+                               if job.files else "已取消")
+            else:
+                job.status = "error"
+                job.message = str(e)
 
         if job.files:
             _save_meta(job)
+        elif job.status == "cancelled":
+            # 一个文件都没下到的取消任务，直接从列表里拿掉，不留空壳
+            with _lock:
+                JOBS.pop(job.id, None)
+            shutil.rmtree(DOWNLOADS / job.id, ignore_errors=True)
 
 
 # ----------------------------------------------------------------- API
@@ -283,31 +385,108 @@ app = FastAPI(title="局域网视频下载器")
 
 _restore_jobs()
 
-COOKIE = "sid"
+COOKIE = "sid"        # 管理员会话
+DEVICE = "did"        # 设备/浏览器标识
 
 
-def current_user(sid: str | None = Cookie(default=None)) -> auth.User:
-    u = auth.user_of_token(sid)
-    if not u:
-        raise HTTPException(401, "请先登录")
-    return u
+@dataclass
+class Identity:
+    """谁在用。
+
+    普通使用不需要登录：每个浏览器第一次访问时发一个 did cookie，
+    之后它只看得到自己提交的任务。换台电脑、换个浏览器就是另一个身份，
+    各看各的，天然避免了几个人共用一个列表互相干扰。
+    管理员登录后能看到全部，并标出每条是哪台设备提交的。
+    """
+    device: str
+    is_admin: bool = False
+    admin_name: str = ""
 
 
-def admin_only(user: auth.User = Depends(current_user)) -> auth.User:
-    if not user.is_admin:
-        raise HTTPException(403, "只有管理员能操作")
-    return user
+def _local_ips() -> set[str]:
+    """本机所有 IP。
+
+    用户平时是用 http://192.168.0.14:8000 访问的，不是 localhost，
+    只认 127.0.0.1 的话他自己反而看不到"打开文件夹"按钮。
+    """
+    ips = {"127.0.0.1", "::1", "localhost"}
+    try:
+        host = socket.gethostname()
+        ips.add(socket.gethostbyname(host))
+        for info in socket.getaddrinfo(host, None):
+            ips.add(info[4][0])
+    except OSError:
+        pass
+    return ips
 
 
-def _owned(job: Job, user: auth.User) -> bool:
-    """管理员能看所有人的；普通用户只能看自己的。
-    owner 为空是登录功能上线前留下的历史记录，只对管理员可见。"""
-    return user.is_admin or job.owner == user.name
+LOCAL_IPS = _local_ips()
 
 
-def _get_job(job_id: str, user: auth.User) -> Job:
+def is_local(request: Request) -> bool:
+    host = (request.client.host if request.client else "") or ""
+    return host in LOCAL_IPS
+
+
+def _device_label(ua: str) -> str:
+    """从 User-Agent 猜一个人类看得懂的名字，给管理员区分设备用。"""
+    ua = ua or ""
+    if "Android" in ua:
+        os_name = "Android"
+    elif "iPhone" in ua or "iPad" in ua:
+        os_name = "iPhone/iPad"
+    elif "Mac OS X" in ua:
+        os_name = "Mac"
+    elif "Windows" in ua:
+        os_name = "Windows"
+    elif "Linux" in ua:
+        os_name = "Linux"
+    else:
+        os_name = "未知系统"
+
+    if "Edg/" in ua:
+        br = "Edge"
+    elif "Firefox/" in ua:
+        br = "Firefox"
+    elif "MicroMessenger" in ua:
+        br = "微信"
+    elif "Chrome/" in ua:
+        br = "Chrome"
+    elif "Safari/" in ua:
+        br = "Safari"
+    else:
+        br = "浏览器"
+    return f"{br} · {os_name}"
+
+
+def current_identity(
+    response: Response,
+    sid: str | None = Cookie(default=None),
+    did: str | None = Cookie(default=None),
+) -> Identity:
+    admin = auth.user_of_token(sid)
+    if not did:
+        did = secrets.token_urlsafe(16)
+        response.set_cookie(DEVICE, did, httponly=True, samesite="lax",
+                            max_age=3650 * 86400)
+    return Identity(device=did,
+                    is_admin=bool(admin and admin.is_admin),
+                    admin_name=admin.name if admin else "")
+
+
+def admin_only(me: Identity = Depends(current_identity)) -> Identity:
+    if not me.is_admin:
+        raise HTTPException(403, "需要管理员权限")
+    return me
+
+
+def _owned(job: Job, me: Identity) -> bool:
+    return me.is_admin or job.owner == me.device
+
+
+def _get_job(job_id: str, me: Identity) -> Job:
     job = JOBS.get(job_id)
-    if not job or not _owned(job, user):
+    if not job or not _owned(job, me):
         # 不区分"不存在"和"不是你的"，避免被人探测别人有哪些任务
         raise HTTPException(404, "任务不存在")
     return job
@@ -321,41 +500,39 @@ class Creds(BaseModel):
 
 
 @app.get("/api/me")
-def me(sid: str | None = Cookie(default=None)) -> dict:
-    """前端启动时先问这个：要不要显示初始化页 / 登录页 / 主界面。"""
+def me(request: Request, me: Identity = Depends(current_identity)) -> dict:
+    """前端启动时问这个。普通使用不需要登录，直接就能下载。"""
+    host = (request.client.host if request.client else "") or ""
+    return {
+        "device": me.device[:8],
+        "is_admin": me.is_admin,
+        "admin_name": me.admin_name,
+        "has_admin": auth.has_users(),
+        # 只有在服务端本机打开时才显示"打开文件夹"——
+        # 家里人用手机看这个页面，点了也只会打开我这台电脑的资源管理器，没意义
+        "local": is_local(request),
+    }
+
+
+@app.post("/api/admin/login")
+def admin_login(body: Creds, response: Response) -> dict:
+    """管理员登录，登录后能看到所有设备的记录。"""
     if not auth.has_users():
-        return {"setup": True, "user": None}
-    u = auth.user_of_token(sid)
-    if not u:
-        return {"setup": False, "user": None}
-    return {"setup": False, "user": {"name": u.name, "is_admin": u.is_admin}}
-
-
-@app.post("/api/setup")
-def setup(body: Creds, response: Response) -> dict:
-    """首次使用：创建第一个管理员账号。已有账号后这个接口就关闭了。"""
-    if auth.has_users():
-        raise HTTPException(400, "已经初始化过了")
-    try:
-        auth.create_user(body.username, body.password, is_admin=True)
-    except ValueError as e:
-        raise HTTPException(400, str(e)) from e
-
-    token = auth.start_session(body.username.strip())
-    response.set_cookie(COOKIE, token, httponly=True, samesite="lax",
-                        max_age=auth.SESSION_DAYS * 86400)
-    return {"ok": True}
-
-
-@app.post("/api/login")
-def login(body: Creds, response: Response) -> dict:
-    u = auth.authenticate(body.username, body.password)
-    if not u:
+        # 还没设过管理员密码，第一次登录就是设置
+        try:
+            auth.create_user(body.username, body.password, is_admin=True)
+        except ValueError as e:
+            raise HTTPException(400, str(e)) from e
+        u = auth.authenticate(body.username, body.password)
+    else:
+        u = auth.authenticate(body.username, body.password)
+    if not u or not u.is_admin:
         raise HTTPException(401, "用户名或密码不对")
+
     token = auth.start_session(u.name)
     response.set_cookie(COOKIE, token, httponly=True, samesite="lax",
                         max_age=auth.SESSION_DAYS * 86400)
-    return {"user": {"name": u.name, "is_admin": u.is_admin}}
+    return {"name": u.name}
 
 
 @app.post("/api/logout")
@@ -379,7 +556,7 @@ class NewPassword(BaseModel):
 
 
 @app.get("/api/users")
-def list_users(user: auth.User = Depends(admin_only)) -> list[dict]:
+def list_users(me: Identity = Depends(admin_only)) -> list[dict]:
     users = auth.load_users()
     counts: dict[str, int] = {}
     for j in JOBS.values():
@@ -392,7 +569,7 @@ def list_users(user: auth.User = Depends(admin_only)) -> list[dict]:
 
 
 @app.post("/api/users")
-def add_user(body: NewUser, user: auth.User = Depends(admin_only)) -> dict:
+def add_user(body: NewUser, me: Identity = Depends(admin_only)) -> dict:
     try:
         auth.create_user(body.username, body.password, body.is_admin)
     except ValueError as e:
@@ -402,7 +579,7 @@ def add_user(body: NewUser, user: auth.User = Depends(admin_only)) -> dict:
 
 @app.post("/api/users/{name}/password")
 def change_password(name: str, body: NewPassword,
-                    user: auth.User = Depends(admin_only)) -> dict:
+                    me: Identity = Depends(admin_only)) -> dict:
     try:
         auth.set_password(name, body.password)
     except ValueError as e:
@@ -411,8 +588,8 @@ def change_password(name: str, body: NewPassword,
 
 
 @app.delete("/api/users/{name}")
-def remove_user(name: str, user: auth.User = Depends(admin_only)) -> dict:
-    if name == user.name:
+def remove_user(name: str, me: Identity = Depends(admin_only)) -> dict:
+    if name == me.admin_name:
         raise HTTPException(400, "不能删除自己")
     try:
         auth.delete_user(name)
@@ -425,23 +602,59 @@ class NewJob(BaseModel):
     url: str
 
 
-def _kind_of(url: str) -> Literal["symphony", "web"] | None:
+_URL_RE = re.compile(r"https?://[^\s一-鿿，。、；：！？（）【】「」…]+")
+
+
+def _extract_links(text: str) -> list[str]:
+    """从粘贴的内容里把链接挑出来。
+
+    抖音、小红书这类 App 的分享是一整段文案，比如
+      7.53 复制打开抖音，看看【某某的作品】 https://v.douyin.com/xxxx/ 复制此链接…
+    按空格逐段校验的话，除了链接以外十几段都会被判成"无法识别"，
+    用户看到一堆失败提示会以为出错了。这里直接用正则把链接抠出来，
+    中文标点不算 URL 的一部分，末尾的标点也去掉。
+    """
+    links: list[str] = []
+    seen: set[str] = set()
+
+    for m in _URL_RE.finditer(text or ""):
+        u = m.group(0).rstrip(".,;:!?)）】」》\"'")
+        if u not in seen:
+            seen.add(u)
+            links.append(u)
+
+    # 没有 http 链接时，再看看是不是直接贴的 Symphony 分享码（裸 UUID）
+    if not links:
+        for tok in (text or "").split():
+            tok = tok.strip().strip("\"'")
+            if symphony.extract_share_id(tok) and tok not in seen:
+                seen.add(tok)
+                links.append(tok)
+
+    return links
+
+
+def _kind_of(url: str) -> Literal["symphony", "douyin", "web"] | None:
     if symphony.extract_share_id(url):
         return "symphony"
+    # 抖音要走浏览器解析，yt-dlp 算不出它的 a_bogus 签名
+    if douyin.is_douyin(url):
+        return "douyin"
     if url.startswith(("http://", "https://")):
         return "web"
     return None
 
 
 @app.post("/api/jobs")
-def create_job(body: NewJob, user: auth.User = Depends(current_user)) -> dict:
+def create_job(body: NewJob, request: Request,
+               me: Identity = Depends(current_identity)) -> dict:
     """支持一次粘贴多个链接：按空白字符（换行、空格）切开，逐个建任务。
 
     并发数由 MAX_WORKERS 控制，多出来的排队跑，不会一次性把带宽和代理打满。
     """
+    ua = request.headers.get("user-agent", "")
     raw = body.url or ""
-    items = [s.strip().strip('"').strip("'") for s in raw.split()]
-    items = [s for s in items if s]
+    items = _extract_links(raw)
     if not items:
         raise HTTPException(400, "请输入链接")
 
@@ -460,7 +673,7 @@ def create_job(body: NewJob, user: auth.User = Depends(current_user)) -> dict:
             rejected.append(item)
             continue
 
-        job = Job(id=uuid.uuid4().hex[:12], url=item, kind=kind, owner=user.name)
+        job = Job(id=uuid.uuid4().hex[:12], url=item, kind=kind, owner=me.device, owner_label=_device_label(ua))
         with _lock:
             JOBS[job.id] = job
         threading.Thread(target=_worker, args=(job,), daemon=True).start()
@@ -477,17 +690,39 @@ def create_job(body: NewJob, user: auth.User = Depends(current_user)) -> dict:
 
 
 @app.get("/api/jobs")
-def list_jobs(user: auth.User = Depends(current_user)) -> list[dict]:
+def list_jobs(scope: str = "browser", me: Identity = Depends(current_identity)) -> list[dict]:
     with _lock:
         jobs = sorted(JOBS.values(), key=lambda j: j.created, reverse=True)
-    return [j.public() for j in jobs if _owned(j, user)]
+    return [j.public() for j in jobs if j.owner == me.device or (scope == "all" and me.is_admin)]
+
+
+@app.post("/api/jobs/{job_id}/cancel")
+def cancel_job(job_id: str, me: Identity = Depends(current_identity)) -> dict:
+    """取消一个任务。已下载的保留，没下的不再下。"""
+    job = _get_job(job_id, me)
+    job.stop.set()
+    return {"ok": True}
+
+
+@app.post("/api/jobs/cancel-all")
+def cancel_all(scope: str = "browser", me: Identity = Depends(current_identity)) -> dict:
+    """一次取消自己所有正在下载和排队中的任务。
+    批量贴错 30 个链接时，一个个点太痛苦。"""
+    n = 0
+    with _lock:
+        jobs = list(JOBS.values())
+    for j in jobs:
+        if (j.owner == me.device or (scope == "all" and me.is_admin)) and j.status in ("queued", "running"):
+            j.stop.set()
+            n += 1
+    return {"cancelled": n}
 
 
 @app.delete("/api/jobs/{job_id}")
 def delete_job(job_id: str, purge: bool = False,
-               user: auth.User = Depends(current_user)) -> dict:
+               me: Identity = Depends(current_identity)) -> dict:
     """移除整个任务。purge=False 只清列表，视频留在电脑上。"""
-    _get_job(job_id, user)          # 不是自己的就 404
+    _get_job(job_id, me)          # 不是自己的就 404
     with _lock:
         job = JOBS.pop(job_id, None)
     if not job:
@@ -516,22 +751,44 @@ def _safe_file(job_id: str, name: str) -> Path:
     return target
 
 
+@app.post("/api/reveal/{job_id}/{name}")
+def reveal_file(job_id: str, name: str, request: Request,
+                me: Identity = Depends(current_identity)) -> dict:
+    """在资源管理器里打开文件所在目录并选中它。
+
+    只允许本机调用：文件在服务端这台电脑上，别的设备点了也只会
+    在服务端弹出窗口，对点的人毫无意义，还会打扰到电脑前的人。
+    """
+    if not is_local(request):
+        raise HTTPException(403, "只能在运行下载器的这台电脑上使用")
+
+    _get_job(job_id, me)
+    path = _safe_file(job_id, name)
+    try:
+        # /select 后面不能有空格，否则 explorer 会把整个盘根目录打开
+        subprocess.Popen(["explorer", f"/select,{path}"])
+    except OSError as e:
+        raise HTTPException(500, f"打不开资源管理器：{e}") from e
+    return {"ok": True}
+
+
 @app.get("/api/files/{job_id}/{name}")
-def get_file(job_id: str, name: str, user: auth.User = Depends(current_user)):
-    _get_job(job_id, user)
+def get_file(job_id: str, name: str, inline: bool = False, me: Identity = Depends(current_identity)):
+    _get_job(job_id, me)
     return FileResponse(_safe_file(job_id, name), filename=name,
-                        media_type="application/octet-stream")
+                        media_type=mimetypes.guess_type(name)[0] or "application/octet-stream",
+                        content_disposition_type="inline" if inline else "attachment")
 
 
 @app.delete("/api/files/{job_id}/{name}")
 def delete_file(job_id: str, name: str, purge: bool = False,
-                user: auth.User = Depends(current_user)) -> dict:
+                me: Identity = Depends(current_identity)) -> dict:
     """从列表移除一个文件。
 
     purge=False（默认）：只是不再显示，文件留在电脑上。
     purge=True：把电脑上的文件也删掉，不可恢复。
     """
-    _get_job(job_id, user)
+    _get_job(job_id, me)
     path = _safe_file(job_id, name)
     if purge:
         path.unlink(missing_ok=True)
@@ -552,5 +809,74 @@ def delete_file(job_id: str, name: str, purge: bool = False,
                 _unhide_all(job_id)
     return {"ok": True}
 
+
+
+# Thumbnails are derived files; originals are never rewritten.
+_thumb_lock = threading.Lock()
+THUMBS = ROOT / "data" / "thumbnails"
+
+@app.get("/api/thumb/{job_id}/{name}")
+def thumbnail(job_id: str, name: str, me: Identity = Depends(current_identity)):
+    job = _get_job(job_id, me)
+    if not any(f.name == name and f.done for f in job.files):
+        raise HTTPException(404, "文件不存在")
+    source = _safe_file(job_id, name)
+    stat = source.stat()
+    digest = hashlib.sha256(f"{source}:{stat.st_size}:{stat.st_mtime_ns}".encode()).hexdigest()
+    target = THUMBS / (digest + ".jpg")
+    with _thumb_lock:
+        if not target.exists():
+            ffmpeg = shutil.which("ffmpeg")
+            if not ffmpeg:
+                matches = list((Path(os.environ.get("LOCALAPPDATA", "")) / "Microsoft/WinGet/Packages").glob("yt-dlp.FFmpeg*/ffmpeg*/bin/ffmpeg.exe"))
+                ffmpeg = str(matches[0]) if matches else None
+            if not ffmpeg:
+                raise HTTPException(503, "未找到缩略图组件")
+            THUMBS.mkdir(parents=True, exist_ok=True)
+            try:
+                subprocess.run([ffmpeg, "-v", "error", "-nostdin", "-y", "-i", str(source),
+                                "-frames:v", "1", "-vf", "scale=160:-2", str(target)],
+                               check=True, timeout=30, capture_output=True,
+                               creationflags=subprocess.CREATE_NO_WINDOW if os.name == "nt" else 0)
+            except (OSError, subprocess.SubprocessError):
+                target.unlink(missing_ok=True)
+                raise HTTPException(422, "无法生成视频缩略图") from None
+    return FileResponse(target, media_type="image/jpeg", headers={"Cache-Control": "private, max-age=86400"})
+
+
+# Resolve fresh CDN addresses only for files owned by this browser (or admin).
+_direct_cache = {}
+_direct_lock = threading.Lock()
+
+@app.get("/api/direct/{job_id}/{name}")
+def direct_source(job_id: str, name: str, response: Response,
+                  me: Identity = Depends(current_identity)):
+    response.headers["Cache-Control"] = "no-store"
+    job = _get_job(job_id, me)
+    if not any(f.name == name and f.done for f in job.files):
+        raise HTTPException(404, "文件不存在")
+    _safe_file(job_id, name)
+    if job.kind != "symphony":
+        return {"available": False, "reason": "该来源暂不支持平台直连"}
+    with _direct_lock:
+        entry = _direct_cache.get(job_id)
+    if not entry or entry[0] < time.monotonic():
+        try:
+            assets = symphony.list_assets(job.url)
+        except Exception:
+            return {"available": False, "reason": "分享链接暂不可用，使用主机文件"}
+        sources = {a.filename: a.url for a in assets}
+        with _direct_lock:
+            # Bound memory and never persist signed CDN addresses.
+            if len(_direct_cache) >= 128:
+                _direct_cache.clear()
+            _direct_cache[job_id] = (time.monotonic() + 120, sources)
+    else:
+        sources = entry[1]
+    url = sources.get(name, "")
+    from urllib.parse import urlsplit
+    if urlsplit(url).scheme != "https":
+        return {"available": False, "reason": "无可用的 HTTPS 平台地址"}
+    return {"available": True, "url": url}
 
 app.mount("/", StaticFiles(directory=STATIC, html=True), name="static")

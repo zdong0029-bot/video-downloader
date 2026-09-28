@@ -35,3 +35,12 @@ web/data/
 
 # 运行日志
 web/server.log
+
+# Local backups and credentials
+*.bak
+web/backup-*/
+web/cookies.txt
+*.log
+.env
+.env.*
+*credential*.xml

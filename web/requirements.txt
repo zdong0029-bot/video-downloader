@@ -1,4 +1,6 @@
 ﻿# 安装： .venv\Scripts\python.exe -m pip install -r requirements.txt
+# 之后还要下载浏览器内核（抖音解析用）：
+#   .venv\Scripts\python.exe -m playwright install chromium
 
 fastapi==0.141.1
 uvicorn[standard]==0.54.0
@@ -9,3 +11,8 @@ uvicorn[standard]==0.54.0
 # 因为 TikTok 需要 TLS 指纹模拟才肯正常响应。
 # 这里不锁版本：各平台会持续改反爬策略，yt-dlp 需要保持更新。
 yt-dlp[default,curl-cffi]
+
+# 抖音专用。抖音给每个接口请求加了 a_bogus 签名，由它自己的 JS 实时计算，
+# yt-dlp 算不出来所以一律 403。这里用真实浏览器打开页面让抖音自己完成签名，
+# 我们只拦截它的详情接口响应取无水印地址。
+playwright

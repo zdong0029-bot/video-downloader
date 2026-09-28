@@ -1,0 +1,18 @@
+{
+    admin 127.0.0.1:2020
+    auto_https off
+}
+http://:18743 {
+    bind 127.0.0.1
+    @localonly path /api/reveal/*
+    respond @localonly "Folder navigation is only available on the server computer." 403
+    header {
+        X-Content-Type-Options nosniff
+        Referrer-Policy same-origin
+    }
+    reverse_proxy 127.0.0.1:8000 {
+        header_up X-Public-Entry "1"
+        header_up X-Forwarded-For "192.0.2.1"
+        header_up X-Forwarded-Proto "https"
+    }
+}

@@ -21,6 +21,8 @@ import urllib.request
 from dataclasses import dataclass, field
 from pathlib import Path
 
+from common import Cancelled
+
 API = "https://ads.tiktok.com/CreativeOne/FactoryCue/SymphonyShareLink/GetShareLink"
 
 HEADERS = {
@@ -141,8 +143,12 @@ def list_assets(share_link: str) -> list[Asset]:
     return assets
 
 
-def download_asset(asset: Asset, out_dir: Path, on_progress=None, retries: int = 5) -> Path:
-    """下载单个素材，校验 MP4 文件头。返回最终路径。"""
+def download_asset(asset: Asset, out_dir: Path, on_progress=None, retries: int = 5,
+                   should_stop=None) -> Path:
+    """下载单个素材，校验 MP4 文件头。返回最终路径。
+
+    should_stop: 可选回调，返回 True 表示用户取消，立即中止。
+    """
     out_dir.mkdir(parents=True, exist_ok=True)
     dest = out_dir / asset.filename
     if dest.exists() and dest.stat().st_size > 0:
@@ -153,12 +159,16 @@ def download_asset(asset: Asset, out_dir: Path, on_progress=None, retries: int =
 
     for attempt in range(1, retries + 1):
         try:
+            if should_stop and should_stop():
+                raise Cancelled()
             req = urllib.request.Request(asset.url, headers=HEADERS)
             with urllib.request.urlopen(req, timeout=300) as resp:
                 total = int(resp.headers.get("Content-Length") or 0)
                 got = 0
                 with open(tmp, "wb") as f:
                     while True:
+                        if should_stop and should_stop():
+                            raise Cancelled()
                         chunk = resp.read(256 * 1024)
                         if not chunk:
                             break
@@ -176,6 +186,9 @@ def download_asset(asset: Asset, out_dir: Path, on_progress=None, retries: int =
             tmp.replace(dest)
             return dest
 
+        except Cancelled:
+            tmp.unlink(missing_ok=True)
+            raise                      # 取消要立刻生效，不能走重试
         except Exception as e:  # noqa: BLE001
             last_err = e
             tmp.unlink(missing_ok=True)
