@@ -35,6 +35,8 @@ from common import Cancelled
 
 import douyin
 import symphony
+import file_download
+import baidu_backend
 
 ROOT = Path(__file__).parent
 DOWNLOADS = ROOT / "downloads"
@@ -58,7 +60,7 @@ class FileItem:
 class Job:
     id: str
     url: str
-    kind: Literal["symphony", "douyin", "web"]
+    kind: Literal["symphony", "douyin", "web", "file", "cloud"]
     status: Literal["queued", "running", "done", "error", "partial", "cancelled"] = "queued"
     title: str = ""
     message: str = ""
@@ -108,25 +110,27 @@ def _load_hidden() -> dict[str, list[str]]:
         return {}
 
 
-def _save_hidden(data: dict[str, list[str]]) -> None:
-    try:
-        HIDDEN.write_text(json.dumps(data, ensure_ascii=False), encoding="utf-8")
-    except OSError:
-        pass
+_hidden_lock = threading.RLock()
 
+def _save_hidden(data: dict[str, list[str]]) -> None:
+    temporary = HIDDEN.with_suffix(".tmp")
+    try:
+        temporary.write_text(json.dumps(data, ensure_ascii=False), encoding="utf-8")
+        os.replace(temporary, HIDDEN)
+    except OSError:
+        raise HTTPException(500, "无法保存移除记录，请重试") from None
 
 def _hide(job_id: str, names: list[str]) -> None:
-    data = _load_hidden()
-    cur = set(data.get(job_id, []))
-    cur.update(names)
-    data[job_id] = sorted(cur)
-    _save_hidden(data)
-
+    with _hidden_lock:
+        data = _load_hidden()
+        data[job_id] = sorted(set(data.get(job_id, [])) | set(names))
+        _save_hidden(data)
 
 def _unhide_all(job_id: str) -> None:
-    data = _load_hidden()
-    if data.pop(job_id, None) is not None:
-        _save_hidden(data)
+    with _hidden_lock:
+        data = _load_hidden()
+        if data.pop(job_id, None) is not None:
+            _save_hidden(data)
 
 
 def _save_meta(job: Job) -> None:
@@ -149,6 +153,8 @@ def _restore_jobs() -> None:
 
     for d in DOWNLOADS.iterdir():
         if not d.is_dir():
+            continue
+        if (d / ".cloud-incomplete").exists():
             continue
 
         junk = {".part", ".ytdl", ".tmp", ".temp", ".json"}
@@ -340,6 +346,31 @@ def _worker(job: Job) -> None:
                 _run_symphony(job)
             elif job.kind == "douyin":
                 _run_douyin(job)
+            elif job.kind == "file":
+                job.total = 1
+                def progress(size, total, name):
+                    job.title = name
+                    job.progress = min(size / total, 0.999) if total else 0
+                    job.message = f"已下载 {size / 1048576:.1f} MB" + (f" / {total / 1048576:.1f} MB" if total else "（总大小未知）")
+                path = file_download.download(job.url, _job_dir(job.id), progress, job.cancelled)
+                job.files.append(FileItem(path.name, path.stat().st_size, True))
+                job.finished = 1
+            elif job.kind == "cloud":
+                job.title = file_download.provider(job.url) + "分享文件"
+                if file_download.provider(job.url) != "百度网盘":
+                    raise ValueError("该网盘尚未接入，请勿当作视频链接下载")
+                job.message = "正在解析百度文件，等待下载通道…"
+                def cloud_progress(items, paths):
+                    total = sum(int(item.get("size", 0)) for item in items)
+                    current = sum(p.stat().st_size for p in paths if p.is_file() and p.name not in (META, ".cloud-incomplete") and not p.name.endswith(".BaiduPCS-Go-downloading"))
+                    job.total = len(items)
+                    job.progress = min(current / total, 0.99) if total else 0
+                    job.message = f"已写入 {current / 1048576:.1f} MB / {total / 1048576:.1f} MB（完成后校验原文件大小）"
+                cloud_dir = _job_dir(job.id)
+                (cloud_dir / ".cloud-incomplete").touch()
+                paths = baidu_backend.run(job.url, "", cloud_dir, cloud_progress, job.cancelled)
+                job.files = [FileItem(p.name, p.stat().st_size, True) for p in paths]
+                job.total = job.finished = len(paths)
             else:
                 _run_web(job)
 
@@ -372,6 +403,8 @@ def _worker(job: Job) -> None:
 
         if job.files:
             _save_meta(job)
+            if job.kind == "cloud" and job.status == "done" and (DOWNLOADS / job.id / META).is_file():
+                (DOWNLOADS / job.id / ".cloud-incomplete").unlink(missing_ok=True)
         elif job.status == "cancelled":
             # 一个文件都没下到的取消任务，直接从列表里拿掉，不留空壳
             with _lock:
@@ -600,6 +633,7 @@ def remove_user(name: str, me: Identity = Depends(admin_only)) -> dict:
 
 class NewJob(BaseModel):
     url: str
+    mode: Literal["auto", "file"] = "auto"
 
 
 _URL_RE = re.compile(r"https?://[^\s一-鿿，。、；：！？（）【】「」…]+")
@@ -617,8 +651,20 @@ def _extract_links(text: str) -> list[str]:
     links: list[str] = []
     seen: set[str] = set()
 
-    for m in _URL_RE.finditer(text or ""):
+    matches = list(_URL_RE.finditer(text or ""))
+    for index, m in enumerate(matches):
         u = m.group(0).rstrip(".,;:!?)）】」》\"'")
+        if file_download.provider(u) == "百度网盘":
+            from urllib.parse import urlsplit, urlunsplit, parse_qsl, urlencode
+            parts = urlsplit(u)
+            query = parse_qsl(parts.query, keep_blank_values=True)
+            # Associate only the text following this link, before the next link.
+            end = matches[index + 1].start() if index + 1 < len(matches) else len(text)
+            code = re.search(r'(?:提取码|提取碼|访问码)\s*[:：]?\s*([A-Za-z0-9]{4})(?![A-Za-z0-9])', text[m.end():end])
+            if code and not any(k == "pwd" and v for k, v in query):
+                query = [(k, v) for k, v in query if k != "pwd"]
+                query.append(("pwd", code[1]))
+                u = urlunsplit((parts.scheme, parts.netloc, parts.path, urlencode(query), parts.fragment))
         if u not in seen:
             seen.add(u)
             links.append(u)
@@ -634,7 +680,11 @@ def _extract_links(text: str) -> list[str]:
     return links
 
 
-def _kind_of(url: str) -> Literal["symphony", "douyin", "web"] | None:
+def _kind_of(url: str) -> Literal["symphony", "douyin", "web", "file", "cloud"] | None:
+    if file_download.provider(url):
+        return "cloud"
+    if file_download.is_file(url):
+        return "file"
     if symphony.extract_share_id(url):
         return "symphony"
     # 抖音要走浏览器解析，yt-dlp 算不出它的 a_bogus 签名
@@ -669,6 +719,8 @@ def create_job(body: NewJob, request: Request,
         seen.add(item)
 
         kind = _kind_of(item)
+        if body.mode == "file" and kind != "cloud":
+            kind = "file"
         if kind is None:
             rejected.append(item)
             continue
@@ -716,6 +768,42 @@ def cancel_all(scope: str = "browser", me: Identity = Depends(current_identity))
             j.stop.set()
             n += 1
     return {"cancelled": n}
+
+
+class RemoveFiles(BaseModel):
+    names: list[str]
+    purge: bool = False
+
+@app.post("/api/jobs/{job_id}/remove-files")
+def remove_files(job_id: str, body: RemoveFiles, me: Identity = Depends(current_identity)):
+    names = list(dict.fromkeys(body.names))
+    if not names or len(names) > 1000:
+        raise HTTPException(400, "请选择 1 到 1000 个视频")
+    with _lock:
+        job = _get_job(job_id, me)
+        known = {f.name for f in job.files if f.done}
+        if any(n not in known for n in names):
+            raise HTTPException(409, "列表已变化，请刷新后重试")
+        removed, failed = [], []
+        if body.purge:
+            # Validate every path before making any destructive change.
+            paths = [(n, _safe_file(job_id, n)) for n in names]
+            for name, path in paths:
+                try:
+                    path.unlink(missing_ok=True)
+                    removed.append(name)
+                except OSError:
+                    failed.append(name)
+        else:
+            _hide(job_id, names)  # One atomic write; videos remain untouched.
+            removed = names
+        gone = set(removed)
+        job.files = [f for f in job.files if f.name not in gone]
+        job.finished = sum(f.done for f in job.files)
+        if not job.files and job.status not in ("queued", "running"):
+            JOBS.pop(job_id, None)
+        return {"removed": removed, "failed": failed,
+                "job": job.public() if job_id in JOBS else None}
 
 
 @app.delete("/api/jobs/{job_id}")
@@ -777,7 +865,7 @@ def get_file(job_id: str, name: str, inline: bool = False, me: Identity = Depend
     _get_job(job_id, me)
     return FileResponse(_safe_file(job_id, name), filename=name,
                         media_type=mimetypes.guess_type(name)[0] or "application/octet-stream",
-                        content_disposition_type="inline" if inline else "attachment")
+                        content_disposition_type="inline" if inline and Path(name).suffix.lower() in {".mp4", ".webm", ".mov", ".mkv", ".mp3", ".wav"} else "attachment")
 
 
 @app.delete("/api/files/{job_id}/{name}")
@@ -878,5 +966,39 @@ def direct_source(job_id: str, name: str, response: Response,
     if urlsplit(url).scheme != "https":
         return {"available": False, "reason": "无可用的 HTTPS 平台地址"}
     return {"available": True, "url": url}
+
+import cloud_accounts
+_cloud_connector = None
+_cloud_connector_lock = threading.Lock()
+
+@app.get('/api/admin/cloud-accounts')
+def cloud_account_list(me: Identity = Depends(admin_only)):
+    cloud_accounts.import_existing()
+    return cloud_accounts.listing()
+
+class CloudSelection(BaseModel):
+    id: str
+
+@app.post('/api/admin/cloud-accounts/activate')
+def cloud_account_activate(body: CloudSelection, me: Identity = Depends(admin_only)):
+    try: cloud_accounts.activate(body.id)
+    except ValueError as error: raise HTTPException(409,str(error))
+    return {'ok':True}
+
+class CloudConnect(BaseModel):
+    provider: Literal['baidu','ali','quark']
+
+@app.post('/api/admin/cloud-accounts/connect')
+def cloud_account_connect(body: CloudConnect, request: Request, me: Identity = Depends(admin_only)):
+    global _cloud_connector
+    if not request.client or request.client.host not in ('127.0.0.1','::1'):
+        raise HTTPException(403,'请在主机打开 http://127.0.0.1:8000/cloud-accounts.html 扫码连接')
+    with _cloud_connector_lock:
+        if _cloud_connector is not None and _cloud_connector.poll() is None:
+            raise HTTPException(409,'已有授权窗口打开，请先完成或关闭该窗口')
+        import sys
+        pythonw=Path(sys.executable).with_name('pythonw.exe')
+        _cloud_connector=subprocess.Popen([str(pythonw),str(ROOT/'connect_cloud.py'),body.provider],cwd=str(ROOT),creationflags=subprocess.CREATE_NO_WINDOW)
+    return {'ok':True,'message':'主机已打开官方授权窗口，请扫码后点击保存账号'}
 
 app.mount("/", StaticFiles(directory=STATIC, html=True), name="static")

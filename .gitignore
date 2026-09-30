@@ -44,3 +44,8 @@ web/cookies.txt
 .env
 .env.*
 *credential*.xml
+
+web/private-baidu/
+web/baidu-connected.flag
+web/pcs/
+

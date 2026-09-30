@@ -168,9 +168,9 @@
     </div>
     <div class="who">
       <span id="whoName"></span>
-      <button class="ghost" id="adminBtn" hidden onclick="toggleAdmin()">账号管理</button>
+      <a class="ghost" id="cloudAccountsBtn" href="/cloud-accounts.html" hidden>网盘账号</a><button class="ghost" id="adminBtn" hidden onclick="toggleAdmin()">账号管理</button>
       <button class="ghost" id="scopeBtn" hidden onclick="switchScope()">全部记录</button>
-      <button class="ghost" id="loginBtn" onclick="showGate()">管理员后台</button>
+      <button class="ghost" id="loginBtn" onclick="showGate()">管理员后台</button> <a class="ghost" href="/website-client-checker.html" target="_blank" rel="noopener">连接检查器</a>
       <button class="ghost" id="logoutBtn" hidden onclick="logout()">退出管理</button>
     </div>
   </div>
@@ -182,8 +182,10 @@
   </div>
 
   <div class="card">
+    <label class="note">下载类型：<select id="sourceMode"><option value="auto">自动识别</option><option value="file">原文件直链（安装包、视频等）</option></select></label>
+    <p class="note">原文件下载不转码。百度分享下载需主机先连接账号；后台串行处理百度任务，视频与安装包均保留原文件。阿里与夸克尚未接入。</p>
     <textarea id="url" rows="3" spellcheck="false" autocapitalize="off"
-      placeholder="粘贴视频链接或 Symphony 分享码&#10;可以一次贴多个，一行一个"></textarea>
+      placeholder="粘贴视频链接、原文件直链或 Symphony 分享码&#10;可以一次贴多个，一行一个"></textarea>
     <div class="row" style="margin-top:10px;align-items:center">
       <button id="go">下载</button>
       <span class="count" id="linkCount"></span>
@@ -236,6 +238,7 @@ const maskEl = $('#mask'), dlgTitle = $('#dlgTitle'), dlgBody = $('#dlgBody'),
 let dlgResolve = null;
 
 function ask({title, body = '', ok = '确定', danger = false}){
+  if(dlgResolve) return Promise.resolve(false);
   dlgTitle.textContent = title;
   dlgBody.textContent = body;
   dlgBody.style.display = body ? '' : 'none';
@@ -263,7 +266,9 @@ document.addEventListener('keydown', e => {
 
 let lastSnapshot = '';
 const downloadTransfers = new Map();
-let busy = false;   // 批量操作进行中，暂停自动重绘
+let busy = false;   // 仅列表修改期间短暂锁定；下载按任务独立管理
+function jobBusy(id){return busy || !!downloadTransfers.get(id)?.active;}
+function transfersActive(){return [...downloadTransfers.values()].some(t=>t.active);}
 
 const fmtSize = b => b >= 1048576 ? (b/1048576).toFixed(1)+' MB' : (b/1024).toFixed(0)+' KB';
 const esc = s => String(s ?? '').replace(/[&<>"']/g, c =>
@@ -309,7 +314,7 @@ function render(jobs){
       <div class="toolbar">
         ${files.length ? `
         <label>
-          <input type="checkbox" ${allSel ? 'checked' : ''}
+          <input type="checkbox" ${jobBusy(j.id) ? 'disabled' : ''} ${allSel ? 'checked' : ''}
                  onchange="toggleAll('${j.id}', this.checked)">
           全选
         </label>
@@ -317,30 +322,31 @@ function render(jobs){
         <span class="spacer"></span>
         <div class="btn-group">
           ${files.length ? `
-          <button class="small" ${nSel && !busy ? '' : 'disabled'}
+          <button class="small" ${nSel && !jobBusy(j.id) ? '' : 'disabled'}
                   data-download-job="${j.id}" onclick="downloadSelected('${j.id}')">${downloadTransfers.get(j.id)?.active ? '接收中…' : '下载选中'}</button>` : ''}
           ${active ? `
           <button class="ghost warn" onclick="cancelJob('${j.id}')"
                   title="停止下载，已下好的保留">取消下载</button>` : ''}
-          <button class="ghost" ${files.length && nSel ? '' : 'disabled'}
+          <button class="ghost" ${files.length && nSel && !jobBusy(j.id) ? '' : 'disabled'}
                   onclick="removeSelected('${j.id}', false)"
                   title="只从这个列表里拿掉，电脑上的文件不动">移出列表</button>
-          <button class="ghost danger" ${files.length && nSel ? '' : 'disabled'}
+          <button class="ghost danger" ${files.length && nSel && !jobBusy(j.id) ? '' : 'disabled'}
                   onclick="removeSelected('${j.id}', true)"
                   title="连电脑上的文件一起删掉，不可恢复">删除文件</button>
         </div>
       </div>` : '';
 
     const fileRows = files.map(f => {
+      const video = /\.(mp4|webm|mkv|mov|m4v|avi)$/i.test(f.name);
       const on = selected.has(key(j.id, f.name));
       const arg = esc(JSON.stringify(f.name));
       const base = `/api/files/${j.id}/${encodeURIComponent(f.name)}`;
       return `<div class="file ${on ? 'sel' : ''}">
-        <label><input aria-label="选择视频" type="checkbox" ${on ? 'checked' : ''} onchange="toggleOne('${j.id}', ${arg}, this.checked)"></label>
-        <button class="preview-link" title="预览视频" onclick="previewFile('${j.id}', ${arg})"><img class="thumb" alt="视频首帧" loading="lazy" src="/api/thumb/${j.id}/${encodeURIComponent(f.name)}" onerror="this.style.visibility='hidden'"></button>
-        <button class="fname" onclick="previewFile('${j.id}', ${arg})">${esc(f.name)}<br><span class="fsize">${fmtSize(f.size)}</span></button>
-        <div class="file-actions">${MOBILE ? `<button class="ghost" onclick="previewFile('${j.id}', ${arg})">保存视频</button>` : `<button class="ghost" onclick="downloadSelected('${j.id}', ${arg})">保存</button>`}
-        ${LOCAL && !MOBILE ? `<button class="ghost" title="在文件夹中选中视频" onclick="revealFile('${j.id}', ${arg})">📁 定位</button>` : ''}</div>
+        <label><input aria-label="选择文件" type="checkbox" ${jobBusy(j.id) ? 'disabled' : ''} ${on ? 'checked' : ''} onchange="toggleOne('${j.id}', ${arg}, this.checked)"></label>
+        ${video ? `<button class="preview-link" title="预览视频" onclick="previewFile('${j.id}', ${arg})"><img class="thumb" alt="视频首帧" loading="lazy" src="/api/thumb/${j.id}/${encodeURIComponent(f.name)}" onerror="this.style.visibility='hidden'"></button>` : `<span class="thumb" style="display:grid;place-items:center" aria-label="文件">📦</span>`}
+        <button class="fname" onclick="${video ? 'previewFile' : 'downloadSelected'}('${j.id}', ${arg})">${esc(f.name)}<br><span class="fsize">${fmtSize(f.size)}</span></button>
+        <div class="file-actions">${MOBILE && video ? `<button class="ghost" onclick="previewFile('${j.id}', ${arg})">保存视频</button>` : `<button class="ghost" ${jobBusy(j.id) ? 'disabled' : ''} onclick="downloadSelected('${j.id}', ${arg})">保存</button>`}
+        ${!MOBILE ? LOCAL ? `<button class="ghost" title="定位主机保存的文件" onclick="revealFile('${j.id}', ${arg})">📁 定位</button>` : `<button class="ghost" data-folder-file="${esc(f.name)}" title="定位当前浏览器已保存的文件（需安装定位扩展）" onclick="folderLocatorHelp()">📁 定位</button>` : ''}</div>
       </div>`;
     }).join('');
 
@@ -375,9 +381,11 @@ function render(jobs){
 }
 
 let cache = [];
+let listEpoch=0, refreshSequence=0;
 
 async function refresh(force){
   if(busy && !force) return;
+  const epoch=listEpoch, sequence=++refreshSequence;
   try{
     const r = await fetch('/api/jobs?scope=' + SCOPE);
     if(r.status === 401){   // 会话过期，退回登录页而不是空转
@@ -385,7 +393,9 @@ async function refresh(force){
       await boot();
       return;
     }
+    if(!r.ok) throw new Error(`刷新失败（HTTP ${r.status}）`);
     const jobs = await r.json();
+    if(epoch!==listEpoch || sequence!==refreshSequence || busy) return;
     cache = jobs;
 
     // 清掉已经不存在的文件的勾选，避免"已选 3"但只剩 1 个文件
@@ -407,14 +417,14 @@ function repaint(){
 }
 
 function toggleOne(jobId, name, on){
-  if(busy) return;
+  if(jobBusy(jobId)) return;
   const k = key(jobId, name);
   on ? selected.add(k) : selected.delete(k);
   repaint();
 }
 
 function toggleAll(jobId, on){
-  if(busy) return;
+  if(jobBusy(jobId)) return;
   const job = cache.find(j => j.id === jobId);
   if(!job) return;
   (job.files||[]).forEach(f => {
@@ -466,15 +476,15 @@ function updateTransfer(jobId){
 function cancelTransfer(jobId){downloadTransfers.get(jobId)?.controller.abort();}
 
 async function downloadSelected(jobId, singleName=null){
-  if(busy) return;
+  if(jobBusy(jobId)) return;
   const job=cache.find(j=>j.id===jobId);
   if(!job) return;
   const files=(singleName===null ? selectedIn(job) : job.files.filter(f=>f.name===singleName)).map(f=>({...f}));
   if(!files.length) return;
   const t={active:true,completed:0,count:files.length,receivedBytes:0,totalBytes:files.reduce((n,f)=>n+(f.size||0),0),controller:new AbortController(),error:''};
   downloadTransfers.set(jobId,t);
-  busy=true;repaint();
-  hintEl.textContent='正在接收选中的视频，实际进度显示在任务下方。';
+  repaint();
+  hintEl.textContent='已开始本组下载；可以继续勾选其他任务并下载，各组进度独立显示。';
   let lastPaint=0;
   try{
     for(const f of files){
@@ -514,14 +524,14 @@ async function downloadSelected(jobId, singleName=null){
     t.error=e.name==='AbortError' ? '已取消，之前发起保存的视频不受影响' : e.message;
     hintEl.textContent=`已接收 ${t.completed}/${t.count} 个。${t.error}`;
   }finally{
-    t.active=false;busy=false;repaint();
+    t.active=false;repaint();
   }
 }
 
 // purge=false：只从列表拿掉，文件留在电脑上（默认，安全）
 // purge=true ：连文件一起删，不可恢复
 async function removeSelected(jobId, purge){
-  if(busy) return;
+  if(jobBusy(jobId)) return;
   const job = cache.find(j => j.id === jobId);
   if(!job) return;
   const names = selectedIn(job).map(f => f.name);
@@ -537,16 +547,31 @@ async function removeSelected(jobId, purge){
         ok: '移出' });
   if(!ok) return;
 
-  busy = true;
+  if(jobBusy(jobId)) return;
+  busy=true; listEpoch++; repaint();
+  hintEl.style.color='';
+  hintEl.textContent=`正在${purge ? '删除文件' : '移出列表'}：${names.length} 个，请稍候…`;
+  const controller=new AbortController();
+  const timeout=setTimeout(()=>controller.abort(),30000);
   try{
-    for(const n of names){
-      await fetch(`/api/files/${jobId}/${encodeURIComponent(n)}?purge=${purge}`, {method:'DELETE'});
-      selected.delete(key(jobId, n));
-    }
-  } finally {
-    busy = false;
-    await refresh(true);
-    repaint();
+    const r=await fetch(`/api/jobs/${jobId}/remove-files`,{
+      method:'POST',headers:{'Content-Type':'application/json'},
+      body:JSON.stringify({names,purge}),signal:controller.signal
+    });
+    const data=await r.json().catch(()=>({}));
+    if(!r.ok) throw new Error(data.detail || `操作失败（HTTP ${r.status}）`);
+    for(const name of data.removed || []) selected.delete(key(jobId,name));
+    cache=cache.flatMap(j=>j.id!==jobId ? [j] : data.job ? [data.job] : []);
+    const failed=data.failed || [];
+    hintEl.textContent=`已${purge ? '删除' : '移出'} ${(data.removed||[]).length} 个视频。`+
+      (failed.length ? `${failed.length} 个文件被占用或无法删除，请重试。` : purge ? '' : '原视频文件仍保留在电脑上。');
+    hintEl.style.color=failed.length ? 'var(--err)' : '';
+  }catch(e){
+    hintEl.textContent=e.name==='AbortError' ? '连接超时，结果尚未确认；正在刷新列表，请核实后再试。' : e.message;
+    hintEl.style.color='var(--err)';
+  }finally{
+    clearTimeout(timeout); listEpoch++; busy=false; repaint();
+    void refresh(true);
   }
 }
 
@@ -573,7 +598,7 @@ async function cancelAll(){
 }
 
 async function removeJob(id, purge){
-  if(busy) return;
+  if(jobBusy(id)) return;
   const job = cache.find(j => j.id === id);
   const n = job ? (job.files || []).length : 0;
   const ok = purge
@@ -585,9 +610,20 @@ async function removeJob(id, purge){
         title: '把这个任务从列表移出？',
         ok: '移出' });
   if(!ok) return;
-  await fetch(`/api/jobs/${id}?purge=${purge}`, {method:'DELETE'});
-  [...selected].forEach(k => { if(k.startsWith(id + '\u0000')) selected.delete(k); });
-  await refresh(true);
+  if(jobBusy(id)) return;
+  busy=true;listEpoch++;repaint();
+  hintEl.textContent='正在移除任务…';
+  const controller=new AbortController();
+  const timeout=setTimeout(()=>controller.abort(),30000);
+  try{
+    const r=await fetch(`/api/jobs/${id}?purge=${purge}`,{method:'DELETE',signal:controller.signal});
+    if(!r.ok){const d=await r.json().catch(()=>({}));throw new Error(d.detail || `操作失败（HTTP ${r.status}）`);}
+    cache=cache.filter(j=>j.id!==id);
+    [...selected].forEach(k=>{if(k.startsWith(id+'\u0000')) selected.delete(k);});
+    hintEl.textContent='任务已移除。';
+  }catch(e){hintEl.textContent=e.name==='AbortError' ? '请求超时，请核实刷新后的列表。' : e.message;}
+  finally{clearTimeout(timeout);listEpoch++;busy=false;repaint();void refresh(true);}
+
 }
 
 const countEl = $('#linkCount');
@@ -604,7 +640,7 @@ async function submit(){
   try{
     const r = await fetch('/api/jobs', {
       method:'POST', headers:{'Content-Type':'application/json'},
-      body: JSON.stringify({url})
+      body: JSON.stringify({url,mode:document.querySelector("#sourceMode").value})
     });
     const data = await r.json().catch(() => ({}));
     if(!r.ok){
@@ -647,6 +683,7 @@ async function boot(){
   gateEl.hidden = true; mainEl.hidden = false;
   $('#whoName').textContent = ME ? ME.name + '（管理员）' : '本浏览器记录 · ' + d.device;
   $('#adminBtn').hidden = !ME;
+  $('#cloudAccountsBtn').hidden = !ME;
   $('#scopeBtn').hidden = !ME;
   $('#logoutBtn').hidden = !ME;
   $('#loginBtn').hidden = !!ME;
@@ -666,9 +703,12 @@ function showGate(){
   gUser.focus();
 }
 async function switchScope(){
-  if(busy) return;
+  if(busy || transfersActive()){hintEl.textContent='请先等待各组下载完成，或分别停止接收。';return;}
   SCOPE = SCOPE === 'all' ? 'browser' : 'all';
   selected.clear(); await boot();
+}
+function folderLocatorHelp(){
+  hintEl.innerHTML='定位当前电脑的视频需安装一次浏览器扩展。<a href="/folder-locator-help.html" target="_blank" rel="noopener">安装定位扩展（查看步骤）</a>。已安装请刷新网页；临时也可按 Ctrl＋J 定位。';
 }
 async function revealFile(id,name){
   try{
@@ -742,7 +782,7 @@ gGo.onclick = doGate;
 }));
 
 async function logout(){
-  if(busy) return;
+  if(busy || transfersActive()){hintEl.textContent='请先等待各组下载完成，或分别停止接收。';return;}
   if(!await ask({title:'退出登录？', ok:'退出'})) return;
   await fetch('/api/logout', {method:'POST'});
   ME = null;
