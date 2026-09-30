@@ -143,7 +143,7 @@
   #previewDialog::backdrop{background:#0009}
   #previewVideo{width:100%;max-height:62vh;background:#000}
   @media(max-width:520px){.file{gap:8px;padding:8px}.thumb{width:44px;height:60px}.file-actions{max-width:66px}}
-</style>
+#cloudCards article{border:1px solid var(--line,#dce2e8);padding:16px;border-radius:12px;margin:12px 0}#cloudCards .row{display:flex;align-items:center;justify-content:space-between;gap:12px;border-top:1px solid #edf0f3;padding:12px 0}#cloudCards .muted{color:#718096;font-size:13px}#cloudCards h2{font-size:17px}#cloudMessage{color:#a45a00}</style>
 </head>
 <body>
 <!-- 未登录时显示：首次初始化 / 登录 -->
@@ -168,7 +168,7 @@
     </div>
     <div class="who">
       <span id="whoName"></span>
-      <a class="ghost" id="cloudAccountsBtn" href="/cloud-accounts.html" hidden>网盘账号</a><button class="ghost" id="adminBtn" hidden onclick="toggleAdmin()">账号管理</button>
+      <button class="ghost" id="adminBtn" hidden onclick="toggleAdmin()">账号管理</button>
       <button class="ghost" id="scopeBtn" hidden onclick="switchScope()">全部记录</button>
       <button class="ghost" id="loginBtn" onclick="showGate()">管理员后台</button> <a class="ghost" href="/website-client-checker.html" target="_blank" rel="noopener">连接检查器</a>
       <button class="ghost" id="logoutBtn" hidden onclick="logout()">退出管理</button>
@@ -177,7 +177,7 @@
 
   <div class="card" id="adminPanel" hidden style="margin-bottom:14px">
     <h3 style="margin:0 0 12px;font-size:16px">账号管理</h3>
-    <div id="userList" class="files" style="margin:0 0 14px"></div>
+    <div id="userList" class="files" style="margin:0 0 14px"></div><section id="cloudAccountSection" style="margin-top:22px;border-top:1px solid #dce2e8;padding-top:16px"><h3>网盘账号与授权</h3><p class="note">扫码添加后选择启用。旧账号保留；会员有效期请在官方网盘查看。</p><div id="cloudMessage" role="status"></div><div id="cloudCards"></div><button class="ghost" id="cloudRefresh" type="button">刷新网盘账号</button></section>
     <div class="note" id="adminMsg">普通使用免登录，按浏览器隔离；管理员可以查看全部记录。</div>
   </div>
 
@@ -683,7 +683,7 @@ async function boot(){
   gateEl.hidden = true; mainEl.hidden = false;
   $('#whoName').textContent = ME ? ME.name + '（管理员）' : '本浏览器记录 · ' + d.device;
   $('#adminBtn').hidden = !ME;
-  $('#cloudAccountsBtn').hidden = !ME;
+
   $('#scopeBtn').hidden = !ME;
   $('#logoutBtn').hidden = !ME;
   $('#loginBtn').hidden = !!ME;
@@ -796,7 +796,7 @@ async function logout(){
 function toggleAdmin(){
   const p = $('#adminPanel');
   p.hidden = !p.hidden;
-  if(!p.hidden) loadUsers();
+  if(!p.hidden){ loadUsers(); window.loadCloudAccounts(); }
 }
 
 async function loadUsers(){
@@ -858,5 +858,13 @@ async function delUser(name){
 
 boot();
 </script>
-</body>
+<script>(()=>{
+const names={baidu:'百度网盘',ali:'阿里云盘',quark:'夸克网盘'};
+const msg=document.querySelector('#cloudMessage');
+async function api(url,body){const r=await fetch(url,body?{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(body)}:{});const d=await r.json();if(!r.ok){if(r.status===403)showGate();throw Error(d.detail||'请求失败')}return d}
+function text(tag,value,cls){const e=document.createElement(tag);e.textContent=value;if(cls)e.className=cls;return e}
+async function action(button,run){button.disabled=true;msg.textContent='';try{await run()}catch(e){msg.textContent=e.message}finally{button.disabled=false}}
+async function load(){const d=await api('/api/admin/cloud-accounts');const cards=document.querySelector('#cloudCards');cards.replaceChildren();for(const [key,name] of Object.entries(names)){const card=document.createElement('article');card.append(text('h2',name),text('p',key==='baidu'?'支持后台账号切换；下载中的任务结束后再切换。':'下载驱动尚未接通；当前仅保存和选择授权。','muted'));const add=text('button','扫码添加 / 重新授权','primary');add.onclick=()=>action(add,async()=>{const r=await api('/api/admin/cloud-accounts/connect',{provider:key});msg.textContent=r.message});card.append(add);const list=d.accounts.filter(a=>a.provider===key);if(!list.length)card.append(text('p','尚未保存账号','muted'));for(const a of list){const row=text('div','','row'),info=document.createElement('div');info.append(text('strong',a.label),text('p',a.created+' · '+(a.verified?'登录授权曾验证，未代表下载验收':'授权已保存，下载未验证'),'muted'));row.append(info);if(d.active[key]===a.id)row.append(text('span',key==='baidu'?'当前使用':'已选择 · 待接通','badge'));else{const use=text('button',key==='baidu'?'切换到此账号':'选择此授权');use.onclick=()=>action(use,async()=>{await api('/api/admin/cloud-accounts/activate',{id:a.id});await load()});row.append(use)}card.append(row)}cards.append(card)}}
+document.querySelector('#cloudRefresh').onclick=e=>action(e.target,load);
+window.loadCloudAccounts=()=>load().catch(e=>msg.textContent=e.message);})();</script></body>
 </html>

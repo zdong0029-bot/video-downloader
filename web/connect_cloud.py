@@ -3,6 +3,7 @@ import os,re,subprocess,sys,tempfile,tkinter as tk
 from pathlib import Path
 from playwright.sync_api import sync_playwright
 import cloud_accounts as accounts
+from urllib.parse import urlsplit
 
 provider=sys.argv[1]
 if provider not in accounts.PROVIDERS: raise SystemExit(2)
@@ -31,8 +32,15 @@ with sync_playwright() as p:
                     payload=(Path(directory)/'pcs_config.json').read_bytes()
                 verified=True
             else:
-                expected='alipan.com/drive/' if provider=='ali' else 'pan.quark.cn/list'
-                if expected not in page.url: raise ValueError('请完成登录并进入网盘文件页面')
+                # Tk owns the event loop; page.url may still be the pre-login URL.
+                # A protocol roundtrip refreshes navigation events, including new tabs.
+                logged_in=False
+                for candidate in context.pages:
+                    if candidate.is_closed(): continue
+                    current=urlsplit(candidate.evaluate('location.href'))
+                    valid=(current.hostname in ('www.alipan.com','www.aliyundrive.com') and current.path.startswith('/drive/')) if provider=='ali' else (current.hostname=='pan.quark.cn' and current.path.startswith('/list'))
+                    if valid: logged_in=True;break
+                if not logged_in: raise ValueError('未检测到文件页，请在此授权窗口打开的浏览器中登录后再保存')
                 payload=json.dumps(context.storage_state()).encode('utf-8');verified=False
             accounts.save(provider,label.get().strip() or accounts.PROVIDERS[provider],payload,verified)
             message.set('已加密保存。请回后台刷新并选择启用。');button.config(state='disabled')
