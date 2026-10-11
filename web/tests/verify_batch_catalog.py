@@ -9,7 +9,7 @@ from pathlib import Path
 WEB = Path(__file__).resolve().parent.parent
 MODULES = ('app.py', 'auth.py', 'common.py', 'symphony.py', 'douyin.py',
            'file_download.py', 'baidu_backend.py', 'baidu_share.py',
-           'cloud_accounts.py', 'video_catalog.py')
+           'cloud_accounts.py', 'cloud_backend.py', 'cloud_browser.py', 'cloud_cleanup.py', 'video_catalog.py')
 with tempfile.TemporaryDirectory(prefix='downloader-batch-test-') as temporary:
     root = Path(temporary)
     for name in MODULES:

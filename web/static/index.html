@@ -143,7 +143,9 @@
   #previewDialog::backdrop{background:#0009}
   #previewVideo{width:100%;max-height:62vh;background:#000}
   @media(max-width:520px){.file{gap:8px;padding:8px}.thumb{width:44px;height:60px}.file-actions{max-width:66px}}
-#cloudCards article{border:1px solid var(--line,#dce2e8);padding:16px;border-radius:12px;margin:12px 0}#cloudCards .row{display:flex;align-items:center;justify-content:space-between;gap:12px;border-top:1px solid #edf0f3;padding:12px 0}#cloudCards .muted{color:#718096;font-size:13px}#cloudCards h2{font-size:17px}#cloudMessage{color:#a45a00}</style>
+#cloudCards article{border:1px solid var(--line,#dce2e8);padding:16px;border-radius:12px;margin:12px 0}#cloudCards .row{display:flex;align-items:center;justify-content:space-between;gap:12px;border-top:1px solid #edf0f3;padding:12px 0}#cloudCards .muted{color:#718096;font-size:13px}#cloudCards h2{font-size:17px}#cloudMessage{color:#a45a00}
+.cloud-status-row{display:flex;flex-wrap:wrap;align-items:center;gap:8px;margin:12px 0}#cloudStatus{display:flex;flex-wrap:wrap;gap:7px}.cloud-pill{border:1px solid var(--line);border-radius:20px;padding:6px 10px;font-size:12px;color:var(--muted)}.cloud-ok{color:#0b766b;background:#eafaf6;border-color:#b4e0d7}.cloud-error{color:#b33131;background:#fff1f1}.cloud-controls{display:flex;flex-wrap:wrap;gap:7px;align-items:center}#cloudCards .row{flex-wrap:wrap}#cloudCards h4{margin:0;font-size:16px}
+</style>
 </head>
 <body>
 <!-- 未登录时显示：首次初始化 / 登录 -->
@@ -169,6 +171,7 @@
     <div class="who">
       <span id="whoName"></span>
       <button class="ghost" id="adminBtn" hidden onclick="toggleAdmin()">账号管理</button>
+      <button class="ghost" id="cloudAccountsBtn" onclick="openCloudAccounts()">网盘账号</button>
       <button class="ghost" id="scopeBtn" hidden onclick="switchScope()">全部记录</button>
       <button class="ghost" id="loginBtn" onclick="showGate()">管理员后台</button> <a class="ghost" href="/website-client-checker.html" target="_blank" rel="noopener">连接检查器</a>
       <button class="ghost" id="logoutBtn" hidden onclick="logout()">退出管理</button>
@@ -177,15 +180,16 @@
 
   <div class="card" id="adminPanel" hidden style="margin-bottom:14px">
     <h3 style="margin:0 0 12px;font-size:16px">账号管理</h3>
-    <div id="userList" class="files" style="margin:0 0 14px"></div><section id="cloudAccountSection" style="margin-top:22px;border-top:1px solid #dce2e8;padding-top:16px"><h3>网盘账号与授权</h3><p class="note">扫码添加后选择启用。旧账号保留；会员有效期请在官方网盘查看。</p><div id="cloudMessage" role="status"></div><div id="cloudCards"></div><button class="ghost" id="cloudRefresh" type="button">刷新网盘账号</button></section>
+    <div id="userList" class="files" style="margin:0 0 14px"></div><section id="cloudAccountSection" style="margin-top:22px;border-top:1px solid #dce2e8;padding-top:16px"><h3>网盘账号管理</h3><p class="note">扫码添加后选择启用。旧账号保留；会员有效期请在官方网盘查看。</p><div id="cloudMessage" role="status"></div><div id="cloudCards"></div><h4>临时转存清理记录</h4><p class="note">全部文件在下载器主机校验完成后才清理。下载失败保留转存；清理失败可重试。只处理本次任务创建的目录，平台回收站规则适用。</p><div id="cloudTransfers"></div><button class="ghost" id="cloudRefresh" type="button">刷新网盘账号</button></section>
     <div class="note" id="adminMsg">普通使用免登录，按浏览器隔离；管理员可以查看全部记录。</div>
   </div>
 
   <div class="card">
-    <label class="note">下载类型：<select id="sourceMode"><option value="auto">自动识别</option><option value="file">原文件直链（安装包、视频等）</option><option value="profile">主页 / 合集（先选择视频）</option></select></label>
-    <p class="note">原文件下载不转码。百度分享下载需主机先连接账号；后台串行处理百度任务，视频与安装包均保留原文件。阿里与夸克尚未接入。</p>
+    <label class="note">下载类型：<select id="sourceMode"><option value="auto">自动识别</option><option value="cloud">网盘分享（百度 / 阿里 / 夸克）</option><option value="file">原文件直链（安装包、视频等）</option><option value="profile">主页 / 合集（先选择视频）</option></select></label>
+    <p class="note">视频与安装包均按原文件下载，不转码。支持百度、阿里和夸克分享：管理员在本页连接后台账号后，朋友粘贴链接即可使用。优先直下载；必须转存时，全部文件完整下载到主机并校验后，自动删除本次临时转存。</p>
+    <div class="cloud-status-row"><div id="cloudStatus" aria-live="polite"></div><button id="cloudStatusRefresh" class="ghost" type="button">刷新状态</button></div>
     <textarea id="url" rows="3" spellcheck="false" autocapitalize="off"
-      placeholder="粘贴视频链接、平台主页、原文件直链或 Symphony 分享码&#10;多个单视频会合并成一组，多视频链接独立展示"></textarea>
+      placeholder="粘贴视频、平台主页、百度/阿里/夸克分享、原文件直链或 Symphony 分享码&#10;多个单视频会合并成一组，多视频链接独立展示"></textarea>
     <div class="row" style="margin-top:10px;align-items:center">
       <button id="go">下载</button><button id="scanProfile" class="ghost" type="button">识别主页 / 合集</button>
       <span class="count" id="linkCount"></span>
@@ -891,14 +895,6 @@ async function delUser(name){
 
 boot();
 </script>
-<script>(()=>{
-const names={baidu:'百度网盘',ali:'阿里云盘',quark:'夸克网盘'};
-const msg=document.querySelector('#cloudMessage');
-async function api(url,body){const r=await fetch(url,body?{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(body)}:{});const d=await r.json();if(!r.ok){if(r.status===403)showGate();throw Error(d.detail||'请求失败')}return d}
-function text(tag,value,cls){const e=document.createElement(tag);e.textContent=value;if(cls)e.className=cls;return e}
-async function action(button,run){button.disabled=true;msg.textContent='';try{await run()}catch(e){msg.textContent=e.message}finally{button.disabled=false}}
-async function load(){const d=await api('/api/admin/cloud-accounts');const cards=document.querySelector('#cloudCards');cards.replaceChildren();for(const [key,name] of Object.entries(names)){const card=document.createElement('article');card.append(text('h2',name),text('p',key==='baidu'?'支持后台账号切换；下载中的任务结束后再切换。':'下载驱动尚未接通；当前仅保存和选择授权。','muted'));const add=text('button','扫码添加 / 重新授权','primary');add.onclick=()=>action(add,async()=>{const r=await api('/api/admin/cloud-accounts/connect',{provider:key});msg.textContent=r.message});card.append(add);const list=d.accounts.filter(a=>a.provider===key);if(!list.length)card.append(text('p','尚未保存账号','muted'));for(const a of list){const row=text('div','','row'),info=document.createElement('div');info.append(text('strong',a.label),text('p',a.created+' · '+(a.verified?'登录授权曾验证，未代表下载验收':'授权已保存，下载未验证'),'muted'));row.append(info);if(d.active[key]===a.id)row.append(text('span',key==='baidu'?'当前使用':'已选择 · 待接通','badge'));else{const use=text('button',key==='baidu'?'切换到此账号':'选择此授权');use.onclick=()=>action(use,async()=>{await api('/api/admin/cloud-accounts/activate',{id:a.id});await load()});row.append(use)}card.append(row)}cards.append(card)}}
-document.querySelector('#cloudRefresh').onclick=e=>action(e.target,load);
-window.loadCloudAccounts=()=>load().catch(e=>msg.textContent=e.message);})();</script><script src="/catalog-ui.js?v=20261011"></script>
+<script src="/cloud-ui.js?v=20261011"></script><script src="/catalog-ui.js?v=20261011"></script>
 </body>
 </html>

@@ -37,6 +37,8 @@ import douyin
 import symphony
 import file_download
 import baidu_backend
+import cloud_backend
+import cloud_cleanup
 import video_catalog
 
 ROOT = Path(__file__).parent
@@ -73,6 +75,7 @@ class Job:
     created: float = field(default_factory=time.time)
     owner: str = ""          # 提交这个任务的设备标识，用于隔离各设备的记录
     owner_label: str = ""    # 人类可读的设备名，只给管理员看
+    cloud_note: str = ""
     batch_id: str = ""
     entries: list[dict] = field(default_factory=list, repr=False)
     stop: threading.Event = field(default_factory=threading.Event, repr=False)
@@ -145,6 +148,7 @@ def _save_meta(job: Job) -> None:
             "id": job.id, "url": job.url, "kind": job.kind,
             "title": job.title, "created": job.created, "owner": job.owner, "owner_label": job.owner_label,
             "batch_id": job.batch_id,
+            **({"cloud_files": [f.name for f in job.files], "cloud_note": job.cloud_note} if job.kind == "cloud" else {}),
         }, ensure_ascii=False), encoding="utf-8")
     except OSError:
         pass
@@ -162,8 +166,15 @@ def _restore_jobs() -> None:
         if (d / ".cloud-incomplete").exists():
             continue
 
+        cloud_names = None
+        if (d / META).is_file():
+            try:
+                saved = json.loads((d / META).read_text(encoding="utf-8"))
+                if saved.get("kind") == "cloud" and "cloud_files" in saved:
+                    cloud_names = set(saved["cloud_files"])
+            except (OSError, ValueError): pass
         junk = {".part", ".ytdl", ".tmp", ".temp", ".json"}
-        on_disk = [p for p in d.iterdir() if p.is_file() and p.suffix.lower() not in junk]
+        on_disk = [p for p in d.iterdir() if p.is_file() and (p.name in cloud_names if cloud_names is not None else p.suffix.lower() not in junk)]
         if not on_disk:
             shutil.rmtree(d, ignore_errors=True)   # 空目录（多半是失败的任务）直接清掉
             continue
@@ -192,11 +203,12 @@ def _restore_jobs() -> None:
             owner=meta.get("owner", ""),
             owner_label=meta.get("owner_label", ""),
             batch_id=meta.get("batch_id", ""),
+            cloud_note=meta.get("cloud_note", ""),
         )
         job.files = [FileItem(p.name, p.stat().st_size, True) for p in sorted(files)]
         job.total = job.finished = len(job.files)
         job.progress = 1.0
-        job.message = f"共 {len(job.files)} 个"
+        job.message = f"共 {len(job.files)} 个" + ("；" + job.cloud_note if job.cloud_note else "")
         JOBS[job.id] = job
 
 
@@ -408,18 +420,19 @@ def _worker(job: Job) -> None:
                 job.finished = 1
             elif job.kind == "cloud":
                 job.title = file_download.provider(job.url) + "分享文件"
-                if file_download.provider(job.url) != "百度网盘":
-                    raise ValueError("该网盘尚未接入，请勿当作视频链接下载")
-                job.message = "正在解析百度文件，等待下载通道…"
+                if not cloud_backend.provider(job.url):
+                    raise ValueError("此网盘暂不支持，请使用百度、阿里或夸克分享链接")
+                job.message = "正在解析网盘文件，等待下载通道…"
                 def cloud_progress(items, paths):
                     total = sum(int(item.get("size", 0)) for item in items)
                     current = sum(p.stat().st_size for p in paths if p.is_file() and p.name not in (META, ".cloud-incomplete") and not p.name.endswith(".BaiduPCS-Go-downloading"))
                     job.total = len(items)
                     job.progress = min(current / total, 0.99) if total else 0
-                    job.message = f"已写入 {current / 1048576:.1f} MB / {total / 1048576:.1f} MB（完成后校验原文件大小）"
+                    job.message = f"已写入 {current / 1048576:.1f} MB / {total / 1048576:.1f} MB（完成后校验原文件）" if total else f"已写入 {current / 1048576:.1f} MB（官方快传总大小未知）"
                 cloud_dir = _job_dir(job.id)
                 (cloud_dir / ".cloud-incomplete").touch()
-                paths = baidu_backend.run(job.url, "", cloud_dir, cloud_progress, job.cancelled)
+                paths = cloud_backend.run(job.url, "", cloud_dir, cloud_progress, job.cancelled)
+                job.cloud_note = getattr(paths, "note", "")
                 job.files = [FileItem(p.name, p.stat().st_size, True) for p in paths]
                 job.total = job.finished = len(paths)
             else:
@@ -433,7 +446,7 @@ def _worker(job: Job) -> None:
                 job.message = job.message or "全部失败"
             else:
                 job.status = "done"
-                job.message = f"完成 {job.finished} 个"
+                job.message = f"完成 {job.finished} 个" + ("；" + job.cloud_note if job.cloud_note else "")
                 job.progress = 1.0
         except Cancelled:
             # 已经下好的保留，没下的不再继续，列表里也不显示未完成的部分
@@ -684,7 +697,7 @@ def remove_user(name: str, me: Identity = Depends(admin_only)) -> dict:
 
 class NewJob(BaseModel):
     url: str
-    mode: Literal["auto", "file", "profile"] = "auto"
+    mode: Literal["auto", "file", "profile", "cloud"] = "auto"
 
 
 _URL_RE = re.compile(r"https?://[^\s一-鿿，。、；：！？（）【】「」…]+")
@@ -895,6 +908,9 @@ def create_job(body: NewJob, request: Request,
             catalogs.append(_start_catalog(item, me, batch_id))
             continue
         kind = _kind_of(item)
+        if body.mode == "cloud" and not cloud_backend.provider(item):
+            rejected.append(item)
+            continue
         if body.mode == "file" and kind != "cloud":
             kind = "file"
         if kind is None:
@@ -1155,6 +1171,32 @@ def cloud_account_list(me: Identity = Depends(admin_only)):
 class CloudSelection(BaseModel):
     id: str
 
+@app.get('/api/cloud/status')
+def cloud_status():
+    return cloud_accounts.public_status()
+
+@app.get('/api/admin/cloud-transfers')
+def cloud_transfer_list(me: Identity = Depends(admin_only)):
+    return cloud_cleanup.listing()
+
+@app.post('/api/admin/cloud-transfers/retry')
+def cloud_transfer_retry(body: CloudSelection, me: Identity = Depends(admin_only)):
+    try:
+        result=cloud_cleanup.retry(body.id)
+        if result['ok']:
+            job=JOBS.get(body.id)
+            if job:
+                job.cloud_note=result['message'];job.message=f"完成 {job.finished} 个；"+job.cloud_note;_save_meta(job)
+        return result
+    except (ValueError,OSError):
+        raise HTTPException(409,'未满足清理条件：请确认完整文件仍在主机、原转存账号有效且没有进行中的下载') from None
+
+@app.post('/api/admin/cloud-accounts/check')
+def cloud_account_check(body: CloudSelection, me: Identity = Depends(admin_only)):
+    try: return cloud_accounts.verify(body.id)
+    except ValueError as error: raise HTTPException(409, str(error))
+    except Exception: raise HTTPException(409, '账号检测暂时失败，请检查主机网络后重试')
+
 @app.post('/api/admin/cloud-accounts/activate')
 def cloud_account_activate(body: CloudSelection, me: Identity = Depends(admin_only)):
     try: cloud_accounts.activate(body.id)
@@ -1168,7 +1210,7 @@ class CloudConnect(BaseModel):
 def cloud_account_connect(body: CloudConnect, request: Request, me: Identity = Depends(admin_only)):
     global _cloud_connector
     if not request.client or request.client.host not in ('127.0.0.1','::1'):
-        raise HTTPException(403,'请在主机打开 http://127.0.0.1:8000/cloud-accounts.html 扫码连接')
+        raise HTTPException(403,'请在主机打开 http://127.0.0.1:8000/ 的网盘账号区域扫码连接')
     with _cloud_connector_lock:
         if _cloud_connector is not None and _cloud_connector.poll() is None:
             raise HTTPException(409,'已有授权窗口打开，请先完成或关闭该窗口')

@@ -3,6 +3,8 @@ import os,re,subprocess,sys,tempfile,tkinter as tk
 from pathlib import Path
 from playwright.sync_api import sync_playwright
 import cloud_accounts as accounts
+import cloud_backend
+import json
 from urllib.parse import urlsplit
 
 provider=sys.argv[1]
@@ -12,8 +14,8 @@ with sync_playwright() as p:
     browser=p.chromium.launch(headless=False)
     context=browser.new_context();page=context.new_page()
     page.goto(urls[provider],wait_until='domcontentloaded',timeout=60000)
-    window=tk.Tk();window.title('添加 / 更换'+accounts.PROVIDERS[provider]);window.geometry('540x310')
-    tk.Label(window,text='请在官方网页扫码。原后台账号继续保留。\n给新账号填写备注，保存后回到后台选择启用。',pady=15).pack()
+    window=tk.Tk();window.title('添加 / 更换'+accounts.PROVIDERS[provider]);window.geometry('560x340')
+    tk.Label(window,text='请在官方网页扫码。原后台账号继续保留。\n给新账号填写备注，首次连接自动启用；更换账号后回首页选择启用。',pady=15).pack()
     label=tk.Entry(window,width=48);label.insert(0,accounts.PROVIDERS[provider]+'新账号');label.pack()
     message=tk.StringVar(value='网页登录成功不等于整文件下载验证通过。')
     def save():
@@ -41,11 +43,13 @@ with sync_playwright() as p:
                     valid=(current.hostname in ('www.alipan.com','www.aliyundrive.com') and current.path.startswith('/drive/')) if provider=='ali' else (current.hostname=='pan.quark.cn' and current.path.startswith('/list'))
                     if valid: logged_in=True;break
                 if not logged_in: raise ValueError('未检测到文件页，请在此授权窗口打开的浏览器中登录后再保存')
-                payload=json.dumps(context.storage_state()).encode('utf-8');verified=False
-            accounts.save(provider,label.get().strip() or accounts.PROVIDERS[provider],payload,verified)
-            message.set('已加密保存。请回后台刷新并选择启用。');button.config(state='disabled')
-        except Exception as error: message.set(str(error) if isinstance(error,ValueError) else '连接失败，原账号未修改：'+type(error).__name__)
+                state=cloud_backend.validate(provider,context.storage_state())
+                payload=json.dumps(state).encode('utf-8');verified=True
+            identity=accounts.save(provider,label.get().strip() or accounts.PROVIDERS[provider],payload,verified)
+            if not accounts.read()['active'].get(provider): accounts.activate(identity,validate=False)
+            message.set('已通过账号验证并加密保存。首次连接已自动启用；更换账号请回首页选择启用。');button.config(state='disabled');window.after(3500,window.destroy)
+        except Exception as error: message.set(str(error) if isinstance(error,ValueError) else '连接失败，原账号未修改；请检查网络后再保存（'+type(error).__name__+'）')
     button=tk.Button(window,text='已登录，保存这个账号',command=save,pady=8);button.pack(pady=16)
     tk.Label(window,textvariable=message,wraplength=490).pack()
-    if provider!='baidu':tk.Label(window,text='此平台下载驱动尚未接通：目前仅保存和选择授权，\n不会显示为下载可用。',fg='#a85b00').pack(pady=12)
+    tk.Label(window,text='朋友只需在网站粘贴分享链接。必须转存时使用本次任务目录，下载校验后清理；\n不修改或删除您的其他网盘文件。',fg='#47636b').pack(pady=12)
     window.mainloop();browser.close()
