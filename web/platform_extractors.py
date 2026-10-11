@@ -108,4 +108,25 @@ class TedTalkIE(OriginalTedTalkIE):
 
 
 def install(ydl):
-    ydl.add_info_extractor(TedTalkIE(ydl))
+    # Credentials never leave the downloader; only official platform domains receive them.
+    import video_platform_accounts as accounts
+    if hasattr(ydl, 'cookiejar'):
+        from http.cookiejar import Cookie
+        for provider in accounts.PROVIDERS:
+            try: state = accounts.load(provider)
+            except (OSError, ValueError, KeyError, TypeError): continue
+            if not state: continue
+            for c in accounts.live_cookies(state):
+                domain = c['domain']; expires = c.get('expires', -1)
+                ydl.cookiejar.set_cookie(Cookie(0, c['name'], c['value'], None, False,
+                    domain, domain.startswith('.'), domain.startswith('.'), c.get('path', '/'), True,
+                    bool(c.get('secure')), int(expires) if expires > 0 else None, expires <= 0,
+                    None, None, {'HttpOnly': c.get('httpOnly', False)}, False))
+    from focused_extractors import HaokanIE, IqiyiIE, IxiguaIE, KuaishouIE, XiaoHongShuIE
+    additions = [HaokanIE(ydl), IqiyiIE(ydl), IxiguaIE(ydl), KuaishouIE(ydl), XiaoHongShuIE(ydl), TedTalkIE(ydl)]
+    for extractor in additions:
+        ydl.add_info_extractor(extractor)
+    # New site extractors must precede Generic, which accepts every URL.
+    if hasattr(ydl, "_ies"):
+        keys = [ie.ie_key() for ie in additions]
+        ydl._ies = {**{key: ydl._ies[key] for key in keys}, **ydl._ies}

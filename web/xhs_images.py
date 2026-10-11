@@ -9,14 +9,16 @@ UA='Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 Chrome/140.0.0.
 
 def supported(url):
     host=(urlsplit(url).hostname or '').lower()
-    return host in ('xiaohongshu.com','www.xiaohongshu.com','xhslink.com','www.xhslink.com')
+    return host in ('xiaohongshu.com','www.xiaohongshu.com','xhslink.com','www.xhslink.com','xhslink.cn','www.xhslink.cn')
 
-def parse(page):
+def parse(page, video_id=None):
+    if any(marker in page for marker in ('IP存在风险', 'IP 存在风险', '300012', '请完成安全验证')):
+        raise ValueError('小红书要求官方人工安全验证；请在管理员授权窗口完成验证，自动下载已停止')
     match=re.search(r'window\.__INITIAL_STATE__\s*=\s*(.*?)</script>',page,re.S)
     if not match:raise ValueError('小红书未返回公开笔记，请粘贴 App 的完整分享链接（保留链接参数）；登录或验证页面不能下载')
     state=json.loads(js_to_json(match[1]))
     notes=state.get('note',{}).get('noteDetailMap',{})
-    note=next((v.get('note') for v in notes.values() if isinstance(v,dict) and v.get('note')),None)
+    note=(notes.get(video_id) or {}).get('note') if video_id else next((v.get('note') for v in notes.values() if isinstance(v,dict) and v.get('note')),None)
     if not note:raise ValueError('小红书笔记不可公开读取，链接可能失效或需要登录；请使用 App 的完整分享链接（保留链接参数）')
     if note.get('type')=='video':return None
     images=[]
@@ -55,20 +57,42 @@ def download(url,out,progress,cancelled):
                     if cancelled():raise Cancelled()
                     raw.extend(block)
                     if len(raw)>8*1024**2:raise ValueError('笔记页面过大')
-                return raw.decode('utf-8',errors='replace')
+                return raw.decode('utf-8',errors='replace'),address
         raise ValueError('小红书页面跳转次数过多')
     result=None
     with requests.Session() as session:
         session.trust_env=False;session.headers.update(headers)
-        try:result=parse(public_page(session,url))
-        except (ValueError,requests.RequestException):
-            try:
-                with socket.create_connection(('127.0.0.1',10808),timeout=.3):pass
-            except OSError:raise ValueError('小红书公开笔记不可读取，请使用完整分享链接；登录或验证页面无法直接下载') from None
-            session.proxies={'http':'socks5h://127.0.0.1:10808','https':'socks5h://127.0.0.1:10808'}
-            public_page(session,'https://www.xiaohongshu.com/explore')
-            result=parse(public_page(session,url))
-            headers['_local_proxy']=True
+        import video_platform_accounts as accounts
+        state = accounts.load('xiaohongshu')
+        if state:
+            session.headers['User-Agent'] = state.get('ua') or UA
+            headers['User-Agent'] = session.headers['User-Agent']
+            for cookie in accounts.live_cookies(state):
+                session.cookies.set(cookie['name'], cookie['value'], domain=cookie['domain'], path=cookie.get('path','/'), expires=int(cookie['expires']) if cookie.get('expires', -1) > 0 else None)
+        page, final_url = public_page(session,url)
+        match = re.search(r'/(?:explore|discovery/item)/([a-fA-F0-9]{24})',urlsplit(final_url).path)
+        note_id = match.group(1) if match else None
+        if any(marker in page for marker in ('IP\u5b58\u5728\u98ce\u9669', 'IP \u5b58\u5728\u98ce\u9669', '300012', '\u8bf7\u5b8c\u6210\u5b89\u5168\u9a8c\u8bc1')):
+            parse(page, note_id)  # Report the official challenge; no route switching.
+        from focused_extractors import browser_snapshot, xhs_note
+        if not note_id or not xhs_note(page, note_id):
+            # A valid account can require its ordinary browser to read the note.
+            snapshot = browser_snapshot(url, 'xiaohongshu')
+            page, final_url = snapshot['html'], snapshot['url']
+            match = re.search(r'/(?:explore|discovery/item)/([a-fA-F0-9]{24})', urlsplit(final_url).path)
+            note_id = match.group(1) if match else None
+        result=parse(page,note_id)
+        # Browser refresh owns its newer state; HTTP cannot overwrite that revision.
+        if state:
+            updates = {(c.domain, c.name, c.path): c for c in session.cookies}
+            rotated = []
+            for c in state['cookies']:
+                c = dict(c); update = updates.get((c['domain'], c['name'], c.get('path', '/')))
+                if update:
+                    c['value'] = update.value
+                    if update.expires is not None: c['expires'] = update.expires
+                rotated.append(c)
+            accounts.refresh('xiaohongshu', {**state, 'cookies': rotated}, state['_revision'])
     if result is None:return None
     title,urls=result;paths=[]
     for index,source in enumerate(urls):

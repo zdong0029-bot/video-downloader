@@ -4,5 +4,8 @@
  async function refresh(){if(!ME)return;try{const d=await api('');box.textContent=(d.qr_message||d.message)+(d.checked_at?' · '+new Date(d.checked_at*1000).toLocaleString():'');const qr=document.querySelector('#channelQR');qr.hidden=!d.qr_available;if(d.qr_available)qr.src='/api/admin/video-accounts/qr?t='+Math.floor(Date.now()/10000);if(d.connected)waiting=false;}catch(e){box.textContent=e.message;}}
  async function act(button,path){button.disabled=true;try{const d=await api(path,true);box.textContent=d.message||'授权检测通过';if(path==='/connect'){waiting=true;setTimeout(refresh,1800);}}catch(e){box.textContent=e.message;}finally{button.disabled=false;}}
  window.connectChannels=b=>act(b,'/connect');window.checkChannels=b=>act(b,'/check');
- setInterval(()=>{if(ME&&!document.querySelector('#adminPanel').hidden)refresh();},5000);
+
+ async function refreshPlatforms(){if(!ME)return;const box=document.querySelector('#platformAccountStatus');try{const r=await fetch('/api/admin/platform-accounts');const d=await r.json();if(!r.ok)throw Error(d.detail||'授权状态暂不可读取');box.replaceChildren(...d.accounts.map(a=>{const row=document.createElement('p');row.textContent=({'kuaishou':'快手','xiaohongshu':'小红书'}[a.provider]||a.provider)+'：'+a.message+(a.refreshed_at?' · 官网会话更新：'+new Date(a.refreshed_at*1000).toLocaleString():'');return row;}));}catch(e){box.textContent=e.message;}}
+ window.connectVideoPlatform=async(b,provider)=>{b.disabled=true;const box=document.querySelector('#platformAccountStatus');try{const r=await fetch('/api/admin/platform-accounts/connect',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({provider})});const d=await r.json();if(!r.ok)throw Error(d.detail||'连接失败');box.textContent=d.message;}catch(e){box.textContent=e.message;}finally{b.disabled=false;}};
+ setInterval(()=>{if(ME&&!document.querySelector('#adminPanel').hidden){refresh();refreshPlatforms();}},5000);
 })();

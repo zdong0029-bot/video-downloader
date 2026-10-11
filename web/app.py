@@ -377,6 +377,9 @@ def _run_web(job: Job) -> None:
     got = [p for p in out.iterdir() if p.is_file() and p.suffix.lower() not in junk and p.name not in before]
     if not got:
         raise RuntimeError("下载结束但没有产出文件")
+    import media_quality
+    evidence = [media_quality.verify(p, info if not info.get('entries') else None) for p in got]
+    job.cloud_note = '；'.join(dict.fromkeys(evidence))
     for p in got:
         job.files.append(FileItem(p.name, p.stat().st_size, True))
     job.finished = len(got)
@@ -1293,5 +1296,30 @@ def video_account_connect(request: Request,me: Identity = Depends(admin_only)):
         pythonw=Path(sys.executable).with_name('pythonw.exe')
         _cloud_connector=subprocess.Popen([str(pythonw),str(ROOT/'connect_yuanbao_qr.py')],cwd=str(ROOT),creationflags=subprocess.CREATE_NO_WINDOW)
     return {'ok':True,'message':'正在生成元宝官方二维码，请在本页扫码，并在微信确认登录'}
+
+
+@app.get('/api/admin/platform-accounts')
+def platform_account_status(me: Identity = Depends(admin_only)):
+    import video_platform_accounts as accounts
+    return {'accounts': [accounts.status(provider) for provider in accounts.PROVIDERS]}
+
+class VideoPlatformConnectBody(BaseModel):
+    provider: str
+
+@app.post('/api/admin/platform-accounts/connect')
+def platform_account_connect(body: VideoPlatformConnectBody, request: Request, me: Identity = Depends(admin_only)):
+    import video_platform_accounts as accounts
+    global _cloud_connector
+    if body.provider not in accounts.PROVIDERS:
+        raise HTTPException(400, '不支持的账号类型')
+    if not request.client or request.client.host not in ('127.0.0.1', '::1'):
+        raise HTTPException(403, '请在下载器主机的原首页连接官方账号')
+    with _cloud_connector_lock:
+        if _cloud_connector is not None and _cloud_connector.poll() is None:
+            raise HTTPException(409, '已有授权窗口，请先完成或关闭')
+        import sys
+        pythonw = Path(sys.executable).with_name('pythonw.exe')
+        _cloud_connector = subprocess.Popen([str(pythonw), str(ROOT/'connect_video_platform.py'), body.provider], cwd=str(ROOT), creationflags=subprocess.CREATE_NO_WINDOW)
+    return {'ok': True, 'message': '已打开官方网页。请完成登录和验证，然后点击小窗口保存授权。'}
 
 app.mount("/", StaticFiles(directory=STATIC, html=True), name="static")

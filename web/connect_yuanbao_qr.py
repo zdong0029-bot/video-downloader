@@ -23,7 +23,7 @@ with sync_playwright() as p:
         if not page.get_by_text('请使用微信扫描二维码登录',exact=True).is_visible():
             page.get_by_role('button',name='登录',exact=True).click(timeout=15000);page.wait_for_timeout(2000)
         captured_qr=False
-        for element in page.locator('canvas, img').all():
+        for element in [element for frame in page.frames for element in frame.locator('canvas, img').all()]:
             box=element.bounding_box()
             if box and 130<=box['width']<=300 and 130<=box['height']<=300 and .9<box['width']/box['height']<1.1:
                 element.screenshot(path=str(root/'qr-login.png'));captured_qr=True;break
