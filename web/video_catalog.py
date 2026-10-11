@@ -189,4 +189,3 @@ def _douyin(url, limit, cookie_options=None, on_update=None):
     if not entries:
         raise ValueError('抖音主页未返回公开视频，可能需要登录或平台验证；单条视频下载仍可使用')
     return {'title': title, 'entries': entries, 'limited': bool((limit and len(entries) >= limit) or state['more'] is not False)}
-

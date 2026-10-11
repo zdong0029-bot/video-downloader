@@ -72,4 +72,3 @@ async function catalogDownload(id){
 function catalogShowMore(id){catalogVisible.set(id,(catalogVisible.get(id)||60)+100);renderCatalogs();}
 document.querySelector('#scanProfile').onclick=()=>parseCatalog();
 setInterval(()=>{if(!document.querySelector('#main').hidden)void refreshCatalogs();},2000);
-

@@ -145,4 +145,3 @@ finally:
     server.should_exit=True;thread.join(5)
 (ROOT/'integration-results.json').write_text(json.dumps(results,ensure_ascii=False,indent=2),encoding='utf-8')
 print(json.dumps(results,ensure_ascii=False))
-

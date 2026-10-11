@@ -22,4 +22,3 @@ with tempfile.TemporaryDirectory(prefix='downloader-batch-test-') as temporary:
                    creationflags=getattr(subprocess, 'CREATE_NO_WINDOW', 0))
     env = dict(os.environ, ISOLATED_BATCH_TEST=str(root))
     subprocess.run([sys.executable, str(root / 'ui_flow.py')], cwd=root, env=env, check=True)
-
