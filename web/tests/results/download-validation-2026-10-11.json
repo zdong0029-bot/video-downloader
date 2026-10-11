@@ -1,0 +1,251 @@
+{
+  "date": "2026-10-11",
+  "public_url": "https://video-downloader.tail49ff9c.ts.net/",
+  "requires_host_running": true,
+  "speed_unit": "MiB/s (1048576 bytes/second)",
+  "quark_same_file_before": {
+    "provider": "quark",
+    "bytes": 18206733,
+    "seconds": 17.921,
+    "sha256": "c04d1297fa00ac66055d53870b3945a67ae68be31af311daf49a5cbe78d20129",
+    "mib_s": 0.969
+  },
+  "quark_same_file_after": {
+    "provider": "quark",
+    "bytes": 18206733,
+    "seconds": 5.641,
+    "sha256": "c04d1297fa00ac66055d53870b3945a67ae68be31af311daf49a5cbe78d20129",
+    "mib_s": 3.078
+  },
+  "ali": {
+    "provider": "ali",
+    "status": "downloaded",
+    "bytes": 45456516,
+    "seconds": 98.0,
+    "source_sha1": true,
+    "cleanup": "confirmed_cleaned_after_retry",
+    "mib_s": 0.442,
+    "test_temporary_copies_cleaned_after_retry": true,
+    "initial_cleanup": "原文件已校验完成；临时转存清理未通过，可在网盘账号区域重试"
+  },
+  "baidu": {
+    "status": "incomplete",
+    "expected_bytes": 362218646,
+    "partial_bytes": 14667776,
+    "test_seconds": 480.219,
+    "test_temporary_copy_retained": true,
+    "stall_guard_seconds": 120
+  },
+  "one_mib_range_probe": [
+    {
+      "base": "http://127.0.0.1:8000",
+      "bytes": 1048576,
+      "seconds": 0.007,
+      "mib_s": 139.107,
+      "status": 206
+    },
+    {
+      "base": "https://video-downloader.tail49ff9c.ts.net",
+      "bytes": 1048576,
+      "seconds": 4.068,
+      "mib_s": 0.246,
+      "status": 206
+    }
+  ],
+  "real_video_files": [
+    {
+      "platform": "bilibili",
+      "url": "https://www.bilibili.com/video/BV16G411C7Zh/",
+      "status": "downloaded",
+      "bytes": 40781234,
+      "files": [
+        "bilibili.mp4"
+      ],
+      "seconds": 20.72,
+      "selected_height": 720
+    },
+    {
+      "platform": "tencent",
+      "url": "https://v.qq.com/x/page/q326831cny0.html",
+      "status": "downloaded",
+      "bytes": 61334594,
+      "files": [
+        "tencent.mp4"
+      ],
+      "seconds": 6.53,
+      "selected_height": 720
+    }
+  ],
+  "real_video_quality": [
+    {
+      "platform": "bilibili",
+      "programs": [],
+      "stream_groups": [],
+      "streams": [
+        {
+          "codec_name": "h264",
+          "codec_type": "video",
+          "width": 1280,
+          "height": 720,
+          "r_frame_rate": "24/1"
+        },
+        {
+          "codec_name": "aac",
+          "codec_type": "audio",
+          "r_frame_rate": "0/0"
+        }
+      ],
+      "format": {
+        "duration": "596.555215",
+        "size": "40781234"
+      }
+    },
+    {
+      "platform": "tencent",
+      "programs": [],
+      "stream_groups": [],
+      "streams": [
+        {
+          "codec_name": "h264",
+          "codec_type": "video",
+          "width": 1280,
+          "height": 720,
+          "r_frame_rate": "25/1"
+        },
+        {
+          "codec_name": "aac",
+          "codec_type": "audio",
+          "r_frame_rate": "0/0"
+        }
+      ],
+      "format": {
+        "duration": "215.958333",
+        "size": "61334594"
+      }
+    }
+  ],
+  "youtube": {
+    "platform": "youtube",
+    "url": "https://www.youtube.com/watch?v=el3E4MbxRqQ",
+    "status": "downloaded",
+    "height": 1080,
+    "bytes": 102812,
+    "seconds": 5.52
+  },
+  "public_job_tests": [
+    {
+      "platform": "quark",
+      "status": "done",
+      "seconds_including_queue": 19.92,
+      "files": 1,
+      "bytes": 18206733,
+      "message": "完成 1 个；网盘原文件直下载；未转存",
+      "guest_read": 206,
+      "other_browser_blocked": true
+    },
+    {
+      "platform": "bilibili",
+      "status": "done",
+      "seconds_including_queue": 27.48,
+      "files": 1,
+      "bytes": 40781234,
+      "message": "完成 1 个",
+      "guest_read": 206,
+      "other_browser_blocked": true
+    },
+    {
+      "platform": "tencent",
+      "status": "done",
+      "seconds_including_queue": 42.36,
+      "files": 1,
+      "bytes": 61334594,
+      "message": "完成 1 个",
+      "guest_read": 206,
+      "other_browser_blocked": true
+    },
+    {
+      "platform": "xiaohongshu-images",
+      "status": "done",
+      "seconds_including_queue": 51.19,
+      "files": 5,
+      "bytes": 612663,
+      "message": "完成 5 个；图片按平台公开提供的版本保存，未放大或重新压缩",
+      "guest_read": 206,
+      "other_browser_blocked": true
+    }
+  ],
+  "public_browser_tests": {
+    "guest_browser_saved_image_matches_host": true,
+    "guest_no_admin_controls": true,
+    "video_cloud_lists_separate": true,
+    "fresh_friend_has_empty_isolated_page": true,
+    "admin_all_records_cloud_accounts_and_share_link": true,
+    "mobile_layout": true,
+    "no_browser_errors": true
+  },
+  "regression": {
+    "unit_tests_passed": 24,
+    "browser_checks_passed": 10,
+    "concurrent_saved_files": 13,
+    "all_fixture_hashes_match": true,
+    "profile_links_fixture": 245,
+    "chosen_profile_downloads": 2
+  },
+  "xiaohongshu": {
+    "status": "downloaded",
+    "files": 5,
+    "bytes": 612663,
+    "seconds": 20.706,
+    "dimensions": [
+      {
+        "width": 1080,
+        "height": 1440,
+        "format": "JPEG"
+      },
+      {
+        "width": 1080,
+        "height": 1527,
+        "format": "JPEG"
+      },
+      {
+        "width": 1080,
+        "height": 1533,
+        "format": "JPEG"
+      },
+      {
+        "width": 1080,
+        "height": 1439,
+        "format": "JPEG"
+      },
+      {
+        "width": 1080,
+        "height": 1439,
+        "format": "JPEG"
+      }
+    ]
+  },
+  "unsupported_samples": [
+    {
+      "platform": "iQIYI",
+      "urls": [
+        "https://www.iqiyi.com/v_19rrojlavg.html",
+        "https://www.iqiyi.com/v_19rrhnnclk.html",
+        "https://www.iqiyi.com/w_19rt6o8t9p.html"
+      ],
+      "result": "No video fields extracted from tested responses"
+    },
+    {
+      "platform": "WeChat Channels",
+      "url": "https://weixin.qq.com/sph/AD8rWl3ssY",
+      "result": "Unsupported by current authorized extractor"
+    }
+  ],
+  "limitations": [
+    "Single-file speed comparisons are not sustained or universal guarantees.",
+    "Ali time includes preparation and cleanup; earlier test needed retries, so no controlled acceleration comparison.",
+    "Range probe includes initial request latency; small localhost timing is not a sustained bandwidth benchmark.",
+    "Xiaohongshu files are exposed public web image variants, not claimed raw uploader originals.",
+    "Accessible video quality depends on source, account and platform permissions.",
+    "Baidu account validation did not establish a working download channel for this sample."
+  ]
+}

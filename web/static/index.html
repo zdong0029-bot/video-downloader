@@ -145,6 +145,7 @@
   @media(max-width:520px){.file{gap:8px;padding:8px}.thumb{width:44px;height:60px}.file-actions{max-width:66px}}
 #cloudCards article{border:1px solid var(--line,#dce2e8);padding:16px;border-radius:12px;margin:12px 0}#cloudCards .row{display:flex;align-items:center;justify-content:space-between;gap:12px;border-top:1px solid #edf0f3;padding:12px 0}#cloudCards .muted{color:#718096;font-size:13px}#cloudCards h2{font-size:17px}#cloudMessage{color:#a45a00}
 .cloud-status-row{display:flex;flex-wrap:wrap;align-items:center;gap:8px;margin:12px 0}#cloudStatus{display:flex;flex-wrap:wrap;gap:7px}.cloud-pill{border:1px solid var(--line);border-radius:20px;padding:6px 10px;font-size:12px;color:var(--muted)}.cloud-ok{color:#0b766b;background:#eafaf6;border-color:#b4e0d7}.cloud-error{color:#b33131;background:#fff1f1}.cloud-controls{display:flex;flex-wrap:wrap;gap:7px;align-items:center}#cloudCards .row{flex-wrap:wrap}#cloudCards h4{margin:0;font-size:16px}
+.category-tabs{display:flex;gap:8px;margin:0 0 14px}.category-tabs button{flex:1;background:var(--card);color:var(--muted);border:1px solid var(--line);padding:11px}.category-tabs button[aria-current="page"]{background:var(--accent);color:#fff;border-color:var(--accent)}.who #loginBtn{font-size:12px;padding:6px 10px}
 </style>
 </head>
 <body>
@@ -166,14 +167,15 @@
   <div class="topbar">
     <div>
       <h1>视频下载器</h1>
-      <p class="sub">粘贴链接，自动识别来源。TikTok 取无水印源，YouTube 取最高画质。</p>
+      <p class="sub">粘贴链接，选择文件，保存到你的电脑。</p>
     </div>
     <div class="who">
       <span id="whoName"></span>
       <button class="ghost" id="adminBtn" hidden onclick="toggleAdmin()">账号管理</button>
-      <button class="ghost" id="cloudAccountsBtn" onclick="openCloudAccounts()">网盘账号</button>
+      <button hidden class="ghost" id="cloudAccountsBtn" onclick="openCloudAccounts()">网盘账号</button>
       <button class="ghost" id="scopeBtn" hidden onclick="switchScope()">全部记录</button>
-      <button class="ghost" id="loginBtn" onclick="showGate()">管理员后台</button> <a class="ghost" href="/website-client-checker.html" target="_blank" rel="noopener">连接检查器</a>
+      <button class="ghost" id="loginBtn" onclick="showGate()">管理员后台</button> <a id="connectionChecker" hidden class="ghost" href="/website-client-checker.html" target="_blank" rel="noopener">连接检查器</a>
+      <button class="ghost" id="shareSiteBtn" hidden onclick="copyShareSite()">复制分享网址</button>
       <button class="ghost" id="logoutBtn" hidden onclick="logout()">退出管理</button>
     </div>
   </div>
@@ -184,10 +186,12 @@
     <div class="note" id="adminMsg">普通使用免登录，按浏览器隔离；管理员可以查看全部记录。</div>
   </div>
 
-  <div class="card">
-    <label class="note">下载类型：<select id="sourceMode"><option value="auto">自动识别</option><option value="cloud">网盘分享（百度 / 阿里 / 夸克）</option><option value="file">原文件直链（安装包、视频等）</option><option value="profile">主页 / 合集（先选择视频）</option></select></label>
-    <p class="note">视频与安装包均按原文件下载，不转码。支持百度、阿里和夸克分享：管理员在本页连接后台账号后，朋友粘贴链接即可使用。优先直下载；必须转存时，全部文件完整下载到主机并校验后，自动删除本次临时转存。</p>
-    <div class="cloud-status-row"><div id="cloudStatus" aria-live="polite"></div><button id="cloudStatusRefresh" class="ghost" type="button">刷新状态</button></div>
+  <nav class="category-tabs" aria-label="下载分类"><button id="videoTab" type="button" onclick="setCategory('video')">视频 / 图片</button><button id="cloudTab" type="button" onclick="setCategory('cloud')">网盘 / 文件</button></nav>
+  <div class="card" id="downloadForm">
+    <label class="note" id="sourceModeRow">下载类型：<select id="sourceMode"><option value="auto">自动识别</option><option value="cloud">网盘分享（百度 / 阿里 / 夸克）</option><option value="file">原文件直链（安装包、视频等）</option><option value="profile">主页 / 合集（先选择视频）</option></select></label>
+    <p class="note" id="categoryDescription">支持视频、图片和主页合集，自动选择当前授权可取得的最高画质。</p>
+    <p class="note" id="adminCloudNote" hidden>后台账号供访客下载原文件。必要的临时转存仅在主机文件全部下载并校验完成后清理。</p>
+    <div class="cloud-status-row" id="cloudStatusRow" hidden><div id="cloudStatus" aria-live="polite"></div><button id="cloudStatusRefresh" class="ghost" type="button">刷新状态</button></div>
     <textarea id="url" rows="3" spellcheck="false" autocapitalize="off"
       placeholder="粘贴视频、平台主页、百度/阿里/夸克分享、原文件直链或 Symphony 分享码&#10;多个单视频会合并成一组，多视频链接独立展示"></textarea>
     <div class="row" style="margin-top:10px;align-items:center">
@@ -196,8 +200,9 @@
       <span class="spacer" style="flex:1"></span>
       <span class="note" style="margin:0">Ctrl + Enter 也可提交</span>
     </div>
-    <label class="note">视频传输：<select id="transferMode"><option value="auto">自动（公网优先平台直连）</option><option value="server">主机传输</option></select> · 当前优先支持 Symphony；直连失败自动回退。</label>
-    <div class="hint" id="hint">支持 TikTok、YouTube、B站等 1000+ 站点，以及 Symphony 分享链接。</div>
+    <label class="note" id="transferModeRow">视频传输：<select id="transferMode"><option value="auto">自动（公网优先平台直连）</option><option value="server">主机传输</option></select> · 当前优先支持 Symphony；直连失败自动回退。</label>
+    <label class="note"><input type="checkbox" id="autoNewline" checked style="width:14px;height:14px;vertical-align:middle"> 粘贴链接后自动换行</label>
+    <div class="hint" id="hint"></div>
     <div class="note">「移出列表」只清理显示，文件不动；只有「删除文件」才会真的删。</div>
   </div>
 
@@ -298,6 +303,7 @@ function selectedIn(job){
 }
 
 function render(jobs){
+  jobs=jobs.filter(j=>categoryOf(j)===CATEGORY);
   // 顶部的"全部取消"条：有任务在跑或排队时才出现
   const act = jobs.filter(j => j.status === 'running' || j.status === 'queued');
   const bar = $('#activeBar');
@@ -331,7 +337,7 @@ function render(jobs){
           全选
         </label>
         <span class="count">已选 ${nSel} / ${files.length}</span>
-        ${foldable ? '<button class="ghost" aria-expanded="'+open+'" onclick="toggleExpanded(\''+j.id+'\')">'+(open?'收起':'展开视频')+'</button>' : ''}` : ''}
+        ${foldable ? '<button class="ghost" aria-expanded="'+open+'" onclick="toggleExpanded(\''+j.id+'\')">'+(open?'收起':'展开文件')+'</button>' : ''}` : ''}
         <span class="spacer"></span>
         <div class="btn-group">
           ${files.length ? `
@@ -352,12 +358,13 @@ function render(jobs){
     const fileRows = (open ? files.slice(0,fileVisible.get(j.id)||60) : []).map(f => {
       const sourceId=originId(j,f);
       const video = /\.(mp4|webm|mkv|mov|m4v|avi)$/i.test(f.name);
+      const image = /\.(jpe?g|png|webp|gif)$/i.test(f.name);
       const on = selected.has(key(sourceId, f.name));
       const arg = esc(JSON.stringify(f.name));
-      const base = `/api/files/${sourceId}/${encodeURIComponent(f.name)}`;
+      const base = `/api/files/${sourceId}/${encodeURIComponent(f.name)}?inline=1`;
       return `<div class="file ${on ? 'sel' : ''}">
         <label><input aria-label="选择文件" type="checkbox" ${jobBusy(j.id) ? 'disabled' : ''} ${on ? 'checked' : ''} onchange="toggleOne('${sourceId}', ${arg}, this.checked)"></label>
-        ${video ? `<button class="preview-link" title="预览视频" onclick="previewFile('${sourceId}', ${arg})"><img class="thumb" alt="视频首帧" loading="lazy" src="/api/thumb/${sourceId}/${encodeURIComponent(f.name)}" onerror="this.style.visibility='hidden'"></button>` : `<span class="thumb" style="display:grid;place-items:center" aria-label="文件">📦</span>`}
+        ${video ? `<button class="preview-link" title="预览视频" onclick="previewFile('${sourceId}', ${arg})"><img class="thumb" alt="视频首帧" loading="lazy" src="/api/thumb/${sourceId}/${encodeURIComponent(f.name)}" onerror="this.style.visibility='hidden'"></button>` : image ? `<a href="${base}" target="_blank" rel="noopener"><img class="thumb" loading="lazy" alt="图片" src="${base}"></a>` : `<span class="thumb" style="display:grid;place-items:center" aria-label="文件">📦</span>`}
         <button class="fname" onclick="${video ? 'previewFile' : 'saveFile'}('${sourceId}', ${arg})">${esc(f.name)}<br><span class="fsize">${fmtSize(f.size)}</span>${j.is_group ? '<br><span class="fsize">来源：'+esc(f.source_url)+'</span>' : ''}</button>
         <div class="file-actions">${MOBILE && video ? `<button class="ghost" onclick="previewFile('${sourceId}', ${arg})">保存视频</button>` : `<button class="ghost" ${jobBusy(j.id) ? 'disabled' : ''} onclick="saveFile('${sourceId}', ${arg})">保存</button>`}
         ${!MOBILE ? LOCAL ? `<button class="ghost" title="定位主机保存的文件" onclick="revealFile('${sourceId}', ${arg})">📁 定位</button>` : `<button class="ghost" data-folder-file="${esc(f.name)}" title="定位当前浏览器已保存的文件（需安装定位扩展）" onclick="folderLocatorHelp()">📁 定位</button>` : ''}</div>
@@ -380,8 +387,8 @@ function render(jobs){
       ${j.message ? `<div class="msg">${esc(j.message)}</div>` : ''}
       ${toolbar}
       <div data-transfer="${j.id}" role="status" class="hint" ${downloadTransfers.has(j.id) ? "" : "hidden"}></div>
-      ${fileRows ? '<div class="files">'+fileRows+'</div>' : files.length && !open ? '<div class="note">已收起 '+files.length+' 个视频，已选 '+nSel+' 个。点击全选会自动展开，收起后保留勾选。</div>' : ''}
-      ${open && files.length>(fileVisible.get(j.id)||60) ? '<button class="ghost" onclick="showMoreFiles(\''+j.id+'\')">显示更多视频（已显示 '+(fileVisible.get(j.id)||60)+' / '+files.length+'）</button>' : ''}
+      ${fileRows ? '<div class="files">'+fileRows+'</div>' : files.length && !open ? '<div class="note">已收起 '+files.length+' 个文件，已选 '+nSel+' 个。点击全选会自动展开，收起后保留勾选。</div>' : ''}
+      ${open && files.length>(fileVisible.get(j.id)||60) ? '<button class="ghost" onclick="showMoreFiles(\''+j.id+'\')">显示更多文件（已显示 '+(fileVisible.get(j.id)||60)+' / '+files.length+'）</button>' : ''}
       ${j.is_group && j.failed ? '<details class="note"><summary>查看失败链接</summary>'+j.members.filter(m=>m.status==='error').map(m=>'<p>'+esc(m.url)+'<br>'+esc(m.message)+'</p>').join('')+'</details>' : ''}
       ${
         // 有文件时，全选 + 上面那排按钮已经能覆盖整条任务，
@@ -481,10 +488,12 @@ function updateTransfer(jobId){
   if(!panel) return;
   panel.hidden=false;
   const pct=t.totalBytes ? Math.min(t.active || t.error ? 99 : 100, Math.floor(t.receivedBytes/t.totalBytes*100)) : 0;
+  const speed=t.receivedBytes/Math.max(.001,((t.ended||performance.now())-(t.started||performance.now()))/1000);
+  const rate=t.receivedBytes ? ' · '+(speed/1048576).toFixed(2)+' MB/s' : '';
   const label=t.error ? `已停止：${t.error}` : t.active ? `正在接收第 ${Math.min(t.completed+1,t.count)} 个` : '接收完成，已发起浏览器保存';
-  panel.innerHTML=`<div>${esc(t.route || "准备传输")} · ${esc(label)} · 已接收完整视频 <strong>${t.completed} / ${t.count}</strong></div>
-    <div>${fmtSize(t.receivedBytes)} / ${fmtSize(t.totalBytes)} · <strong>${pct}%</strong></div>
-    <progress style="width:100%;height:12px;accent-color:var(--accent)" max="100" value="${pct}" aria-label="视频传输进度"></progress>
+  panel.innerHTML=`<div>${esc(t.route || "准备传输")} · ${esc(label)} · 已接收完整文件 <strong>${t.completed} / ${t.count}</strong></div>
+    <div>${fmtSize(t.receivedBytes)} / ${fmtSize(t.totalBytes)} · <strong>${pct}%</strong>${rate}</div>
+    <progress style="width:100%;height:12px;accent-color:var(--accent)" max="100" value="${pct}" aria-label="文件传输进度"></progress>
     ${t.active ? `<button class="ghost small" onclick="cancelTransfer('${jobId}')">停止接收</button>` : '<div class="note">最终保存结果请查看浏览器下载列表；浏览器可能要求允许下载多个文件。</div>'}`;
   const button=document.querySelector(`[data-download-job="${jobId}"]`);
   if(button && t.active) button.textContent=`已接收 ${t.completed}/${t.count} · ${pct}%`;
@@ -502,7 +511,7 @@ async function downloadSelected(jobId, singleName=null, sourceId=null){
   if(!job) return;
   const files=(singleName===null ? selectedIn(job) : job.files.filter(f=>f.name===singleName && (!sourceId || originId(job,f)===sourceId))).map(f=>({...f}));
   if(!files.length) return;
-  const t={active:true,completed:0,count:files.length,receivedBytes:0,totalBytes:files.reduce((n,f)=>n+(f.size||0),0),controller:new AbortController(),error:''};
+  const t={started:performance.now(),active:true,completed:0,count:files.length,receivedBytes:0,totalBytes:files.reduce((n,f)=>n+(f.size||0),0),controller:new AbortController(),error:''};
   t.jobIds=[...new Set(files.map(f=>originId(job,f)))];
   downloadTransfers.set(jobId,t);
   repaint();
@@ -541,12 +550,12 @@ async function downloadSelected(jobId, singleName=null, sourceId=null){
       await new Promise(resolve=>setTimeout(resolve,700));
       if(t.controller.signal.aborted && t.completed<t.count) throw new DOMException('Stopped','AbortError');
     }
-    hintEl.textContent=`已完整接收 ${t.completed}/${t.count} 个视频并发起保存，请查看浏览器下载列表。`;
+    hintEl.textContent=`已完整接收 ${t.completed}/${t.count} 个文件并发起保存，请查看浏览器下载列表。`;
   }catch(e){
     t.error=e.name==='AbortError' ? '已取消，之前发起保存的视频不受影响' : e.message;
     hintEl.textContent=`已接收 ${t.completed}/${t.count} 个。${t.error}`;
   }finally{
-    t.active=false;repaint();
+    t.active=false;t.ended=performance.now();repaint();
   }
 }
 
@@ -661,6 +670,33 @@ async function removeJob(id, purge){
 
 }
 
+const PUBLIC_SITE='https://video-downloader.tail49ff9c.ts.net/';
+let CATEGORY=sessionStorage.getItem('downloadCategory')==='cloud'?'cloud':'video';
+const categoryDrafts={video:'',cloud:''};
+function categoryOf(j){if(j.kind==='file' && /\.(jpe?g|png|webp|gif)(?:[?#]|$)/i.test(j.url))return 'video';return ['cloud','file'].includes(j.kind)?'cloud':'video';}
+function updateCategoryUI(){
+  const cloud=CATEGORY==='cloud';
+  $('#videoTab').setAttribute('aria-current',cloud?'false':'page');
+  $('#cloudTab').setAttribute('aria-current',cloud?'page':'false');
+  $('#sourceModeRow').hidden=!ME;
+  $('#cloudStatusRow').hidden=!cloud || !ME;
+  $('#adminCloudNote').hidden=!cloud || !ME;
+  $('#scanProfile').hidden=cloud;
+  $('#transferModeRow').hidden=cloud || !ME;
+  $('#categoryDescription').textContent=cloud?'粘贴百度、阿里、夸克分享链接或文件直链。视频、安装包和文档保持原文件，无需访客登录网盘。':'粘贴视频、图片、主页或合集链接。自动选择当前授权可取得的最高画质，主页先识别再勾选。';
+  urlEl.placeholder=cloud?'粘贴网盘分享链接和提取码，或原文件直链\n可以连续粘贴，自动换行':'粘贴视频、图片、平台主页或 Symphony 分享码\n多个单视频合并成一组，多视频链接独立展示';
+  $('#catalogs').hidden=cloud;
+}
+function setCategory(value){
+  if(!['video','cloud'].includes(value))return;
+  categoryDrafts[CATEGORY]=urlEl.value;CATEGORY=value;
+  sessionStorage.setItem('downloadCategory',value);urlEl.value=categoryDrafts[value];
+  $('#sourceMode').value='auto';updateCount();updateCategoryUI();repaint();
+}
+async function copyShareSite(){
+  try{await navigator.clipboard.writeText(PUBLIC_SITE);hintEl.textContent='已复制公网网址，其他电脑和手机直接打开即可。主机需要保持开机联网。';}
+  catch(e){hintEl.replaceChildren();const a=document.createElement('a');a.href=PUBLIC_SITE;a.textContent=PUBLIC_SITE;a.target='_blank';hintEl.append('其他电脑请使用：',a);}
+}
 const countEl = $('#linkCount');
 
 function updateCount(){
@@ -683,6 +719,7 @@ async function submit(){
       hintEl.style.color = 'var(--err)';
     }else{
       urlEl.value = '';
+      urlEl.focus();
       updateCount();
       const n = (data.created || []).length;
       const bad = (data.rejected || []).length;
@@ -699,6 +736,17 @@ async function submit(){
 
 goEl.onclick = submit;
 urlEl.addEventListener('input', updateCount);
+urlEl.addEventListener('paste', e=>{
+  if(!$('#autoNewline').checked || !e.clipboardData)return;
+  const text=e.clipboardData.getData('text/plain');
+  if(!/https?:\/\//i.test(text))return;
+  const start=urlEl.selectionStart,end=urlEl.selectionEnd;
+  if(end!==urlEl.value.length)return;
+  e.preventDefault();
+  const before=urlEl.value.slice(0,start);
+  const insert=(before && !/\n$/.test(before)?'\n':'')+text.trimEnd()+'\n';
+  urlEl.setRangeText(insert,start,end,'end');updateCount();
+});
 // 多行输入里回车要能换行，所以用 Ctrl/Cmd + Enter 提交
 urlEl.addEventListener('keydown', e => {
   if(e.key === 'Enter' && (e.ctrlKey || e.metaKey)) { e.preventDefault(); submit(); }
@@ -720,6 +768,11 @@ async function boot(){
   gateEl.hidden = true; mainEl.hidden = false;
   $('#whoName').textContent = ME ? ME.name + '（管理员）' : '本浏览器记录 · ' + d.device;
   $('#adminBtn').hidden = !ME;
+  $('#cloudAccountsBtn').hidden = !ME;
+  $('#connectionChecker').hidden = !ME;
+  $('#shareSiteBtn').hidden = !ME;
+  updateCategoryUI();
+  window.refreshCloudStatus?.();
 
   $('#scopeBtn').hidden = !ME;
   $('#logoutBtn').hidden = !ME;

@@ -49,6 +49,20 @@ try:
         ctx=browser.new_context(accept_downloads=True,viewport={'width':1280,'height':980})
         page=ctx.new_page();errors=[];page.on('pageerror',lambda e:errors.append(str(e)))
         page.goto(BASE);expect(page.locator('#main')).to_be_visible()
+        # Fresh visitor has no admin controls. Paste adds newlines and tabs preserve drafts.
+        for selector in ['#adminBtn','#cloudAccountsBtn','#scopeBtn','#logoutBtn','#sourceModeRow','#transferModeRow','#cloudStatusRow']:
+            expect(page.locator(selector)).to_be_hidden()
+        assert ctx.request.get(BASE+'/api/admin/cloud-accounts').status==403
+        page.locator('#url').focus()
+        for value in ['https://example.com/a.mp4','https://example.com/b.mp4']:
+            page.evaluate("text=>document.querySelector('#url').dispatchEvent(new ClipboardEvent('paste',{bubbles:true,cancelable:true,clipboardData:(()=>{const d=new DataTransfer();d.setData('text/plain',text);return d;})()}))",value)
+        assert page.locator('#url').input_value()=='https://example.com/a.mp4\nhttps://example.com/b.mp4\n'
+        page.locator('#cloudTab').click();expect(page.locator('#scanProfile')).to_be_hidden()
+        page.locator('#url').fill('https://pan.quark.cn/s/draft')
+        page.locator('#videoTab').click();assert 'example.com/a.mp4' in page.locator('#url').input_value()
+        page.locator('#cloudTab').click();assert page.locator('#url').input_value()=='https://pan.quark.cn/s/draft'
+        page.locator('#videoTab').click()
+        results['visitor_simple_ui_paste_newlines_category_drafts']=True
         links=['https://www.youtube.com/watch?v=batch-'+str(i) for i in range(10)]
         links.append('https://ads.tiktok.com/creative/creativestudio/shared-link/11111111-1111-4111-8111-111111111111')
         page.locator('#url').fill('\n'.join(links));page.locator('#go').click()
@@ -66,7 +80,7 @@ try:
         assert '已选 10 / 10' in group.inner_text()
         page.evaluate('refresh(true)');page.wait_for_timeout(250)
         expect(group.locator('.file')).to_have_count(0)
-        group.get_by_role('button',name='展开视频',exact=True).click()
+        group.get_by_role('button',name='展开文件',exact=True).click()
         expect(group.locator('button').filter(has_text='定位')).to_have_count(10)
         multi.locator('.toolbar input[type=checkbox]').check()
         expect(multi.locator('.file')).to_have_count(3)
@@ -137,7 +151,11 @@ try:
     # The restart restore function retains batch IDs and multi-video kinds.
     metas=[json.loads(p.read_text(encoding='utf-8')) for p in a.DOWNLOADS.glob('*/meta.json')]
     assert all('batch_id' in m for m in metas)
+    retained=next(j for j in a.JOBS.values() if j.kind=='collection')
+    retained.cloud_note='图片按平台公开提供的版本保存，未放大或重新压缩'
+    a._save_meta(retained);retained_id=retained.id
     a.JOBS.clear();a._restore_jobs()
+    assert a.JOBS[retained_id].cloud_note==retained.cloud_note
     assert any(j.kind=='collection' and len(j.files)==2 for j in a.JOBS.values())
     assert all(not j.batch_id or isinstance(j.batch_id,str) for j in a.JOBS.values())
     results['restart_metadata_restore']=True

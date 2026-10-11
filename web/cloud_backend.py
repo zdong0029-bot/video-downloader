@@ -313,7 +313,7 @@ def run(url, password, out, progress, cancelled):
             prefix = hashlib.sha256(item['relative'].encode()).hexdigest()[:10]
             name = prefix + '_' + file_download.safe_name(item['name'])
             def report(size):
-                progress(items, paths + [(out / (name + '.part'))])
+                progress(items, paths + [p for p in out.iterdir() if p.name==name+'.part' or p.name.startswith(name+'.part.')])
             target = file_download.fetch_original(link, out, name, item['size'], report, cancelled, headers, item)
             paths.append(target);progress(items, paths)
         note = '网盘原文件直下载；未转存'

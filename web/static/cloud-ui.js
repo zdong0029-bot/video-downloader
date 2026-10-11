@@ -8,6 +8,7 @@
     const d=await r.json();if(!r.ok)throw Error(d.detail||'请求失败');return d;
   }
   async function status() {
+    if(!ME)return;
     try {
       const d=await api('/api/cloud/status'), box=document.querySelector('#cloudStatus');box.replaceChildren();
       for(const p of d.providers) {
@@ -68,6 +69,7 @@
   };
   document.querySelector('#cloudRefresh').onclick=e=>action(e.target,async()=>{await load();msg.textContent='账号状态已刷新';});
   document.querySelector('#cloudStatusRefresh').onclick=status;
+  window.refreshCloudStatus=status;
   status();setInterval(()=>{status();if(opening&&!document.querySelector('#adminPanel').hidden)window.loadCloudAccounts();},opening?3000:5000);
   if(location.hash==='#accounts')setTimeout(window.openCloudAccounts,600);
 })();

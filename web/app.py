@@ -40,6 +40,7 @@ import baidu_backend
 import cloud_backend
 import cloud_cleanup
 import video_catalog
+import xhs_images
 
 ROOT = Path(__file__).parent
 DOWNLOADS = ROOT / "downloads"
@@ -147,8 +148,8 @@ def _save_meta(job: Job) -> None:
         (DOWNLOADS / job.id / META).write_text(json.dumps({
             "id": job.id, "url": job.url, "kind": job.kind,
             "title": job.title, "created": job.created, "owner": job.owner, "owner_label": job.owner_label,
-            "batch_id": job.batch_id,
-            **({"cloud_files": [f.name for f in job.files], "cloud_note": job.cloud_note} if job.kind == "cloud" else {}),
+            "batch_id": job.batch_id, "cloud_note": job.cloud_note,
+            **({"cloud_files": [f.name for f in job.files]} if job.kind == "cloud" else {}),
         }, ensure_ascii=False), encoding="utf-8")
     except OSError:
         pass
@@ -274,6 +275,17 @@ def _run_douyin(job: Job) -> None:
 
 def _run_web(job: Job) -> None:
     out = _job_dir(job.id)
+    if xhs_images.supported(job.url):
+        def image_progress(done,total,size):
+            job.total=total;job.progress=done/total if total else 0
+            job.message=f"图片 {done}/{total} · 已接收 {size/1048576:.1f} MB"
+        result=xhs_images.download(job.url,out,image_progress,job.cancelled)
+        if result is not None:
+            job.title,paths=result
+            job.files.extend(FileItem(p.name,p.stat().st_size,True) for p in paths)
+            job.total=job.finished=len(paths)
+            job.cloud_note='图片按平台公开提供的版本保存，未放大或重新压缩'
+            return
     before = {p.name for p in out.iterdir() if p.is_file()}
     progress_job = getattr(job, "progress_target", job)
 
@@ -330,7 +342,17 @@ def _run_web(job: Job) -> None:
 
     job.total = 1
     with yt_dlp.YoutubeDL(opts) as ydl:
-        info = ydl.extract_info(job.url, download=True)
+        try:
+            info = ydl.extract_info(job.url, download=True)
+        except yt_dlp.utils.DownloadError as error:
+            from urllib.parse import urlsplit
+            host=(urlsplit(job.url).hostname or '').lower()
+            if host.endswith('iqiyi.com') or host.endswith('iq.com'):
+                raise ValueError('爱奇艺未提供当前下载器可用的视频流；当前样例未通过，会员或加密视频需使用官方授权下载') from None
+            if host.endswith('weixin.qq.com'):
+                raise ValueError('视频号当前分享链接未通过下载测试；需要可用的平台授权解析，不能直接按普通视频链接下载') from None
+            if 'DRM' in str(error):raise ValueError('平台视频有版权加密，需要使用官方授权下载') from None
+            raise
         if not info:
             raise RuntimeError("平台未返回可下载视频")
         job.title = info.get("title") or job.url
@@ -423,12 +445,23 @@ def _worker(job: Job) -> None:
                 if not cloud_backend.provider(job.url):
                     raise ValueError("此网盘暂不支持，请使用百度、阿里或夸克分享链接")
                 job.message = "正在解析网盘文件，等待下载通道…"
+                cloud_rate=[time.monotonic(),0,0.0]
                 def cloud_progress(items, paths):
                     total = sum(int(item.get("size", 0)) for item in items)
                     current = sum(p.stat().st_size for p in paths if p.is_file() and p.name not in (META, ".cloud-incomplete") and not p.name.endswith(".BaiduPCS-Go-downloading"))
+                    now=time.monotonic();elapsed=now-cloud_rate[0]
+                    if elapsed>=.5 and current>=cloud_rate[1]:
+                        instant=(current-cloud_rate[1])/elapsed
+                        cloud_rate[2]=instant if not cloud_rate[2] else .35*instant+.65*cloud_rate[2]
+                        cloud_rate[0]=now;cloud_rate[1]=current
+                    speed=cloud_rate[2]
+                    rate=f" · {speed/1048576:.2f} MB/s" if speed else ""
+                    if speed and total>current:
+                        seconds=int((total-current)/speed)
+                        rate+=f" · 预计剩余 {seconds//60}分{seconds%60}秒"
                     job.total = len(items)
                     job.progress = min(current / total, 0.99) if total else 0
-                    job.message = f"已写入 {current / 1048576:.1f} MB / {total / 1048576:.1f} MB（完成后校验原文件）" if total else f"已写入 {current / 1048576:.1f} MB（官方快传总大小未知）"
+                    job.message = f"已写入 {current / 1048576:.1f} MB / {total / 1048576:.1f} MB（完成后校验原文件）{rate}" if total else f"已写入 {current / 1048576:.1f} MB（官方快传总大小未知）{rate}"
                 cloud_dir = _job_dir(job.id)
                 (cloud_dir / ".cloud-incomplete").touch()
                 paths = cloud_backend.run(job.url, "", cloud_dir, cloud_progress, job.cancelled)
@@ -1057,7 +1090,7 @@ def get_file(job_id: str, name: str, inline: bool = False, me: Identity = Depend
     _get_job(job_id, me)
     return FileResponse(_safe_file(job_id, name), filename=name,
                         media_type=mimetypes.guess_type(name)[0] or "application/octet-stream",
-                        content_disposition_type="inline" if inline and Path(name).suffix.lower() in {".mp4", ".webm", ".mov", ".mkv", ".mp3", ".wav"} else "attachment")
+                        content_disposition_type="inline" if inline and Path(name).suffix.lower() in {".mp4", ".webm", ".mov", ".mkv", ".mp3", ".wav", ".jpg", ".jpeg", ".png", ".webp", ".gif"} else "attachment")
 
 
 @app.delete("/api/files/{job_id}/{name}")

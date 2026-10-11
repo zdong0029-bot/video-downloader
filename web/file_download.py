@@ -12,7 +12,7 @@ from urllib.parse import urlsplit, urljoin, unquote
 from common import Cancelled
 
 EXTENSIONS = {'.zip','.7z','.rar','.exe','.msi','.apk','.dmg','.iso','.pkg',
-              '.pdf','.docx','.xlsx','.pptx','.txt','.mp4','.mov','.mkv','.webm','.avi','.mp3','.wav'}
+              '.pdf','.docx','.xlsx','.pptx','.txt','.mp4','.mov','.mkv','.webm','.avi','.mp3','.wav','.jpg','.jpeg','.png','.webp','.gif'}
 LIMIT = 10 * 1024**3
 
 def provider(url):
@@ -32,7 +32,7 @@ def safe_name(value):
     if value.split('.')[0].upper() in {'CON','PRN','AUX','NUL', *['COM'+str(i) for i in range(10)], *['LPT'+str(i) for i in range(10)]}: value = '_'+value
     return value
 
-def open_public(url, headers=None, offset=0):
+def open_public(url, headers=None, offset=0, end=None):
     for _ in range(6):
         u = urlsplit(url)
         if u.scheme not in ('http','https') or not u.hostname or u.username or u.password:
@@ -42,19 +42,30 @@ def open_public(url, headers=None, offset=0):
         addresses = socket.getaddrinfo(u.hostname,port,type=socket.SOCK_STREAM)
         if not addresses or any(not ipaddress.ip_address(x[4][0]).is_global for x in addresses):
             raise ValueError('文件直链不能访问本机或内网地址')
+        response = None
         conn = http.client.HTTPConnection(u.hostname,port,timeout=30)
-        conn.sock = socket.create_connection((addresses[0][4][0],port),timeout=30)
         try:
+            if (headers or {}).get('_local_proxy'):
+                # Server-selected local proxy; public destination DNS is still checked
+                # and pinned before CONNECT. This cannot be set by website visitors.
+                import socks
+                chosen=next((a for a in addresses if a[0]==socket.AF_INET),addresses[0])
+                conn.sock=socks.socksocket(chosen[0],socket.SOCK_STREAM)
+                conn.sock.set_proxy(socks.SOCKS5,'127.0.0.1',10808)
+                conn.sock.settimeout(30);conn.sock.connect((chosen[4][0],port))
+            else:
+                conn.sock = socket.create_connection((addresses[0][4][0],port),timeout=30)
             if u.scheme == 'https': conn.sock = ssl.create_default_context().wrap_socket(conn.sock,server_hostname=u.hostname)
-            conn.request('GET',(u.path or '/')+('?' + u.query if u.query else ''),headers=_download_headers(u.hostname, headers, offset))
+            conn.request('GET',(u.path or '/')+('?' + u.query if u.query else ''),headers=_download_headers(u.hostname, headers, offset, end))
             response = conn.getresponse()
             if response.status in (301,302,303,307,308):
-                location=response.getheader('Location'); conn.close()
+                location=response.getheader('Location'); response.close(); conn.close()
                 if not location: raise ValueError('下载跳转缺少目标地址')
                 url=urljoin(url,location); continue
-            if response.status not in ((200,206) if offset else (200,)): raise ValueError('文件服务器返回 HTTP '+str(response.status))
+            if response.status not in ((200,206) if offset or end is not None else (200,)): raise ValueError('文件服务器返回 HTTP '+str(response.status))
             return conn,response,url
         except Exception:
+            if response is not None:response.close()
             conn.close(); raise
     raise ValueError('文件下载跳转次数过多')
 
@@ -86,11 +97,11 @@ def download(url, directory, progress, cancelled):
         os.replace(temporary,target)
         return target
     finally:
-        conn.close()
+        response.close();conn.close()
         temporary.unlink(missing_ok=True)
 
 
-def _download_headers(host, extra, offset):
+def _download_headers(host, extra, offset, end=None):
     headers = {'User-Agent':'FileDownloader/1.0', 'Accept-Encoding':'identity'}
     for name, value in (extra or {}).items():
         if name.lower() == 'cookie':
@@ -98,7 +109,7 @@ def _download_headers(host, extra, offset):
             if not any(host == domain or host.endswith('.'+domain) for domain in (extra or {}).get('_cookie_domains',('quark.cn','uc.cn'))): continue
         elif name.lower() not in ('user-agent', 'referer'): continue
         headers[name] = value
-    if offset: headers['Range'] = 'bytes=' + str(offset) + '-'
+    if offset or end is not None: headers['Range'] = 'bytes=' + str(offset) + '-' + (str(end) if end is not None else '')
     return headers
 
 
@@ -111,10 +122,11 @@ def fetch_original(url, directory, name, expected, progress, cancelled, headers=
     if expected > budget: raise ValueError('原文件超过可用空间或单文件10GB上限')
     size = 0
     transport_md5 = None
+    last_report = 0.0
     try:
         for attempt in range(3):
             if cancelled(): raise Cancelled()
-            conn = None
+            conn = None; response = None
             try:
                 conn, response, final = open_public(url, headers, size)
                 content_type = (response.getheader('Content-Type') or '').split(';')[0].lower()
@@ -131,18 +143,42 @@ def fetch_original(url, directory, name, expected, progress, cancelled, headers=
                     if not match or int(match[1]) != size: raise ValueError('续传范围无效，原文件未标记完成')
                     total = int(match[3])
                 else:
-                    size = 0; total = length
+                    size = 0; total = length or expected
                 if expected and total and total != expected: raise ValueError('原文件大小与分享列表不一致，未标记完成')
                 if total > budget: raise ValueError('原文件超过可用空间')
                 if not expected: expected = total
-                with partial.open('ab' if size else 'wb') as stream:
+                # Four bounded ranges for large immutable originals. A server that
+                # ignores ranges or changes validators falls back to one full stream.
+                if not size and total >= 8*1024**2 and total*2 <= max(0,shutil.disk_usage(directory).free-512*1024**2) and (transport_md5 or (response.getheader('ETag') or '').startswith('"') or any(re.fullmatch(pattern,str((checksums or {}).get(k,''))) for k,pattern in (('md5',r'[0-9a-fA-F]{32}'),('sha1',r'[0-9a-fA-F]{40}')))):
+                    validator = response.getheader('ETag')
+                    getattr(response,'close',lambda:None)(); conn.close(); conn = None
+                    try:
+                        _parallel_original(final, headers, partial, total, validator, progress, cancelled)
+                        size = total
+                        break
+                    except Cancelled: raise
+                    except (ValueError,OSError,http.client.HTTPException):
+                        partial.unlink(missing_ok=True)
+                        conn, response, final = open_public(url, headers)
+                        if response.status!=200 or int(response.getheader('Content-Length') or 0) not in (0,total):
+                            raise ValueError('分段回退时原文件大小变化，未标记完成')
+                        if validator and response.getheader('ETag')!=validator:
+                            raise ValueError('分段回退时原文件版本变化，未标记完成')
+                        if (response.getheader('Content-Type') or '').split(';')[0] in ('text/html','application/json'):
+                            raise ValueError('平台返回错误页面')
+                        size = 0
+                with partial.open('ab' if size else 'wb', buffering=1024*1024) as stream:
                     while True:
                         if cancelled(): raise Cancelled()
                         block = response.read(256*1024)
                         if not block: break
                         size += len(block)
                         if size > budget or (expected and size > expected): raise ValueError('原文件传输大小异常')
-                        stream.write(block);stream.flush();progress(size)
+                        stream.write(block)
+                        now=time.monotonic()
+                        if now-last_report>=.25:
+                            stream.flush();progress(size);last_report=now
+                progress(size)
                 if expected and size != expected: raise ConnectionError('文件传输中断')
                 if not size: raise ValueError('平台返回空文件')
                 break
@@ -153,27 +189,89 @@ def fetch_original(url, directory, name, expected, progress, cancelled, headers=
                     if cancelled(): raise Cancelled()
                     time.sleep(.25)
             finally:
+                if response is not None:getattr(response,'close',lambda:None)()
                 if conn: conn.close()
-        if transport_md5:
-            h = hashlib.md5()
+        wanted={}
+        if transport_md5:wanted['md5']=transport_md5
+        for alg,pattern in [('md5',r'[0-9a-fA-F]{32}'),('sha1',r'[0-9a-fA-F]{40}')]:
+            value=str((checksums or {}).get(alg,'')).lower()
+            if re.fullmatch(pattern,value):
+                if alg in wanted and wanted[alg]!=value:raise ValueError('来源校验值不一致，未标记完成')
+                wanted[alg]=value
+        hashes={alg:hashlib.new(alg) for alg in wanted}
+        if hashes:
             with partial.open('rb') as stream:
                 for block in iter(lambda:stream.read(1024*1024),b''):
-                    if cancelled(): raise Cancelled()
-                    h.update(block)
-            if h.hexdigest()!=transport_md5: raise ValueError('原文件服务器 Content-MD5 校验未通过，未标记完成')
-        for alg, pattern in [('md5',r'[0-9a-fA-F]{32}'),('sha1',r'[0-9a-fA-F]{40}')]:
-            value = str((checksums or {}).get(alg,'')).lower()
-            if not re.fullmatch(pattern,value): continue
-            h = hashlib.new(alg)
-            with partial.open('rb') as stream:
-                for block in iter(lambda:stream.read(1024*1024),b''):
-                    if cancelled(): raise Cancelled()
-                    h.update(block)
-            if h.hexdigest() != value: raise ValueError('原文件 '+alg.upper()+' 校验未通过，未标记完成')
+                    if cancelled():raise Cancelled()
+                    for h in hashes.values():h.update(block)
+            if any(hashes[k].hexdigest()!=v for k,v in wanted.items()):raise ValueError('原文件哈希校验未通过，未标记完成')
         os.replace(partial,target)
         return target
     finally:
         partial.unlink(missing_ok=True)
+
+
+def _parallel_original(url, headers, partial, total, validator, progress, cancelled):
+    """Strict ranges, identical object version, bounded memory, ordered merge."""
+    import threading,time
+    from concurrent.futures import ThreadPoolExecutor
+    stop=threading.Event();lock=threading.Lock();counts=[0]*4;last=[0.0]
+    pieces=[partial.with_name(partial.name+'.'+str(i)) for i in range(4)]
+    def transfer(i):
+        start=total*i//4;end=total*(i+1)//4-1;wanted=end-start+1
+        for attempt in range(2):
+            if cancelled():raise Cancelled()
+            if stop.is_set():raise ValueError('分段下载已停止')
+            conn=None;r=None
+            try:
+                conn,r,_=open_public(url,headers,start,end)
+                expected='bytes '+str(start)+'-'+str(end)+'/'+str(total)
+                if r.status!=206 or r.getheader('Content-Range')!=expected or int(r.getheader('Content-Length') or 0) not in (0,wanted):
+                    raise ValueError('服务器未正确支持分段范围')
+                if validator and r.getheader('ETag')!=validator:raise ValueError('原文件版本发生变化')
+                if (r.getheader('Content-Type') or '').split(';')[0] in ('text/html','application/json'):raise ValueError('分段返回错误页面')
+                size=0
+                with pieces[i].open('wb',buffering=1024*1024) as f:
+                    while True:
+                        if cancelled():raise Cancelled()
+                        if stop.is_set():raise ValueError('分段下载已停止')
+                        data=r.read(256*1024)
+                        if not data:break
+                        size+=len(data)
+                        if size>wanted:raise ValueError('分段大小异常')
+                        f.write(data)
+                        with lock:
+                            counts[i]=size;now=time.monotonic()
+                            if now-last[0]>=.25:
+                                f.flush();progress(sum(counts));last[0]=now
+                if size!=wanted:raise ConnectionError('分段未完整传输')
+                return
+            except (OSError,http.client.HTTPException):
+                if attempt:stop.set();raise
+                with lock:counts[i]=0
+            except BaseException:
+                stop.set();raise
+            finally:
+                if r is not None:r.close()
+                if conn:conn.close()
+    try:
+        with ThreadPoolExecutor(max_workers=4) as pool:
+            futures=[pool.submit(transfer,i) for i in range(4)]
+            for task in futures:task.result()
+        with partial.open('wb',buffering=1024*1024) as merged:
+            for piece in pieces:
+                with piece.open('rb') as f:
+                    while True:
+                        if cancelled():raise Cancelled()
+                        block=f.read(1024*1024)
+                        if not block:break
+                        merged.write(block)
+                piece.unlink()
+        if partial.stat().st_size!=total:raise ValueError('分段合并后大小异常')
+        progress(total)
+    finally:
+        stop.set()
+        for piece in pieces:piece.unlink(missing_ok=True)
 
 
 class CloudResult(list):

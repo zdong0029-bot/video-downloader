@@ -49,3 +49,6 @@ web/private-baidu/
 web/baidu-connected.flag
 web/pcs/
 
+
+# Local deployment rollback copies
+backup-platform-speed-*/

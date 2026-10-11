@@ -75,12 +75,18 @@ def run(url,password,out,progress,cancelled):
             log=config/'command.tmp'
             with log.open('wb') as stream:
                 process=subprocess.Popen([str(executable),*args],env=env,cwd=str(out),stdout=stream,stderr=stream,creationflags=subprocess.CREATE_NO_WINDOW)
-                start=time.monotonic()
+                start=time.monotonic();last_change=start;last_state=None
                 try:
                     while process.poll() is None:
                         if cancelled(): raise Cancelled()
                         if time.monotonic()-start>timeout: raise TimeoutError('百度下载超时，任务已停止')
-                        if monitor: progress(files,[p for p in out.rglob('*') if p.is_file()])
+                        if monitor:
+                            paths=[p for p in out.rglob('*') if p.is_file()]
+                            state=[(p.name,p.stat().st_size,p.stat().st_mtime_ns) for p in paths if not p.name.endswith(('.tmp','.BaiduPCS-Go-downloading'))]
+                            now=time.monotonic()
+                            if state!=last_state:last_change=now;last_state=state
+                            if now-last_change>120:raise ValueError('百度下载通道连续120秒没有写入数据，已停止等待；未完整下载的转存保留，请稍后重试或在官方页面检查账号下载权限')
+                            progress(files,paths)
                         time.sleep(.5)
                     if process.returncode: raise ValueError('百度后台命令失败，请检查账号有效期和下载权限')
                 finally:

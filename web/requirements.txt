@@ -17,4 +17,7 @@ yt-dlp[default,curl-cffi]
 # 我们只拦截它的详情接口响应取无水印地址。
 playwright
 # 原文件与官方网盘分享接口
-requests>=2.32,<3
+requests[socks]>=2.32,<3
+
+# Public picture decoding and integrity checks
+Pillow>=11.3,<13
