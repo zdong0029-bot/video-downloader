@@ -1,0 +1,145 @@
+[
+  {
+    "platform": "acfun",
+    "url": "https://www.acfun.cn/v/ac35457073",
+    "source": "yt-dlp/acfun.py"
+  },
+  {
+    "platform": "bilibili",
+    "url": "https://www.bilibili.com/video/BV16G411C7Zh/",
+    "source": "previous verified public sample"
+  },
+  {
+    "platform": "dailymotion",
+    "url": "https://www.dailymotion.com/video/x8sglem",
+    "source": "NASA official Dailymotion account"
+  },
+  {
+    "platform": "facebook",
+    "url": "https://www.facebook.com/reel/1195289147628387",
+    "source": "https://github.com/yt-dlp/yt-dlp/blob/master/yt_dlp/extractor/facebook.py"
+  },
+  {
+    "platform": "instagram",
+    "url": "https://www.instagram.com/reel/Chunk8-jurw/",
+    "source": "https://github.com/yt-dlp/yt-dlp/blob/master/yt_dlp/extractor/instagram.py"
+  },
+  {
+    "platform": "archive",
+    "url": "https://archive.org/details/Election_Ads/Commercial-Nixon1960ElectionAdToughonDefense.mpg",
+    "source": "yt-dlp/archiveorg.py"
+  },
+  {
+    "platform": "niconico",
+    "url": "https://www.nicovideo.jp/watch/sm8628149",
+    "source": "https://github.com/yt-dlp/yt-dlp/blob/master/yt_dlp/extractor/niconico.py"
+  },
+  {
+    "platform": "reddit",
+    "url": "https://www.reddit.com/r/videos/comments/6rrwyj/that_small_heart_attack/",
+    "source": "https://github.com/yt-dlp/yt-dlp/blob/master/yt_dlp/extractor/reddit.py"
+  },
+  {
+    "platform": "streamable",
+    "url": "https://streamable.com/dnd1",
+    "source": "yt-dlp/streamable.py"
+  },
+  {
+    "platform": "ted",
+    "url": "https://www.ted.com/talks/candace_parker_how_to_break_down_barriers_and_not_accept_limits",
+    "source": "yt-dlp upstream TED fix",
+    "limit_mib": 512
+  },
+  {
+    "platform": "tiktok",
+    "url": "https://www.tiktok.com/@barudakhb_/video/6984138651336838402",
+    "source": "https://github.com/yt-dlp/yt-dlp/blob/master/yt_dlp/extractor/tiktok.py"
+  },
+  {
+    "platform": "twitch",
+    "url": "https://clips.twitch.tv/FaintLightGullWholeWheat",
+    "source": "https://github.com/yt-dlp/yt-dlp/blob/master/yt_dlp/extractor/twitch.py"
+  },
+  {
+    "platform": "x",
+    "url": "https://twitter.com/captainamerica/status/719944021058060289",
+    "source": "https://github.com/yt-dlp/yt-dlp/blob/master/yt_dlp/extractor/twitter.py"
+  },
+  {
+    "platform": "youtube",
+    "url": "https://www.youtube.com/watch?v=el3E4MbxRqQ",
+    "source": "yt-dlp/youtube.py"
+  },
+  {
+    "platform": "toutiao",
+    "url": "https://www.toutiao.com/video/7505382061495176511/",
+    "source": "https://github.com/yt-dlp/yt-dlp/blob/master/yt_dlp/extractor/toutiao.py"
+  },
+  {
+    "platform": "youku",
+    "url": "https://v.youku.com/v_show/id_XNTA2NTA0MjA1Mg==.html",
+    "source": "yt-dlp/youku.py",
+    "limit_mib": 512
+  },
+  {
+    "platform": "cctv",
+    "url": "http://tv.cctv.com/2016/02/05/VIDEUS7apq3lKrHG9Dncm03B160205.shtml",
+    "source": "https://github.com/yt-dlp/yt-dlp/blob/master/yt_dlp/extractor/cctv.py"
+  },
+  {
+    "platform": "weibo",
+    "url": "https://m.weibo.cn/status/4189191225395228",
+    "source": "https://github.com/yt-dlp/yt-dlp/blob/master/yt_dlp/extractor/weibo.py"
+  },
+  {
+    "platform": "sohu",
+    "url": "http://my.tv.sohu.com/us/232799889/78693464.shtml",
+    "source": "https://github.com/yt-dlp/yt-dlp/blob/master/yt_dlp/extractor/sohu.py"
+  },
+  {
+    "platform": "zhihu",
+    "url": "https://www.zhihu.com/zvideo/1342930761977176064",
+    "source": "https://github.com/yt-dlp/yt-dlp/blob/master/yt_dlp/extractor/zhihu.py"
+  },
+  {
+    "platform": "tencent",
+    "url": "https://v.qq.com/x/page/q326831cny0.html",
+    "source": "yt-dlp/tencent.py"
+  },
+  {
+    "platform": "mango",
+    "url": "https://w.mgtv.com/b/55617/7519149.html",
+    "source": "Mango public brand promotional clip"
+  },
+  {
+    "platform": "rumble",
+    "url": "https://rumble.com/embed/v5pv5f",
+    "source": "yt-dlp/rumble.py"
+  },
+  {
+    "platform": "vimeo",
+    "url": "https://player.vimeo.com/video/76979871",
+    "source": "Vimeo official player demo; unencrypted-format availability check",
+    "check_formats": true
+  },
+  {
+    "platform": "haokan",
+    "url": "https://haokan.baidu.com/v?vid=5996184502817403923",
+    "source": "Public tutorial found by web search"
+  },
+  {
+    "platform": "kuaishou",
+    "url": "https://www.kuaishou.com/short-video/3xvzf4jsvsv46ty",
+    "source": "Kuaishou public share found by web search"
+  },
+  {
+    "platform": "iqiyi",
+    "url": "https://www.iqiyi.com/v_1012up0ofew.html",
+    "source": "Official current trailer page"
+  },
+  {
+    "platform": "xigua",
+    "url": "https://m.ixigua.com/video/6764662548781335052",
+    "source": "Official public uploader page found by web search"
+  }
+]

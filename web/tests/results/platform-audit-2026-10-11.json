@@ -1,0 +1,1928 @@
+{
+  "generated_at": "2026-10-11 21:36:38",
+  "engine": "yt-dlp 2026.08.19 + upstream TED compatibility fix",
+  "public_site": "https://video-downloader.tail49ff9c.ts.net/",
+  "tested_platforms": 34,
+  "complete_platforms_this_run": 24,
+  "method": "公开链接真实下载；最高可取得格式；完整文件才算通过，ffprobe+首秒ffmpeg解码+SHA256。网盘要求原文件大小及平台哈希校验。三并发用于不同平台样例，单工作进程180秒；多数样例160MiB，TED/优酷512MiB。解析、传输和合并耗时合计，非峰值带宽。未使用未知第三方账号、共享Cookie或绕过验证/DRM。",
+  "limitations": [
+    "一条样例通过不代表平台全部内容可下载；失败也不代表整个平台永久不支持。",
+    "画质按本次授权提供的流选择，保留原编码；270p/720p等不能自动变成平台未开放的1080p/4K。",
+    "阿里为上一轮记录，已明确单列。视频号新授权流程尚未扫码验收，百度大文件尚未完成。",
+    "报告已移除令牌、签名参数、用户网盘分享地址、账号Cookie和登录二维码。"
+  ],
+  "sources": [
+    "https://github.com/yt-dlp/yt-dlp/blob/master/supportedsites.md",
+    "https://github.com/yt-dlp/yt-dlp/pull/17510",
+    "https://github.com/oliver-zch/wx-video-channel-download",
+    "https://github.com/qjfoidnh/BaiduPCS-Go"
+  ],
+  "platforms": [
+    {
+      "platform": "acfun",
+      "name": "AcFun",
+      "status": "通过",
+      "passed": true,
+      "resolution": "1080×1920",
+      "bytes": 139045446,
+      "seconds": 7.094,
+      "note": "首条开源测试链接404；替换为有效样例后完整下载并解码通过。",
+      "attempts": [
+        {
+          "platform": "acfun",
+          "url": "https://www.acfun.cn/v/ac35468952_2",
+          "source": "https://github.com/yt-dlp/yt-dlp/blob/master/yt_dlp/extractor/acfun.py",
+          "route": "default",
+          "started_at": "2026-10-11 20:54:58",
+          "stages": {
+            "download": "not_passed"
+          },
+          "status": "not_completed",
+          "error": "ERROR: [AcFunVideo] 35468952_2: Unable to download webpage: HTTP Error 404: Not Found (caused by <HTTPError 404: Not Found>)",
+          "seconds": 1.093,
+          "variant": "acfun",
+          "resolution": ""
+        },
+        {
+          "platform": "acfun-retest",
+          "url": "https://www.acfun.cn/v/ac35457073",
+          "source": "yt-dlp/acfun.py",
+          "route": "default",
+          "started_at": "2026-10-11 21:01:27",
+          "stages": {
+            "metadata": "passed",
+            "download": "passed",
+            "media_probe": "passed",
+            "first_second_decode": "passed"
+          },
+          "duration": 174.208,
+          "selected_height": 1920,
+          "selected_width": 1080,
+          "formats": 6,
+          "status": "downloaded",
+          "bytes": 139045446,
+          "sha256": "69e4e3d1f006d36a49eb6b2067cb3b3b3e40cf4b3f0ecbe19fe22d404ea4f026",
+          "media": {
+            "programs": [],
+            "stream_groups": [],
+            "streams": [
+              {
+                "codec_name": "h264",
+                "codec_type": "video",
+                "width": 1080,
+                "height": 1920,
+                "r_frame_rate": "60/1"
+              },
+              {
+                "codec_name": "aac",
+                "codec_type": "audio",
+                "r_frame_rate": "0/0"
+              }
+            ],
+            "format": {
+              "duration": "174.226000",
+              "size": "139045446"
+            }
+          },
+          "seconds": 7.094,
+          "variant": "acfun-retest",
+          "resolution": "1080×1920"
+        }
+      ]
+    },
+    {
+      "platform": "bilibili",
+      "name": "B站",
+      "status": "通过",
+      "passed": true,
+      "resolution": "1280×720",
+      "bytes": 40781234,
+      "seconds": 4.39,
+      "note": "匿名样例实际下载为720p；高于该授权等级的格式需平台账号/权限，未声称达到付费档最高画质。",
+      "attempts": [
+        {
+          "platform": "bilibili",
+          "url": "https://www.bilibili.com/video/BV16G411C7Zh/",
+          "source": "previous verified public sample",
+          "route": "default",
+          "started_at": "2026-10-11 20:55:34",
+          "stages": {
+            "metadata": "passed",
+            "download": "passed",
+            "media_probe": "passed",
+            "first_second_decode": "passed"
+          },
+          "duration": 596.647,
+          "selected_height": 720,
+          "selected_width": 1280,
+          "formats": 6,
+          "status": "downloaded",
+          "bytes": 40781234,
+          "sha256": "43d51bc2a614ede0912eeeb827d6bcdd837f12fb44a4ad23ae1f68f97926abc8",
+          "media": {
+            "programs": [],
+            "stream_groups": [],
+            "streams": [
+              {
+                "codec_name": "h264",
+                "codec_type": "video",
+                "width": 1280,
+                "height": 720,
+                "r_frame_rate": "24/1"
+              },
+              {
+                "codec_name": "aac",
+                "codec_type": "audio",
+                "r_frame_rate": "0/0"
+              }
+            ],
+            "format": {
+              "duration": "596.555215",
+              "size": "40781234"
+            }
+          },
+          "seconds": 4.39,
+          "variant": "bilibili",
+          "resolution": "1280×720"
+        }
+      ]
+    },
+    {
+      "platform": "dailymotion",
+      "name": "Dailymotion",
+      "status": "通过",
+      "passed": true,
+      "resolution": "1920×1080",
+      "bytes": 42398512,
+      "seconds": 14.953,
+      "note": "首条维护者旧链接无格式；换NASA官方短片后完整1080p下载通过。",
+      "attempts": [
+        {
+          "platform": "dailymotion",
+          "url": "http://www.dailymotion.com/video/x5kesuj_office-christmas-party-review-jason-bateman-olivia-munn-t-j-miller_news",
+          "source": "https://github.com/yt-dlp/yt-dlp/blob/master/yt_dlp/extractor/dailymotion.py",
+          "route": "default",
+          "started_at": "2026-10-11 20:55:12",
+          "stages": {
+            "download": "not_passed"
+          },
+          "status": "not_completed",
+          "error": "ERROR: [dailymotion] x5kesuj: No video formats found!; please report this issue on  https://github.com/yt-dlp/yt-dlp/issues , filling out the appropriate issue template. Confirm you are on the latest version using  yt-dlp -U",
+          "seconds": 5.672,
+          "variant": "dailymotion",
+          "resolution": ""
+        },
+        {
+          "platform": "dailymotion-retest",
+          "url": "https://www.dailymotion.com/video/x8sglem",
+          "source": "NASA official Dailymotion account",
+          "route": "default",
+          "started_at": "2026-10-11 21:01:31",
+          "stages": {
+            "metadata": "passed",
+            "download": "passed",
+            "media_probe": "passed",
+            "first_second_decode": "passed"
+          },
+          "duration": 69,
+          "selected_height": 1080,
+          "selected_width": 1920,
+          "formats": 4,
+          "status": "downloaded",
+          "bytes": 42398512,
+          "sha256": "21cfe8fe64d76a463e64f4a5ac8581595b99130f867c8cb68dccf0a341038ab7",
+          "media": {
+            "programs": [],
+            "stream_groups": [],
+            "streams": [
+              {
+                "codec_name": "aac",
+                "codec_type": "audio",
+                "r_frame_rate": "0/0"
+              },
+              {
+                "codec_name": "h264",
+                "codec_type": "video",
+                "width": 1920,
+                "height": 1080,
+                "r_frame_rate": "30000/1001"
+              }
+            ],
+            "format": {
+              "duration": "68.802122",
+              "size": "42398512"
+            }
+          },
+          "seconds": 14.953,
+          "variant": "dailymotion-retest",
+          "resolution": "1920×1080"
+        }
+      ]
+    },
+    {
+      "platform": "facebook",
+      "name": "Facebook Reels",
+      "status": "通过",
+      "passed": true,
+      "resolution": "480×848",
+      "bytes": 622802,
+      "seconds": 4.547,
+      "note": "公开样例完整下载，ffprobe识别视频轨并通过首秒解码；保存当前授权可取得的最高格式，未重新压缩。",
+      "attempts": [
+        {
+          "platform": "facebook",
+          "url": "https://www.facebook.com/reel/1195289147628387",
+          "source": "https://github.com/yt-dlp/yt-dlp/blob/master/yt_dlp/extractor/facebook.py",
+          "route": "default",
+          "started_at": "2026-10-11 20:55:07",
+          "stages": {
+            "metadata": "passed",
+            "download": "passed",
+            "media_probe": "passed",
+            "first_second_decode": "passed"
+          },
+          "duration": 9.579,
+          "selected_height": null,
+          "selected_width": null,
+          "formats": 4,
+          "status": "downloaded",
+          "bytes": 622802,
+          "sha256": "cc12fd22535bfa0d5f224e105c1c4abf3525cc4cf33501d1f7ed6c5c469123a2",
+          "media": {
+            "programs": [],
+            "stream_groups": [],
+            "streams": [
+              {
+                "codec_name": "h264",
+                "codec_type": "video",
+                "width": 480,
+                "height": 848,
+                "r_frame_rate": "30/1"
+              }
+            ],
+            "format": {
+              "duration": "9.566667",
+              "size": "622802"
+            }
+          },
+          "seconds": 4.547,
+          "variant": "facebook",
+          "resolution": "480×848"
+        }
+      ]
+    },
+    {
+      "platform": "instagram",
+      "name": "Instagram",
+      "status": "通过",
+      "passed": true,
+      "resolution": "720×1280",
+      "bytes": 1949801,
+      "seconds": 6.328,
+      "note": "公开样例完整下载，ffprobe识别视频轨并通过首秒解码；保存当前授权可取得的最高格式，未重新压缩。",
+      "attempts": [
+        {
+          "platform": "instagram",
+          "url": "https://www.instagram.com/reel/Chunk8-jurw/",
+          "source": "https://github.com/yt-dlp/yt-dlp/blob/master/yt_dlp/extractor/instagram.py",
+          "route": "default",
+          "started_at": "2026-10-11 20:55:03",
+          "stages": {
+            "metadata": "passed",
+            "download": "passed",
+            "media_probe": "passed",
+            "first_second_decode": "passed"
+          },
+          "duration": null,
+          "selected_height": 1280,
+          "selected_width": 720,
+          "formats": 9,
+          "status": "downloaded",
+          "bytes": 1949801,
+          "sha256": "64c7d81d2251172ed0f9beaf3a753765adb7afdd8f93e86aee5aed3675f8e35e",
+          "media": {
+            "programs": [],
+            "stream_groups": [],
+            "streams": [
+              {
+                "codec_name": "h264",
+                "codec_type": "video",
+                "width": 720,
+                "height": 1280,
+                "r_frame_rate": "30/1"
+              }
+            ],
+            "format": {
+              "duration": "4.966667",
+              "size": "1949801"
+            }
+          },
+          "seconds": 6.328,
+          "variant": "instagram",
+          "resolution": "720×1280"
+        }
+      ]
+    },
+    {
+      "platform": "archive",
+      "name": "Internet Archive",
+      "status": "通过",
+      "passed": true,
+      "resolution": "400×300",
+      "bytes": 4048561,
+      "seconds": 5.203,
+      "note": "首轮测试器漏识别OGV扩展名，属于测试器问题；修正并用公开MPG样例复测通过。",
+      "attempts": [
+        {
+          "platform": "archive",
+          "url": "http://archive.org/details/XD300-23_68HighlightsAResearchCntAugHumanIntellect",
+          "source": "https://github.com/yt-dlp/yt-dlp/blob/master/yt_dlp/extractor/archiveorg.py",
+          "route": "default",
+          "started_at": "2026-10-11 20:55:24",
+          "stages": {
+            "metadata": "passed",
+            "download": "not_passed"
+          },
+          "duration": null,
+          "selected_height": 304,
+          "selected_width": 400,
+          "formats": 2,
+          "status": "not_completed",
+          "error": "No completed video file; download may exceed size or duration limit",
+          "seconds": 4.766,
+          "variant": "archive",
+          "resolution": ""
+        },
+        {
+          "platform": "archive-retest",
+          "url": "https://archive.org/details/Election_Ads/Commercial-Nixon1960ElectionAdToughonDefense.mpg",
+          "source": "yt-dlp/archiveorg.py",
+          "route": "default",
+          "started_at": "2026-10-11 21:01:32",
+          "stages": {
+            "metadata": "passed",
+            "download": "passed",
+            "media_probe": "passed",
+            "first_second_decode": "passed"
+          },
+          "duration": 59.51,
+          "selected_height": 304,
+          "selected_width": 400,
+          "formats": 3,
+          "status": "downloaded",
+          "bytes": 4048561,
+          "sha256": "a5c287bcfd786e6939c5f77c56de910ab64d6c465a29294fb6e0fb9b74c84891",
+          "media": {
+            "programs": [],
+            "stream_groups": [],
+            "streams": [
+              {
+                "codec_name": "theora",
+                "codec_type": "video",
+                "width": 400,
+                "height": 300,
+                "r_frame_rate": "2997/100"
+              },
+              {
+                "codec_name": "vorbis",
+                "codec_type": "audio",
+                "r_frame_rate": "0/0"
+              }
+            ],
+            "format": {
+              "duration": "59.582780",
+              "size": "4048561"
+            }
+          },
+          "seconds": 5.203,
+          "variant": "archive-retest",
+          "resolution": "400×300"
+        }
+      ]
+    },
+    {
+      "platform": "niconico",
+      "name": "Niconico",
+      "status": "通过",
+      "passed": true,
+      "resolution": "512×384",
+      "bytes": 19541556,
+      "seconds": 11.234,
+      "note": "公开样例完整下载，ffprobe识别视频轨并通过首秒解码；保存当前授权可取得的最高格式，未重新压缩。",
+      "attempts": [
+        {
+          "platform": "niconico",
+          "url": "https://www.nicovideo.jp/watch/sm8628149",
+          "source": "https://github.com/yt-dlp/yt-dlp/blob/master/yt_dlp/extractor/niconico.py",
+          "route": "default",
+          "started_at": "2026-10-11 20:55:29",
+          "stages": {
+            "metadata": "passed",
+            "download": "passed",
+            "media_probe": "passed",
+            "first_second_decode": "passed"
+          },
+          "duration": 219,
+          "selected_height": 384,
+          "selected_width": 512,
+          "formats": 6,
+          "status": "downloaded",
+          "bytes": 19541556,
+          "sha256": "b3c1d43d550928d1a7cd8fd82708e5d25fbd7589d8dc93e428009fad2c013aa8",
+          "media": {
+            "programs": [],
+            "stream_groups": [],
+            "streams": [
+              {
+                "codec_name": "h264",
+                "codec_type": "video",
+                "width": 512,
+                "height": 384,
+                "r_frame_rate": "30/1"
+              },
+              {
+                "codec_name": "aac",
+                "codec_type": "audio",
+                "r_frame_rate": "0/0"
+              }
+            ],
+            "format": {
+              "duration": "219.100000",
+              "size": "19541556"
+            }
+          },
+          "seconds": 11.234,
+          "variant": "niconico",
+          "resolution": "512×384"
+        }
+      ]
+    },
+    {
+      "platform": "reddit",
+      "name": "Reddit",
+      "status": "通过",
+      "passed": true,
+      "resolution": "352×640",
+      "bytes": 2328114,
+      "seconds": 7.719,
+      "note": "公开样例完整下载，ffprobe识别视频轨并通过首秒解码；保存当前授权可取得的最高格式，未重新压缩。",
+      "attempts": [
+        {
+          "platform": "reddit",
+          "url": "https://www.reddit.com/r/videos/comments/6rrwyj/that_small_heart_attack/",
+          "source": "https://github.com/yt-dlp/yt-dlp/blob/master/yt_dlp/extractor/reddit.py",
+          "route": "default",
+          "started_at": "2026-10-11 20:55:12",
+          "stages": {
+            "metadata": "passed",
+            "download": "passed",
+            "media_probe": "passed",
+            "first_second_decode": "passed"
+          },
+          "duration": 12,
+          "selected_height": 640,
+          "selected_width": 352,
+          "formats": 11,
+          "status": "downloaded",
+          "bytes": 2328114,
+          "sha256": "2f3ed2edf8620292fa5ca0d742046c758cab8418f2e2a1bf134a334a4acdddf4",
+          "media": {
+            "programs": [],
+            "stream_groups": [],
+            "streams": [
+              {
+                "codec_name": "h264",
+                "codec_type": "video",
+                "width": 352,
+                "height": 640,
+                "r_frame_rate": "30/1"
+              },
+              {
+                "codec_name": "aac",
+                "codec_type": "audio",
+                "r_frame_rate": "0/0"
+              }
+            ],
+            "format": {
+              "duration": "11.795750",
+              "size": "2328114"
+            }
+          },
+          "seconds": 7.719,
+          "variant": "reddit",
+          "resolution": "352×640"
+        }
+      ]
+    },
+    {
+      "platform": "streamable",
+      "name": "Streamable",
+      "status": "通过",
+      "passed": true,
+      "resolution": "1280×720",
+      "bytes": 19286494,
+      "seconds": 5.234,
+      "note": "公开样例完整下载，ffprobe识别视频轨并通过首秒解码；保存当前授权可取得的最高格式，未重新压缩。",
+      "attempts": [
+        {
+          "platform": "streamable",
+          "url": "https://streamable.com/dnd1",
+          "source": "yt-dlp/streamable.py",
+          "route": "default",
+          "started_at": "2026-10-11 21:13:30",
+          "stages": {
+            "metadata": "passed",
+            "download": "passed",
+            "media_probe": "passed",
+            "first_second_decode": "passed"
+          },
+          "duration": 61.516,
+          "selected_height": 720,
+          "selected_width": 1280,
+          "formats": 2,
+          "status": "downloaded",
+          "bytes": 19286494,
+          "sha256": "1f88e60f1dcf2586123a061055dba68a9c34e03306c173eb18c4d564ca680124",
+          "media": {
+            "programs": [],
+            "stream_groups": [],
+            "streams": [
+              {
+                "codec_name": "h264",
+                "codec_type": "video",
+                "width": 1280,
+                "height": 720,
+                "r_frame_rate": "30/1"
+              },
+              {
+                "codec_name": "aac",
+                "codec_type": "audio",
+                "r_frame_rate": "0/0"
+              }
+            ],
+            "format": {
+              "duration": "61.469002",
+              "size": "19286494"
+            }
+          },
+          "seconds": 5.234,
+          "variant": "streamable",
+          "resolution": "1280×720"
+        }
+      ]
+    },
+    {
+      "platform": "ted",
+      "name": "TED",
+      "status": "通过",
+      "passed": true,
+      "resolution": "1920×1080",
+      "bytes": 278125656,
+      "seconds": 25.797,
+      "note": "原引擎仍读取旧playerData字段。采用已合并的上游PR17510读取videoPlayerData，复测完整1080p文件通过。",
+      "attempts": [
+        {
+          "platform": "ted",
+          "url": "https://www.ted.com/talks/candace_parker_how_to_break_down_barriers_and_not_accept_limits",
+          "source": "https://github.com/yt-dlp/yt-dlp/blob/master/yt_dlp/extractor/ted.py",
+          "route": "default",
+          "started_at": "2026-10-11 20:55:23",
+          "stages": {
+            "download": "not_passed"
+          },
+          "status": "not_completed",
+          "error": "the JSON object must be str, bytes or bytearray, not NoneType",
+          "seconds": 2.75,
+          "variant": "ted",
+          "resolution": ""
+        },
+        {
+          "platform": "ted-retest",
+          "url": "https://www.ted.com/talks/ken_robinson_do_schools_kill_creativity",
+          "source": "TED official talk",
+          "route": "default",
+          "started_at": "2026-10-11 21:01:37",
+          "stages": {
+            "download": "not_passed"
+          },
+          "status": "not_completed",
+          "error": "the JSON object must be str, bytes or bytearray, not NoneType",
+          "seconds": 2.656,
+          "variant": "ted-retest",
+          "resolution": ""
+        },
+        {
+          "platform": "ted-fixed",
+          "url": "https://www.ted.com/talks/candace_parker_how_to_break_down_barriers_and_not_accept_limits",
+          "source": "yt-dlp upstream TED fix",
+          "limit_mib": 512,
+          "route": "default",
+          "started_at": "2026-10-11 21:13:24",
+          "stages": {
+            "metadata": "passed",
+            "download": "passed",
+            "media_probe": "passed",
+            "first_second_decode": "passed"
+          },
+          "duration": 679,
+          "selected_height": 1080,
+          "selected_width": 1920,
+          "formats": 15,
+          "status": "downloaded",
+          "bytes": 278125656,
+          "sha256": "c9f26017015d4dc90a5e117a02428f90d047884787491ae606d1517c7c8657dd",
+          "media": {
+            "programs": [],
+            "stream_groups": [],
+            "streams": [
+              {
+                "codec_name": "h264",
+                "codec_type": "video",
+                "width": 1920,
+                "height": 1080,
+                "r_frame_rate": "24000/1001"
+              },
+              {
+                "codec_name": "aac",
+                "codec_type": "audio",
+                "r_frame_rate": "0/0"
+              }
+            ],
+            "format": {
+              "duration": "680.042789",
+              "size": "278125656"
+            }
+          },
+          "seconds": 25.797,
+          "variant": "ted-fixed",
+          "resolution": "1920×1080"
+        }
+      ]
+    },
+    {
+      "platform": "tiktok",
+      "name": "TikTok",
+      "status": "通过",
+      "passed": true,
+      "resolution": "540×960",
+      "bytes": 2326230,
+      "seconds": 6.188,
+      "note": "公开样例完整下载，ffprobe识别视频轨并通过首秒解码；保存当前授权可取得的最高格式，未重新压缩。",
+      "attempts": [
+        {
+          "platform": "tiktok",
+          "url": "https://www.tiktok.com/@barudakhb_/video/6984138651336838402",
+          "source": "https://github.com/yt-dlp/yt-dlp/blob/master/yt_dlp/extractor/tiktok.py",
+          "route": "default",
+          "started_at": "2026-10-11 20:55:21",
+          "stages": {
+            "metadata": "passed",
+            "download": "passed",
+            "media_probe": "passed",
+            "first_second_decode": "passed"
+          },
+          "duration": 18,
+          "selected_height": 1024,
+          "selected_width": 576,
+          "formats": 10,
+          "status": "downloaded",
+          "bytes": 2326230,
+          "sha256": "3ff1ee9d94ac8a6dcfeb502a03272a4fa1a1546ad9ae3797f7e026afb408459f",
+          "media": {
+            "programs": [],
+            "stream_groups": [],
+            "streams": [
+              {
+                "codec_name": "h264",
+                "codec_type": "video",
+                "width": 540,
+                "height": 960,
+                "r_frame_rate": "30/1"
+              },
+              {
+                "codec_name": "aac",
+                "codec_type": "audio",
+                "r_frame_rate": "0/0"
+              }
+            ],
+            "format": {
+              "duration": "18.666667",
+              "size": "2326230"
+            }
+          },
+          "seconds": 6.188,
+          "variant": "tiktok",
+          "resolution": "540×960"
+        }
+      ]
+    },
+    {
+      "platform": "twitch",
+      "name": "Twitch Clips",
+      "status": "通过",
+      "passed": true,
+      "resolution": "1920×1080",
+      "bytes": 16299328,
+      "seconds": 5.016,
+      "note": "公开样例完整下载，ffprobe识别视频轨并通过首秒解码；保存当前授权可取得的最高格式，未重新压缩。",
+      "attempts": [
+        {
+          "platform": "twitch",
+          "url": "https://clips.twitch.tv/FaintLightGullWholeWheat",
+          "source": "https://github.com/yt-dlp/yt-dlp/blob/master/yt_dlp/extractor/twitch.py",
+          "route": "default",
+          "started_at": "2026-10-11 20:55:18",
+          "stages": {
+            "metadata": "passed",
+            "download": "passed",
+            "media_probe": "passed",
+            "first_second_decode": "passed"
+          },
+          "duration": 32,
+          "selected_height": 1080,
+          "selected_width": null,
+          "formats": 1,
+          "status": "downloaded",
+          "bytes": 16299328,
+          "sha256": "9d3021eae0ac932a520b5ebedf995ec14901d882d97b27eeccbbb5b9440a4317",
+          "media": {
+            "programs": [],
+            "stream_groups": [],
+            "streams": [
+              {
+                "codec_name": "h264",
+                "codec_type": "video",
+                "width": 1920,
+                "height": 1080,
+                "r_frame_rate": "30000/1001"
+              },
+              {
+                "codec_name": "aac",
+                "codec_type": "audio",
+                "r_frame_rate": "0/0"
+              }
+            ],
+            "format": {
+              "duration": "32.099000",
+              "size": "16299328"
+            }
+          },
+          "seconds": 5.016,
+          "variant": "twitch",
+          "resolution": "1920×1080"
+        }
+      ]
+    },
+    {
+      "platform": "x",
+      "name": "X / Twitter",
+      "status": "通过",
+      "passed": true,
+      "resolution": "1280×720",
+      "bytes": 539283,
+      "seconds": 4.906,
+      "note": "公开样例完整下载，ffprobe识别视频轨并通过首秒解码；保存当前授权可取得的最高格式，未重新压缩。",
+      "attempts": [
+        {
+          "platform": "x",
+          "url": "https://twitter.com/captainamerica/status/719944021058060289",
+          "source": "https://github.com/yt-dlp/yt-dlp/blob/master/yt_dlp/extractor/twitter.py",
+          "route": "default",
+          "started_at": "2026-10-11 20:55:01",
+          "stages": {
+            "metadata": "passed",
+            "download": "passed",
+            "media_probe": "passed",
+            "first_second_decode": "passed"
+          },
+          "duration": 3.17,
+          "selected_height": 720,
+          "selected_width": 1280,
+          "formats": 4,
+          "status": "downloaded",
+          "bytes": 539283,
+          "sha256": "f64ec4761969ddf3a57bdf34995592342d9978f18dc23e2ad1e7ce7a6f3f4881",
+          "media": {
+            "programs": [],
+            "stream_groups": [],
+            "streams": [
+              {
+                "codec_name": "h264",
+                "codec_type": "video",
+                "width": 1280,
+                "height": 720,
+                "r_frame_rate": "24000/1001"
+              },
+              {
+                "codec_name": "aac",
+                "codec_type": "audio",
+                "r_frame_rate": "0/0"
+              }
+            ],
+            "format": {
+              "duration": "3.178667",
+              "size": "539283"
+            }
+          },
+          "seconds": 4.906,
+          "variant": "x",
+          "resolution": "1280×720"
+        }
+      ]
+    },
+    {
+      "platform": "youtube",
+      "name": "YouTube",
+      "status": "通过",
+      "passed": true,
+      "resolution": "1920×1080",
+      "bytes": 102812,
+      "seconds": 5.485,
+      "note": "公开样例完整下载，ffprobe识别视频轨并通过首秒解码；保存当前授权可取得的最高格式，未重新压缩。",
+      "attempts": [
+        {
+          "platform": "youtube",
+          "url": "https://www.youtube.com/watch?v=el3E4MbxRqQ",
+          "source": "yt-dlp/youtube.py",
+          "route": "default",
+          "started_at": "2026-10-11 20:55:39",
+          "stages": {
+            "metadata": "passed",
+            "download": "passed",
+            "media_probe": "passed",
+            "first_second_decode": "passed"
+          },
+          "duration": 5,
+          "selected_height": 1080,
+          "selected_width": 1920,
+          "formats": 16,
+          "status": "downloaded",
+          "bytes": 102812,
+          "sha256": "e0c4a333a7bb97f468777b040349d3f49f01a0872b344341ecb93f35f881f535",
+          "media": {
+            "programs": [],
+            "stream_groups": [],
+            "streams": [
+              {
+                "codec_name": "h264",
+                "codec_type": "video",
+                "width": 1920,
+                "height": 1080,
+                "r_frame_rate": "25/1"
+              },
+              {
+                "codec_name": "aac",
+                "codec_type": "audio",
+                "r_frame_rate": "0/0"
+              }
+            ],
+            "format": {
+              "duration": "5.061950",
+              "size": "102812"
+            }
+          },
+          "seconds": 5.485,
+          "variant": "youtube",
+          "resolution": "1920×1080"
+        }
+      ]
+    },
+    {
+      "platform": "toutiao",
+      "name": "今日头条",
+      "status": "通过",
+      "passed": true,
+      "resolution": "1080×1920",
+      "bytes": 1298250,
+      "seconds": 2.125,
+      "note": "公开样例完整下载，ffprobe识别视频轨并通过首秒解码；保存当前授权可取得的最高格式，未重新压缩。",
+      "attempts": [
+        {
+          "platform": "toutiao",
+          "url": "https://www.toutiao.com/video/7505382061495176511/",
+          "source": "https://github.com/yt-dlp/yt-dlp/blob/master/yt_dlp/extractor/toutiao.py",
+          "route": "default",
+          "started_at": "2026-10-11 20:55:29",
+          "stages": {
+            "metadata": "passed",
+            "download": "passed",
+            "media_probe": "passed",
+            "first_second_decode": "passed"
+          },
+          "duration": 9.753,
+          "selected_height": 1920,
+          "selected_width": 1080,
+          "formats": 2,
+          "status": "downloaded",
+          "bytes": 1298250,
+          "sha256": "621f84f33fa8e25f963d75f62a400116f12eeda21586d9f434912909900b2496",
+          "media": {
+            "programs": [],
+            "stream_groups": [],
+            "streams": [
+              {
+                "codec_name": "h264",
+                "codec_type": "video",
+                "width": 1080,
+                "height": 1920,
+                "r_frame_rate": "30/1"
+              },
+              {
+                "codec_name": "aac",
+                "codec_type": "audio",
+                "r_frame_rate": "0/0"
+              }
+            ],
+            "format": {
+              "duration": "9.751995",
+              "size": "1298250"
+            }
+          },
+          "seconds": 2.125,
+          "variant": "toutiao",
+          "resolution": "1080×1920"
+        }
+      ]
+    },
+    {
+      "platform": "youku",
+      "name": "优酷",
+      "status": "通过",
+      "passed": true,
+      "resolution": "1920×1080",
+      "bytes": 257553914,
+      "seconds": 23.594,
+      "note": "首轮160MiB测试上限主动停止，不计平台故障；提高样例上限到512MiB后完整1080p文件通过。",
+      "attempts": [
+        {
+          "platform": "youku",
+          "url": "https://v.youku.com/v_show/id_XNTA2NTA0MjA1Mg==.html",
+          "source": "https://github.com/yt-dlp/yt-dlp/blob/master/yt_dlp/extractor/youku.py",
+          "route": "default",
+          "started_at": "2026-10-11 20:54:58",
+          "stages": {
+            "metadata": "passed",
+            "download": "not_passed"
+          },
+          "duration": 542.13,
+          "selected_height": 1080,
+          "selected_width": 1920,
+          "formats": 4,
+          "status": "not_completed",
+          "error": "Sample exceeded test limit 160 MiB",
+          "seconds": 22.531,
+          "variant": "youku",
+          "resolution": ""
+        },
+        {
+          "platform": "youku-complete",
+          "url": "https://v.youku.com/v_show/id_XNTA2NTA0MjA1Mg==.html",
+          "source": "yt-dlp/youku.py",
+          "limit_mib": 512,
+          "route": "default",
+          "started_at": "2026-10-11 21:13:24",
+          "stages": {
+            "metadata": "passed",
+            "download": "passed",
+            "media_probe": "passed",
+            "first_second_decode": "passed"
+          },
+          "duration": 542.13,
+          "selected_height": 1080,
+          "selected_width": 1920,
+          "formats": 4,
+          "status": "downloaded",
+          "bytes": 257553914,
+          "sha256": "564a149f4cc5cb92a412f261b0f1804efbc044a302f9247845b24b5de24b8aed",
+          "media": {
+            "programs": [],
+            "stream_groups": [],
+            "streams": [
+              {
+                "codec_name": "h264",
+                "codec_type": "video",
+                "width": 1920,
+                "height": 1080,
+                "r_frame_rate": "30/1"
+              },
+              {
+                "codec_name": "aac",
+                "codec_type": "audio",
+                "r_frame_rate": "0/0"
+              }
+            ],
+            "format": {
+              "duration": "542.133311",
+              "size": "257553914"
+            }
+          },
+          "seconds": 23.594,
+          "variant": "youku-complete",
+          "resolution": "1920×1080"
+        }
+      ]
+    },
+    {
+      "platform": "cctv",
+      "name": "央视网",
+      "status": "通过",
+      "passed": true,
+      "resolution": "480×270",
+      "bytes": 2206772,
+      "seconds": 1.875,
+      "note": "这条旧样例公开可用的实际流只有480×270。保存源流，不放大，不能称高清。",
+      "attempts": [
+        {
+          "platform": "cctv",
+          "url": "http://tv.cctv.com/2016/02/05/VIDEUS7apq3lKrHG9Dncm03B160205.shtml",
+          "source": "https://github.com/yt-dlp/yt-dlp/blob/master/yt_dlp/extractor/cctv.py",
+          "route": "default",
+          "started_at": "2026-10-11 20:55:32",
+          "stages": {
+            "metadata": "passed",
+            "download": "passed",
+            "media_probe": "passed",
+            "first_second_decode": "passed"
+          },
+          "duration": 37.0,
+          "selected_height": 270,
+          "selected_width": 480,
+          "formats": 1,
+          "status": "downloaded",
+          "bytes": 2206772,
+          "sha256": "dac6c743bd8c47b44c29adfd4cf833b2f617c347a7583f52beff1a6cc3c2c1b3",
+          "media": {
+            "programs": [],
+            "stream_groups": [],
+            "streams": [
+              {
+                "codec_name": "h264",
+                "codec_type": "video",
+                "width": 480,
+                "height": 270,
+                "r_frame_rate": "25/1"
+              },
+              {
+                "codec_name": "aac",
+                "codec_type": "audio",
+                "r_frame_rate": "0/0"
+              }
+            ],
+            "format": {
+              "duration": "37.960000",
+              "size": "2206772"
+            }
+          },
+          "seconds": 1.875,
+          "variant": "cctv",
+          "resolution": "480×270"
+        }
+      ]
+    },
+    {
+      "platform": "quark",
+      "name": "夸克网盘",
+      "status": "通过",
+      "passed": true,
+      "resolution": "",
+      "bytes": 18206733,
+      "seconds": 6.234,
+      "note": "本轮原文件完整下载18,206,733字节，约6.234秒，原始SHA256与上一轮一致；自有分享直下载，未转存。",
+      "attempts": [
+        {
+          "platform": "quark-cloud",
+          "source": "User-authorized supplied share; URL omitted from public report",
+          "route": "production-cloud-adapter",
+          "started_at": "2026-10-11 21:28:40",
+          "status": "downloaded",
+          "bytes": 18206733,
+          "files": [
+            {
+              "bytes": 18206733,
+              "sha256": "c04d1297fa00ac66055d53870b3945a67ae68be31af311daf49a5cbe78d20129"
+            }
+          ],
+          "cloud_note": "网盘原文件直下载；未转存",
+          "stages": {
+            "download": "passed",
+            "checksum": "passed"
+          },
+          "seconds": 6.234,
+          "url": "",
+          "variant": "quark-cloud",
+          "resolution": ""
+        }
+      ]
+    },
+    {
+      "platform": "weibo",
+      "name": "微博",
+      "status": "通过",
+      "passed": true,
+      "resolution": "480×480",
+      "bytes": 1810094,
+      "seconds": 1.844,
+      "note": "公开样例完整下载，ffprobe识别视频轨并通过首秒解码；保存当前授权可取得的最高格式，未重新压缩。",
+      "attempts": [
+        {
+          "platform": "weibo",
+          "url": "https://m.weibo.cn/status/4189191225395228",
+          "source": "https://github.com/yt-dlp/yt-dlp/blob/master/yt_dlp/extractor/weibo.py",
+          "route": "default",
+          "started_at": "2026-10-11 20:55:00",
+          "stages": {
+            "metadata": "passed",
+            "download": "passed",
+            "media_probe": "passed",
+            "first_second_decode": "passed"
+          },
+          "duration": 53,
+          "selected_height": 480,
+          "selected_width": 480,
+          "formats": 2,
+          "status": "downloaded",
+          "bytes": 1810094,
+          "sha256": "17f407a0e005d2ab73b276e5d5e1d8345f89fecab7f9e521648f252738575aca",
+          "media": {
+            "programs": [],
+            "stream_groups": [],
+            "streams": [
+              {
+                "codec_name": "h264",
+                "codec_type": "video",
+                "width": 480,
+                "height": 480,
+                "r_frame_rate": "30/1"
+              },
+              {
+                "codec_name": "aac",
+                "codec_type": "audio",
+                "r_frame_rate": "0/0"
+              }
+            ],
+            "format": {
+              "duration": "53.173991",
+              "size": "1810094"
+            }
+          },
+          "seconds": 1.844,
+          "variant": "weibo",
+          "resolution": "480×480"
+        },
+        {
+          "variant": "public-guest-end-to-end",
+          "status": "downloaded",
+          "bytes": 1810094,
+          "sha256": "17f407a0e005d2ab73b276e5d5e1d8345f89fecab7f9e521648f252738575aca",
+          "job_ready_seconds": 6.141,
+          "resolution": "480×480",
+          "route": "public-Funnel-guest",
+          "stages": {
+            "submit": "passed",
+            "server_download": "passed",
+            "guest_file_download": "passed",
+            "another_guest_file_access": "404"
+          }
+        }
+      ]
+    },
+    {
+      "platform": "douyin",
+      "name": "抖音",
+      "status": "通过",
+      "passed": true,
+      "resolution": "1080×1920",
+      "bytes": 1117014,
+      "seconds": 8.125,
+      "note": "旧短链重定向到首页已失效；用此前有效视频在生产浏览器解析器复测，完整原流通过。",
+      "attempts": [
+        {
+          "platform": "douyin",
+          "url": "https://v.douyin.com/GeBf_lK8nM/",
+          "source": "user previously tested public video",
+          "route": "default",
+          "started_at": "2026-10-11 20:55:42",
+          "stages": {
+            "download": "not_passed"
+          },
+          "status": "not_completed",
+          "error": "ERROR: Unsupported URL: https://www.douyin.com/",
+          "seconds": 2.203,
+          "variant": "douyin",
+          "resolution": ""
+        },
+        {
+          "platform": "douyin-production",
+          "url": "",
+          "source": "User-authorized video; URL omitted from public report",
+          "started_at": "2026-10-11 21:18:06",
+          "stages": {
+            "metadata": "passed",
+            "download": "passed",
+            "media_probe": "passed",
+            "first_second_decode": "passed"
+          },
+          "route": "production-browser",
+          "status": "downloaded",
+          "bytes": 1117014,
+          "sha256": "60c9c0edd4ab1d0125ec08af677fe3d7383351913c3ae113c2d19d3504e4f254",
+          "media": {
+            "programs": [],
+            "stream_groups": [],
+            "streams": [
+              {
+                "codec_name": "aac",
+                "codec_type": "audio",
+                "r_frame_rate": "0/0"
+              },
+              {
+                "codec_name": "h264",
+                "codec_type": "video",
+                "width": 1080,
+                "height": 1920,
+                "r_frame_rate": "30/1"
+              }
+            ],
+            "format": {
+              "duration": "8.066667",
+              "size": "1117014"
+            }
+          },
+          "duration": 8.067,
+          "selected_height": 1920,
+          "selected_width": 1080,
+          "seconds": 8.125,
+          "variant": "douyin-production",
+          "resolution": "1080×1920"
+        }
+      ]
+    },
+    {
+      "platform": "sohu",
+      "name": "搜狐视频",
+      "status": "通过",
+      "passed": true,
+      "resolution": "848×480",
+      "bytes": 14265796,
+      "seconds": 1.859,
+      "note": "公开样例完整下载，ffprobe识别视频轨并通过首秒解码；保存当前授权可取得的最高格式，未重新压缩。",
+      "attempts": [
+        {
+          "platform": "sohu",
+          "url": "http://my.tv.sohu.com/us/232799889/78693464.shtml",
+          "source": "https://github.com/yt-dlp/yt-dlp/blob/master/yt_dlp/extractor/sohu.py",
+          "route": "default",
+          "started_at": "2026-10-11 20:55:27",
+          "stages": {
+            "metadata": "passed",
+            "download": "passed",
+            "media_probe": "passed",
+            "first_second_decode": "passed"
+          },
+          "duration": 213,
+          "selected_height": null,
+          "selected_width": null,
+          "formats": 1,
+          "status": "downloaded",
+          "bytes": 14265796,
+          "sha256": "df55dcd27c17623e6d91fb05f00f9ce8bfc4f12e2c3540ba6a072fa640afcf90",
+          "media": {
+            "programs": [],
+            "stream_groups": [],
+            "streams": [
+              {
+                "codec_name": "h264",
+                "codec_type": "video",
+                "width": 848,
+                "height": 480,
+                "r_frame_rate": "25/1"
+              },
+              {
+                "codec_name": "aac",
+                "codec_type": "audio",
+                "r_frame_rate": "0/0"
+              }
+            ],
+            "format": {
+              "duration": "213.066304",
+              "size": "14265796"
+            }
+          },
+          "seconds": 1.859,
+          "variant": "sohu",
+          "resolution": "848×480"
+        }
+      ]
+    },
+    {
+      "platform": "zhihu",
+      "name": "知乎视频",
+      "status": "通过",
+      "passed": true,
+      "resolution": "1920×1080",
+      "bytes": 17274307,
+      "seconds": 8.157,
+      "note": "公开样例完整下载，ffprobe识别视频轨并通过首秒解码；保存当前授权可取得的最高格式，未重新压缩。",
+      "attempts": [
+        {
+          "platform": "zhihu",
+          "url": "https://www.zhihu.com/zvideo/1342930761977176064",
+          "source": "https://github.com/yt-dlp/yt-dlp/blob/master/yt_dlp/extractor/zhihu.py",
+          "route": "default",
+          "started_at": "2026-10-11 20:55:27",
+          "stages": {
+            "metadata": "passed",
+            "download": "passed",
+            "media_probe": "passed",
+            "first_second_decode": "passed"
+          },
+          "duration": 146.333,
+          "selected_height": 1080,
+          "selected_width": 1920,
+          "formats": 4,
+          "status": "downloaded",
+          "bytes": 17274307,
+          "sha256": "3770f61a3b2020b9c7c6885df17a8435b2c74f0671c33ec0587414006143e280",
+          "media": {
+            "programs": [],
+            "stream_groups": [],
+            "streams": [
+              {
+                "codec_name": "h264",
+                "codec_type": "video",
+                "width": 1920,
+                "height": 1080,
+                "r_frame_rate": "25/1"
+              },
+              {
+                "codec_name": "aac",
+                "codec_type": "audio",
+                "r_frame_rate": "0/0"
+              }
+            ],
+            "format": {
+              "duration": "146.320000",
+              "size": "17274307"
+            }
+          },
+          "seconds": 8.157,
+          "variant": "zhihu",
+          "resolution": "1920×1080"
+        }
+      ]
+    },
+    {
+      "platform": "tencent",
+      "name": "腾讯视频",
+      "status": "通过",
+      "passed": true,
+      "resolution": "1280×720",
+      "bytes": 61334594,
+      "seconds": 3.484,
+      "note": "公开样例完整下载，ffprobe识别视频轨并通过首秒解码；保存当前授权可取得的最高格式，未重新压缩。",
+      "attempts": [
+        {
+          "platform": "tencent",
+          "url": "https://v.qq.com/x/page/q326831cny0.html",
+          "source": "yt-dlp/tencent.py",
+          "route": "default",
+          "started_at": "2026-10-11 20:55:36",
+          "stages": {
+            "metadata": "passed",
+            "download": "passed",
+            "media_probe": "passed",
+            "first_second_decode": "passed"
+          },
+          "duration": null,
+          "selected_height": 720,
+          "selected_width": 1280,
+          "formats": 8,
+          "status": "downloaded",
+          "bytes": 61334594,
+          "sha256": "2d1219ac51d2cab3204318988f6fe55438968f991cbff78931510420e1d05aee",
+          "media": {
+            "programs": [],
+            "stream_groups": [],
+            "streams": [
+              {
+                "codec_name": "h264",
+                "codec_type": "video",
+                "width": 1280,
+                "height": 720,
+                "r_frame_rate": "25/1"
+              },
+              {
+                "codec_name": "aac",
+                "codec_type": "audio",
+                "r_frame_rate": "0/0"
+              }
+            ],
+            "format": {
+              "duration": "215.958333",
+              "size": "61334594"
+            }
+          },
+          "seconds": 3.484,
+          "variant": "tencent",
+          "resolution": "1280×720"
+        }
+      ]
+    },
+    {
+      "platform": "mango",
+      "name": "芒果TV",
+      "status": "通过",
+      "passed": true,
+      "resolution": "1280×720",
+      "bytes": 2318521,
+      "seconds": 3.25,
+      "note": "首条4026秒超出测试时长限制，不计平台故障；替换官方15秒品牌片后完整720p下载通过。",
+      "attempts": [
+        {
+          "platform": "mango",
+          "url": "https://w.mgtv.com/b/427837/15588271.html",
+          "source": "https://github.com/yt-dlp/yt-dlp/blob/master/yt_dlp/extractor/mgtv.py",
+          "route": "default",
+          "started_at": "2026-10-11 20:54:59",
+          "stages": {
+            "metadata": "passed",
+            "download": "not_passed"
+          },
+          "duration": 4026,
+          "selected_height": null,
+          "selected_width": null,
+          "formats": 3,
+          "status": "not_completed",
+          "error": "Sample exceeds 15 minutes; download not tested",
+          "seconds": 2.219,
+          "variant": "mango",
+          "resolution": ""
+        },
+        {
+          "platform": "mango-retest",
+          "url": "https://w.mgtv.com/b/55617/7519149.html",
+          "source": "Mango public brand promotional clip",
+          "route": "default",
+          "started_at": "2026-10-11 21:01:27",
+          "stages": {
+            "metadata": "passed",
+            "download": "passed",
+            "media_probe": "passed",
+            "first_second_decode": "passed"
+          },
+          "duration": 15,
+          "selected_height": null,
+          "selected_width": null,
+          "formats": 3,
+          "status": "downloaded",
+          "bytes": 2318521,
+          "sha256": "343465eabc02b9f99d436c1964d88ff0bc8f3c8f9c3ade749b47f1fa986129e4",
+          "media": {
+            "programs": [],
+            "stream_groups": [],
+            "streams": [
+              {
+                "codec_name": "h264",
+                "codec_type": "video",
+                "width": 1280,
+                "height": 720,
+                "r_frame_rate": "25/1"
+              },
+              {
+                "codec_name": "aac",
+                "codec_type": "audio",
+                "r_frame_rate": "0/0"
+              }
+            ],
+            "format": {
+              "duration": "15.168000",
+              "size": "2318521"
+            }
+          },
+          "seconds": 3.25,
+          "variant": "mango-retest",
+          "resolution": "1280×720"
+        }
+      ]
+    },
+    {
+      "platform": "rumble",
+      "name": "Rumble",
+      "status": "未完成 / 未通过",
+      "passed": false,
+      "resolution": "",
+      "bytes": null,
+      "seconds": 1.625,
+      "note": "维护者样例元数据HTTP403；原网络与现有本机SOCKS路径均相同失败，未取得文件。",
+      "attempts": [
+        {
+          "platform": "rumble",
+          "url": "https://rumble.com/embed/v5pv5f",
+          "source": "yt-dlp/rumble.py",
+          "route": "default",
+          "started_at": "2026-10-11 21:13:36",
+          "stages": {
+            "download": "not_passed"
+          },
+          "status": "not_completed",
+          "error": "ERROR: [RumbleEmbed] v5pv5f: Unable to download JSON metadata: HTTP Error 403: Forbidden (caused by <HTTPError 403: Forbidden>)",
+          "seconds": 1.594,
+          "variant": "rumble",
+          "resolution": ""
+        },
+        {
+          "platform": "rumble-route",
+          "url": "https://rumble.com/embed/v5pv5f",
+          "source": "yt-dlp/rumble.py",
+          "proxy": true,
+          "route": "existing-local-socks",
+          "started_at": "2026-10-11 21:22:36",
+          "stages": {
+            "download": "not_passed"
+          },
+          "status": "not_completed",
+          "error": "ERROR: [RumbleEmbed] v5pv5f: Unable to download JSON metadata: HTTP Error 403: Forbidden (caused by <HTTPError 403: Forbidden>)",
+          "seconds": 1.625,
+          "variant": "rumble-route",
+          "resolution": ""
+        }
+      ]
+    },
+    {
+      "platform": "vimeo",
+      "name": "Vimeo",
+      "status": "未完成 / 未通过",
+      "passed": false,
+      "resolution": "",
+      "bytes": null,
+      "seconds": 7.218,
+      "note": "密码/登录样例不可匿名访问；官方播放器样例最佳流被标记DRM，使用正常check-formats检查后也无可用的非加密格式；另一个旧公开样例HTTP401。本轮未通过，未绕过加密。",
+      "attempts": [
+        {
+          "platform": "vimeo",
+          "url": "http://vimeo.com/68375962",
+          "source": "https://github.com/yt-dlp/yt-dlp/blob/master/yt_dlp/extractor/vimeo.py",
+          "route": "default",
+          "started_at": "2026-10-11 20:55:09",
+          "stages": {
+            "download": "not_passed"
+          },
+          "status": "not_completed",
+          "error": "ERROR: [vimeo] 68375962: The web client only works when logged-in. Use --cookies, --cookies-from-browser, --username and --password, --netrc-cmd, or --netrc (vimeo) to provide account credentials. See  https://github.com/yt-dlp/yt-dlp/wiki/FAQ  for how to manually pass cookies",
+          "seconds": 2.328,
+          "variant": "vimeo",
+          "resolution": ""
+        },
+        {
+          "platform": "vimeo-retest",
+          "url": "https://player.vimeo.com/video/76979871",
+          "source": "Vimeo official player demo",
+          "route": "default",
+          "started_at": "2026-10-11 21:01:27",
+          "stages": {
+            "metadata": "passed",
+            "download": "not_passed"
+          },
+          "duration": 62,
+          "selected_height": 720,
+          "selected_width": 1280,
+          "formats": 12,
+          "status": "not_completed",
+          "error": "ERROR: This format is DRM protected; Try selecting another format with --format or add --check-formats to automatically fallback to the next best format",
+          "seconds": 4.313,
+          "variant": "vimeo-retest",
+          "resolution": ""
+        },
+        {
+          "platform": "vimeo-public",
+          "url": "https://player.vimeo.com/video/98044508",
+          "source": "Vimeo official demo",
+          "route": "default",
+          "started_at": "2026-10-11 21:13:28",
+          "stages": {
+            "download": "not_passed"
+          },
+          "status": "not_completed",
+          "error": "ERROR: [vimeo] 98044508: Unable to download webpage: HTTP Error 401: Unauthorized (caused by <HTTPError 401: Unauthorized>)",
+          "seconds": 1.297,
+          "variant": "vimeo-public",
+          "resolution": ""
+        },
+        {
+          "platform": "vimeo-unencrypted",
+          "url": "https://player.vimeo.com/video/76979871",
+          "source": "Vimeo official player demo; unencrypted-format availability check",
+          "check_formats": true,
+          "route": "default",
+          "started_at": "2026-10-11 21:22:36",
+          "stages": {
+            "download": "not_passed"
+          },
+          "status": "not_completed",
+          "error": "ERROR: [vimeo] 76979871: Requested format is not available. Use --list-formats for a list of available formats",
+          "seconds": 7.218,
+          "variant": "vimeo-unencrypted",
+          "resolution": ""
+        }
+      ]
+    },
+    {
+      "platform": "haokan",
+      "name": "好看视频",
+      "status": "未完成 / 未通过",
+      "passed": false,
+      "resolution": "",
+      "bytes": null,
+      "seconds": 2.094,
+      "note": "公开样例被现有引擎判为Unsupported URL。尚无专用解析器，未通过。",
+      "attempts": [
+        {
+          "platform": "haokan",
+          "url": "https://haokan.baidu.com/v?vid=5996184502817403923",
+          "source": "Public tutorial found by web search",
+          "route": "default",
+          "started_at": "2026-10-11 21:01:34",
+          "stages": {
+            "download": "not_passed"
+          },
+          "status": "not_completed",
+          "error": "ERROR: Unsupported URL: https://haokan.baidu.com/v",
+          "seconds": 2.094,
+          "variant": "haokan",
+          "resolution": ""
+        }
+      ]
+    },
+    {
+      "platform": "xiaohongshu",
+      "name": "小红书视频 / 图片",
+      "status": "未完成 / 未通过",
+      "passed": false,
+      "resolution": "",
+      "bytes": null,
+      "seconds": 1.5,
+      "note": "旧视频分享链接没有返回格式；上一轮通过的5张图片笔记本轮不再公开返回正文，完整分享参数具有时效性。公开首页在本次网络路径下返回空列表，不能凭此获取新样例。图片模块保留，需当前可公开访问的完整分享链接；本轮未通过。",
+      "attempts": [
+        {
+          "platform": "xhs-video",
+          "url": "https://www.xiaohongshu.com/discovery/item/674051740000000007027a15",
+          "source": "https://github.com/yt-dlp/yt-dlp/blob/master/yt_dlp/extractor/xiaohongshu.py",
+          "route": "default",
+          "started_at": "2026-10-11 20:55:22",
+          "stages": {
+            "download": "not_passed"
+          },
+          "status": "not_completed",
+          "error": "ERROR: [XiaoHongShu] 674051740000000007027a15: No video formats found!; please report this issue on  https://github.com/yt-dlp/yt-dlp/issues , filling out the appropriate issue template. Confirm you are on the latest version using  yt-dlp -U",
+          "seconds": 1.187,
+          "variant": "xhs-video",
+          "resolution": ""
+        },
+        {
+          "platform": "xhs-images-retest",
+          "url": "https://www.xiaohongshu.com/explore/6a9a4acf0000000026021a0c",
+          "source": "Previously submitted public note",
+          "started_at": "2026-10-11 21:22:34",
+          "route": "production-image-adapter",
+          "status": "not_completed",
+          "error": "小红书笔记不可公开读取，链接可能失效或需要登录；请使用 App 的完整分享链接（保留链接参数）",
+          "seconds": 1.5,
+          "variant": "xhs-images-retest",
+          "resolution": ""
+        }
+      ]
+    },
+    {
+      "platform": "wechat",
+      "name": "微信视频号",
+      "status": "待扫码和真实媒体验收",
+      "passed": false,
+      "resolution": "",
+      "bytes": null,
+      "seconds": null,
+      "note": "普通引擎不支持视频号；3条公开分享可读封面/文字，但不提供媒体流。元宝匿名解析HTTP401。现已接入管理员扫码授权与原播放流解码、媒体校验；授权尚未完成，真实下载未验收。",
+      "attempts": [
+        {
+          "platform": "wechat",
+          "url": "https://weixin.qq.com/sph/AD8rWl3ssY",
+          "source": "https://github.com/ltaoo/wx_channels_download/discussions/250",
+          "route": "default",
+          "started_at": "2026-10-11 20:55:41",
+          "stages": {
+            "download": "not_passed"
+          },
+          "status": "not_completed",
+          "error": "ERROR: Unsupported URL: https://channels.weixin.qq.com/finder-preview/pages/sph",
+          "seconds": 2.438,
+          "variant": "wechat",
+          "resolution": ""
+        },
+        {
+          "variant": "authorized-adapter",
+          "status": "awaiting_login",
+          "route": "Yuanbao official authorization",
+          "stages": {
+            "anonymous_metadata": "passed",
+            "anonymous_authorization": "HTTP401",
+            "adapter_unit_tests": "passed"
+          },
+          "error": "二维码已生成，请在聊天中的图片扫码并在微信确认登录",
+          "resolution": ""
+        }
+      ]
+    },
+    {
+      "platform": "kuaishou",
+      "name": "快手",
+      "status": "未完成 / 未通过",
+      "passed": false,
+      "resolution": "",
+      "bytes": null,
+      "seconds": 2.891,
+      "note": "搜索得到公开分享地址，但现有引擎无对应解析器；页面本次HTTP200但正文为空，不能取得真实视频。未通过。",
+      "attempts": [
+        {
+          "platform": "kuaishou",
+          "url": "https://www.kuaishou.com/short-video/3xvzf4jsvsv46ty",
+          "source": "Kuaishou public share found by web search",
+          "route": "default",
+          "started_at": "2026-10-11 21:13:24",
+          "stages": {
+            "download": "not_passed"
+          },
+          "status": "not_completed",
+          "error": "ERROR: Unsupported URL: https://www.kuaishou.com/short-video/3xvzf4jsvsv46ty",
+          "seconds": 2.891,
+          "variant": "kuaishou",
+          "resolution": ""
+        }
+      ]
+    },
+    {
+      "platform": "iqiyi",
+      "name": "爱奇艺",
+      "status": "未完成 / 未通过",
+      "passed": false,
+      "resolution": "",
+      "bytes": null,
+      "seconds": 0.765,
+      "note": "旧链接与当前官方片花页新链接均未被现有引擎解析，错误为无法找到视频字段。不能据此认定账号未登录，也不能承诺会员/DRM内容可下；本轮未取得媒体流。",
+      "attempts": [
+        {
+          "platform": "iqiyi",
+          "url": "https://www.iqiyi.com/v_19rrojlavg.html",
+          "source": "yt-dlp/iqiyi.py",
+          "route": "default",
+          "started_at": "2026-10-11 20:55:40",
+          "stages": {
+            "download": "not_passed"
+          },
+          "status": "not_completed",
+          "error": "ERROR: [iqiyi] Can't find any video; please report this issue on  https://github.com/yt-dlp/yt-dlp/issues , filling out the appropriate issue template. Confirm you are on the latest version using  yt-dlp -U",
+          "seconds": 0.75,
+          "variant": "iqiyi",
+          "resolution": ""
+        },
+        {
+          "platform": "iqiyi-current",
+          "url": "https://www.iqiyi.com/v_1012up0ofew.html",
+          "source": "Official current trailer page",
+          "route": "default",
+          "started_at": "2026-10-11 21:13:38",
+          "stages": {
+            "download": "not_passed"
+          },
+          "status": "not_completed",
+          "error": "ERROR: [iqiyi] Can't find any video; please report this issue on  https://github.com/yt-dlp/yt-dlp/issues , filling out the appropriate issue template. Confirm you are on the latest version using  yt-dlp -U",
+          "seconds": 0.765,
+          "variant": "iqiyi-current",
+          "resolution": ""
+        }
+      ]
+    },
+    {
+      "platform": "baidu",
+      "name": "百度网盘",
+      "status": "未完成 / 未通过",
+      "passed": false,
+      "resolution": "原文件 / 未完成",
+      "bytes": 6664185,
+      "seconds": 90.078,
+      "note": "分享列表可读；网页直下载接口本轮返回-20，需要官方授权/验证。当前后台账号仍可通过PCS组件下载，但速度慢。PCS与stream各120秒收到9 MB，locate收到5.44 MB，均未完成345.44 MB文件；2线程未显著增速。默认改PCS单线程，授权不适用时回退locate，保留120秒无数据停滞保护。未完整校验的转存继续保留。",
+      "attempts": [
+        {
+          "mode": "pcs",
+          "seconds": 120.062,
+          "status": "not_completed",
+          "bytes": 9437184,
+          "errors": [],
+          "variant": "mode-pcs",
+          "resolution": "原文件 / 未完成",
+          "expected_bytes": 362218646
+        },
+        {
+          "mode": "stream",
+          "seconds": 120.063,
+          "status": "not_completed",
+          "bytes": 9437184,
+          "errors": [],
+          "variant": "mode-stream",
+          "resolution": "原文件 / 未完成",
+          "expected_bytes": 362218646
+        },
+        {
+          "mode": "locate",
+          "seconds": 120.078,
+          "status": "not_completed",
+          "bytes": 5701632,
+          "errors": [],
+          "variant": "mode-locate",
+          "resolution": "原文件 / 未完成",
+          "expected_bytes": 362218646
+        },
+        {
+          "mode": "pcs",
+          "parallel": 2,
+          "seconds": 90.078,
+          "bytes": 6664185,
+          "complete": false,
+          "variant": "pcs-two-threads",
+          "status": "not_completed",
+          "resolution": "原文件 / 未完成",
+          "expected_bytes": 362218646
+        }
+      ]
+    },
+    {
+      "platform": "xigua",
+      "name": "西瓜视频",
+      "status": "未完成 / 未通过",
+      "passed": false,
+      "resolution": "",
+      "bytes": null,
+      "seconds": 1.282,
+      "note": "公开作者样例要求可用浏览器Cookies；本轮未取得播放格式。未绕过登录/验证。",
+      "attempts": [
+        {
+          "platform": "xigua",
+          "url": "https://m.ixigua.com/video/6764662548781335052",
+          "source": "Official public uploader page found by web search",
+          "route": "default",
+          "started_at": "2026-10-11 21:01:37",
+          "stages": {
+            "download": "not_passed"
+          },
+          "status": "not_completed",
+          "error": "ERROR: [Ixigua] 676466254878133505: Cookies (not necessarily logged in) are needed",
+          "seconds": 1.282,
+          "variant": "xigua",
+          "resolution": ""
+        }
+      ]
+    },
+    {
+      "platform": "ali",
+      "name": "阿里云盘",
+      "status": "上轮通过 / 本轮未复测",
+      "passed": false,
+      "resolution": "原文件 / 不转码",
+      "bytes": 45456516,
+      "seconds": 98,
+      "note": "使用2026-10-11上一轮已完整校验的原文件记录：45,456,516字节，约98秒（含准备与清理），SHA1校验通过，临时转存已清理。本轮未重新下载该文件。",
+      "attempts": [
+        {
+          "variant": "previous-run-original",
+          "status": "previous_downloaded",
+          "bytes": 45456516,
+          "seconds": 98,
+          "resolution": "原文件 / 不转码",
+          "source": "2026-10-11上一轮真实完整下载与SHA1校验记录",
+          "stages": {
+            "download": "previously_passed",
+            "checksum": "previously_passed",
+            "cleanup": "previously_passed"
+          }
+        }
+      ]
+    }
+  ],
+  "verification": {
+    "unit_tests": 30,
+    "browser_regression_checks": 10,
+    "production_admin_ui": "passed",
+    "production_guest_denies_account_and_qr": "passed",
+    "production_report_filter": "34 / 24 passed",
+    "local_http": 200,
+    "public_http": 200,
+    "public_repair": "Funnel configuration was present but TLS connection closed. Turning off/on only this HTTPS443 mapping restored HTTP200. Existing other mappings were not reset.",
+    "public_guest_end_to_end": {
+      "status": "done",
+      "public_http": 200,
+      "owner_isolation": true,
+      "bytes": 1810094,
+      "sha256": "17f407a0e005d2ab73b276e5d5e1d8345f89fecab7f9e521648f252738575aca",
+      "job_ready_seconds": 6.141,
+      "download_integrity": "file size and SHA256 checked after full HTTP response"
+    }
+  }
+}

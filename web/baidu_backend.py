@@ -11,6 +11,10 @@ LOCK=threading.Lock()
 def configured():
     return (ROOT/'baidu-connected.flag').is_file() and (ROOT/'private-baidu').is_dir()
 
+def decode_log(content):
+    try:return content.decode('utf-8')
+    except UnicodeDecodeError:return content.decode('gb18030',errors='replace')
+
 def cli():
     executable=next((ROOT/'pcs').rglob('BaiduPCS-Go.exe'),None)
     if executable is None: raise ValueError('百度下载组件缺失')
@@ -19,7 +23,7 @@ def cli():
 def remove_command(executable,env,remote):
     if not re.fullmatch(r'/网站下载任务/[0-9a-f]{12}',remote): raise ValueError('转存目录不属于本次任务')
     r=subprocess.run([str(executable),'rm',remote],env=env,capture_output=True,timeout=60,creationflags=subprocess.CREATE_NO_WINDOW)
-    message=r.stdout.decode('utf-8',errors='replace')
+    message=decode_log(r.stdout)
     if r.returncode or '操作成功' not in message or '已删除' not in message or remote not in message: raise ValueError('百度未确认临时转存删除成功')
 
 def delete_temp(content,remote):
@@ -91,14 +95,18 @@ def run(url,password,out,progress,cancelled):
                     if process.returncode: raise ValueError('百度后台命令失败，请检查账号有效期和下载权限')
                 finally:
                     if process.poll() is None: process.terminate();process.wait(timeout=10)
-            if monitor: return ''
-            return log.read_text(encoding='utf-8',errors='replace')
+            return decode_log(log.read_bytes())
         remote='/网站下载任务/'+out.name
         response=command(['mkdir',remote])
         if '创建目录成功' not in response: raise ValueError('未确认本次临时目录创建成功，尚未转存')
         cloud_cleanup.register(out.name,identity,'baidu',remote)
         command(['cd',remote]);command(['config','set','-savedir',str(out)])
-        command(['transfer','--download',url,*([password] if password and '?pwd=' not in url else [])],timeout=43200,monitor=True)
+        # Separate the transfer from download so the documented PCS mode can be used.
+        # This account's bounded tests received 9 MB via PCS vs 5.4 MB via locate.
+        command(['transfer',url,*([password] if password and '?pwd=' not in url else [])],timeout=180)
+        download_log=command(['download','--mode','pcs','--saveto',str(out),'-p','1','-l','1','--retry','1',remote],timeout=43200,monitor=True)
+        if 'user is not authorized' in download_log.lower():
+            command(['download','--mode','locate','--saveto',str(out),'-p','1','-l','1','--retry','1',remote],timeout=43200,monitor=True)
         candidates=[p for p in out.rglob('*') if p.is_file() and p.name not in ('meta.json','.cloud-incomplete') and not p.name.endswith(('.part','.tmp','.BaiduPCS-Go-downloading'))]
         results=[];used=set()
         for item in files:

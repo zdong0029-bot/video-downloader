@@ -89,8 +89,11 @@ class Share:
             data={'encrypt':0,'product':'share','uk':self.uk,'primaryid':self.shareid,
                   'fid_list':json.dumps([item['fs_id']]),'extra':json.dumps({'sekey':self.secret})}).json(),'获取原文件')
         result=data.get('list')
+        if isinstance(result,str):
+            try:result=json.loads(result)
+            except (ValueError,TypeError):result=None
         if not isinstance(result,list):
-            raise AuthorizationRequired('已读取文件列表，但百度未提供匿名原文件地址；此文件需要后台账号授权后转存下载，不能标记为完成')
+            raise AuthorizationRequired('百度未向当前授权返回原文件下载地址；需要使用后台账号转存下载，文件尚未完成')
         for entry in result:
             if str(entry.get('fs_id'))==str(item['fs_id']) and entry.get('dlink'):
                 return entry['dlink']

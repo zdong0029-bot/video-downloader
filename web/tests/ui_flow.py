@@ -14,6 +14,8 @@ FIXTURE=ROOT/'fixture.mp4'
 results={}
 class FakeYDL:
     def __init__(self,opts):self.opts=opts
+    def add_info_extractor(self,extractor):
+        assert extractor.ie_key()=='TedTalk'
     def __enter__(self):return self
     def __exit__(self,*args):pass
     def extract_info(self,url,download=True):
@@ -53,6 +55,9 @@ try:
         for selector in ['#adminBtn','#cloudAccountsBtn','#scopeBtn','#logoutBtn','#sourceModeRow','#transferModeRow','#cloudStatusRow']:
             expect(page.locator(selector)).to_be_hidden()
         assert ctx.request.get(BASE+'/api/admin/cloud-accounts').status==403
+        assert ctx.request.get(BASE+'/api/admin/video-accounts').status==403
+        assert ctx.request.post(BASE+'/api/admin/video-accounts/connect').status==403
+        assert ctx.request.post(BASE+'/api/admin/video-accounts/check').status==403
         page.locator('#url').focus()
         for value in ['https://example.com/a.mp4','https://example.com/b.mp4']:
             page.evaluate("text=>document.querySelector('#url').dispatchEvent(new ClipboardEvent('paste',{bubbles:true,cancelable:true,clipboardData:(()=>{const d=new DataTransfer();d.setData('text/plain',text);return d;})()}))",value)

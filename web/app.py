@@ -41,6 +41,7 @@ import cloud_backend
 import cloud_cleanup
 import video_catalog
 import xhs_images
+import video_accounts, wechat_channels, platform_extractors
 
 ROOT = Path(__file__).parent
 DOWNLOADS = ROOT / "downloads"
@@ -275,6 +276,16 @@ def _run_douyin(job: Job) -> None:
 
 def _run_web(job: Job) -> None:
     out = _job_dir(job.id)
+    if video_accounts.supported(job.url):
+        job.total=1;job.message='正在解析视频号授权播放信息…'
+        def channel_progress(size,total):
+            job.progress=size/total if total else 0
+            getattr(job,'progress_target',job).progress=job.progress
+            job.message=f'视频号 · 已接收 {size/1048576:.1f} MB'
+        title,path,media=wechat_channels.download(job.url,out,channel_progress,job.cancelled)
+        job.title=title;job.files.append(FileItem(path.name,path.stat().st_size,True));job.finished=1
+        job.cloud_note=f"视频号原播放流 {media.get('width',0)}×{media.get('height',0)}；未转码，已通过媒体校验"
+        return
     if xhs_images.supported(job.url):
         def image_progress(done,total,size):
             job.total=total;job.progress=done/total if total else 0
@@ -342,6 +353,7 @@ def _run_web(job: Job) -> None:
 
     job.total = 1
     with yt_dlp.YoutubeDL(opts) as ydl:
+        platform_extractors.install(ydl)
         try:
             info = ydl.extract_info(job.url, download=True)
         except yt_dlp.utils.DownloadError as error:
@@ -1251,5 +1263,35 @@ def cloud_account_connect(body: CloudConnect, request: Request, me: Identity = D
         pythonw=Path(sys.executable).with_name('pythonw.exe')
         _cloud_connector=subprocess.Popen([str(pythonw),str(ROOT/'connect_cloud.py'),body.provider],cwd=str(ROOT),creationflags=subprocess.CREATE_NO_WINDOW)
     return {'ok':True,'message':'主机已打开官方授权窗口，请扫码后点击保存账号'}
+
+
+@app.get('/api/admin/video-accounts')
+def video_account_status(me: Identity = Depends(admin_only)):
+    return video_accounts.status()
+
+
+@app.get('/api/admin/video-accounts/qr')
+def video_account_qr(me: Identity = Depends(admin_only)):
+    if not video_accounts.status().get('qr_available'):raise HTTPException(404,'二维码未生成或已过期，请重新连接')
+    return FileResponse(video_accounts.STORE.parent/'qr-login.png',media_type='image/png',headers={'Cache-Control':'no-store'})
+
+@app.post('/api/admin/video-accounts/check')
+def video_account_check(me: Identity = Depends(admin_only)):
+    try:return video_accounts.check()
+    except ValueError as error:raise HTTPException(409,str(error)) from None
+    except Exception:raise HTTPException(409,'视频号官方接口暂时无法连接，请稍后重试') from None
+
+@app.post('/api/admin/video-accounts/connect')
+def video_account_connect(request: Request,me: Identity = Depends(admin_only)):
+    global _cloud_connector
+    if not request.client or request.client.host not in ('127.0.0.1','::1'):
+        raise HTTPException(403,'请在下载器主机原首页扫码连接视频号')
+    with _cloud_connector_lock:
+        if _cloud_connector is not None and _cloud_connector.poll() is None:
+            raise HTTPException(409,'已有授权窗口，请先完成或关闭')
+        import sys
+        pythonw=Path(sys.executable).with_name('pythonw.exe')
+        _cloud_connector=subprocess.Popen([str(pythonw),str(ROOT/'connect_yuanbao_qr.py')],cwd=str(ROOT),creationflags=subprocess.CREATE_NO_WINDOW)
+    return {'ok':True,'message':'正在生成元宝官方二维码，请在本页扫码，并在微信确认登录'}
 
 app.mount("/", StaticFiles(directory=STATIC, html=True), name="static")

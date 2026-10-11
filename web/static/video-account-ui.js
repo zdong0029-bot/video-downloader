@@ -1,0 +1,8 @@
+(() => {
+ const box=document.querySelector('#channelStatus');let waiting=false;
+ async function api(path,post=false){const r=await fetch('/api/admin/video-accounts'+path,{method:post?'POST':'GET'});const d=await r.json();if(!r.ok)throw Error(d.detail||'连接失败');return d;}
+ async function refresh(){if(!ME)return;try{const d=await api('');box.textContent=(d.qr_message||d.message)+(d.checked_at?' · '+new Date(d.checked_at*1000).toLocaleString():'');const qr=document.querySelector('#channelQR');qr.hidden=!d.qr_available;if(d.qr_available)qr.src='/api/admin/video-accounts/qr?t='+Math.floor(Date.now()/10000);if(d.connected)waiting=false;}catch(e){box.textContent=e.message;}}
+ async function act(button,path){button.disabled=true;try{const d=await api(path,true);box.textContent=d.message||'授权检测通过';if(path==='/connect'){waiting=true;setTimeout(refresh,1800);}}catch(e){box.textContent=e.message;}finally{button.disabled=false;}}
+ window.connectChannels=b=>act(b,'/connect');window.checkChannels=b=>act(b,'/check');
+ setInterval(()=>{if(ME&&!document.querySelector('#adminPanel').hidden)refresh();},5000);
+})();
