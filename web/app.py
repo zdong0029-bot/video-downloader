@@ -37,6 +37,7 @@ import douyin
 import symphony
 import file_download
 import baidu_backend
+import video_catalog
 
 ROOT = Path(__file__).parent
 DOWNLOADS = ROOT / "downloads"
@@ -60,7 +61,7 @@ class FileItem:
 class Job:
     id: str
     url: str
-    kind: Literal["symphony", "douyin", "web", "file", "cloud"]
+    kind: Literal["symphony", "douyin", "web", "file", "cloud", "collection"]
     status: Literal["queued", "running", "done", "error", "partial", "cancelled"] = "queued"
     title: str = ""
     message: str = ""
@@ -72,6 +73,8 @@ class Job:
     created: float = field(default_factory=time.time)
     owner: str = ""          # 提交这个任务的设备标识，用于隔离各设备的记录
     owner_label: str = ""    # 人类可读的设备名，只给管理员看
+    batch_id: str = ""
+    entries: list[dict] = field(default_factory=list, repr=False)
     stop: threading.Event = field(default_factory=threading.Event, repr=False)
 
     def cancelled(self) -> bool:
@@ -82,6 +85,7 @@ class Job:
             "id": self.id,
             "url": self.url,
             "kind": self.kind,
+            "batch_id": self.batch_id,
             "status": self.status,
             "title": self.title,
             "message": self.message,
@@ -140,6 +144,7 @@ def _save_meta(job: Job) -> None:
         (DOWNLOADS / job.id / META).write_text(json.dumps({
             "id": job.id, "url": job.url, "kind": job.kind,
             "title": job.title, "created": job.created, "owner": job.owner, "owner_label": job.owner_label,
+            "batch_id": job.batch_id,
         }, ensure_ascii=False), encoding="utf-8")
     except OSError:
         pass
@@ -186,6 +191,7 @@ def _restore_jobs() -> None:
             created=meta.get("created") or d.stat().st_mtime,
             owner=meta.get("owner", ""),
             owner_label=meta.get("owner_label", ""),
+            batch_id=meta.get("batch_id", ""),
         )
         job.files = [FileItem(p.name, p.stat().st_size, True) for p in sorted(files)]
         job.total = job.finished = len(job.files)
@@ -248,7 +254,7 @@ def _run_douyin(job: Job) -> None:
     out = _job_dir(job.id)
     path = out / douyin.safe_filename(video)
 
-    douyin.download(video, path, on_progress=lambda p: setattr(job, "progress", p),
+    douyin.download(video, path, on_progress=lambda p: setattr(getattr(job, "progress_target", job), "progress", p),
                     should_stop=job.cancelled)
     job.files.append(FileItem(path.name, path.stat().st_size, True))
     job.finished = 1
@@ -256,15 +262,19 @@ def _run_douyin(job: Job) -> None:
 
 def _run_web(job: Job) -> None:
     out = _job_dir(job.id)
+    before = {p.name for p in out.iterdir() if p.is_file()}
+    progress_job = getattr(job, "progress_target", job)
 
     def hook(d: dict) -> None:
         # yt-dlp 没有取消 API，只能在进度回调里抛异常把它打断
         if job.cancelled():
             raise Cancelled()
         if d.get("status") == "downloading":
+            job.total = max(job.total, int(d.get("info_dict", {}).get("playlist_count") or 1))
             total = d.get("total_bytes") or d.get("total_bytes_estimate") or 0
             if total:
                 job.progress = min(1.0, (d.get("downloaded_bytes") or 0) / total)
+                progress_job.progress = job.progress
             name = d.get("info_dict", {}).get("title")
             if name:
                 job.message = name
@@ -279,8 +289,9 @@ def _run_web(job: Job) -> None:
         # yt-dlp 默认把"编码格式新"排在码率前面，在 TikTok 上会选中同样 720p
         # 但码率只有三分之一的 H.265 流，分辨率没缩水细节却被压没了，看着发糊。
         "format_sort": ["res", "fps", "tbr"],
+        "format_sort_force": True,
         "merge_output_format": "mp4",
-        "noplaylist": True,
+        "noplaylist": False,
         "windowsfilenames": True,
         "retries": 10,
         "fragment_retries": 10,
@@ -308,17 +319,55 @@ def _run_web(job: Job) -> None:
     job.total = 1
     with yt_dlp.YoutubeDL(opts) as ydl:
         info = ydl.extract_info(job.url, download=True)
+        if not info:
+            raise RuntimeError("平台未返回可下载视频")
         job.title = info.get("title") or job.url
+        if info.get("entries") is not None:
+            job.total = max(job.total, len(list(info["entries"])))
 
     # 以磁盘上的成品为准。中途失败会留下 .part / .ytdl，那些不是成品，
     # 不能算成功——否则一个下到一半的大文件会被报成"下载完成"。
     junk = {".part", ".ytdl", ".tmp", ".temp", ".json"}
-    got = [p for p in out.iterdir() if p.is_file() and p.suffix.lower() not in junk]
+    got = [p for p in out.iterdir() if p.is_file() and p.suffix.lower() not in junk and p.name not in before]
     if not got:
         raise RuntimeError("下载结束但没有产出文件")
     for p in got:
         job.files.append(FileItem(p.name, p.stat().st_size, True))
     job.finished = len(got)
+    job.total = max(job.total, len(got))
+
+
+def _run_collection(job: Job) -> None:
+    title = job.title
+    job.total = len(job.entries)
+    for i, entry in enumerate(job.entries, 1):
+        if job.cancelled():
+            raise Cancelled()
+        job.progress = 0.0
+        job.message = f"({i}/{job.total}) {entry['title']}"
+        child = Job(id=job.id, url=entry["url"], kind=_kind_of(entry["url"]) or "web",
+                    owner=job.owner, stop=job.stop)
+        child.progress_target = job
+        try:
+            if child.kind == "douyin":
+                _run_douyin(child)
+            else:
+                _run_web(child)
+            existing = {f.name for f in job.files}
+            for f in child.files:
+                if f.name not in existing:
+                    job.files.append(f)
+                    existing.add(f.name)
+            job.finished += 1
+            _save_meta(job)
+        except Cancelled:
+            raise
+        except Exception as error:
+            if isinstance(error.__cause__, Cancelled):
+                raise Cancelled() from error
+            job.failed += 1
+            job.message = f"{entry['title']} 失败：{error}"
+    job.title = title
 
 
 def _drop_empty_cancelled(job: Job) -> None:
@@ -342,7 +391,9 @@ def _worker(job: Job) -> None:
             return
         job.status = "running"
         try:
-            if job.kind == "symphony":
+            if job.kind == "collection":
+                _run_collection(job)
+            elif job.kind == "symphony":
                 _run_symphony(job)
             elif job.kind == "douyin":
                 _run_douyin(job)
@@ -633,7 +684,7 @@ def remove_user(name: str, me: Identity = Depends(admin_only)) -> dict:
 
 class NewJob(BaseModel):
     url: str
-    mode: Literal["auto", "file"] = "auto"
+    mode: Literal["auto", "file", "profile"] = "auto"
 
 
 _URL_RE = re.compile(r"https?://[^\s一-鿿，。、；：！？（）【】「」…]+")
@@ -695,6 +746,126 @@ def _kind_of(url: str) -> Literal["symphony", "douyin", "web", "file", "cloud"] 
     return None
 
 
+
+# Profile previews are separate from download jobs: no media is downloaded until selected.
+_catalogs: dict[str, dict] = {}
+_catalog_lock = threading.RLock()
+_catalog_slots = threading.Semaphore(2)
+
+def _catalog_public(c):
+    return {k: v for k, v in c.items() if k not in ("owner", "batch_id")}
+
+def _catalog_worker(cid):
+    with _catalog_slots:
+        with _catalog_lock:
+            c = _catalogs.get(cid)
+        if not c:
+            return
+        try:
+            options = {}
+            if COOKIES.is_file():
+                options["cookiefile"] = str(COOKIES)
+            elif _firefox_profile():
+                options["cookiesfrombrowser"] = ("firefox", None, None, None)
+            def update(entries, title):
+                with _catalog_lock:
+                    c.update(entries=[dict(e) for e in entries], title=title,
+                             message=f"已识别 {len(entries)} 个，继续读取主页…可先勾选下载")
+            last_error = None
+            for attempt in range(2):
+                try:
+                    result = video_catalog.resolve(c["url"], c["limit"], options, update)
+                    break
+                except Exception as error:
+                    last_error = error
+                    if attempt:
+                        raise
+                    with _catalog_lock:
+                        c["message"] = f"已识别 {len(c['entries'])} 个，正在自动重试解析…"
+                    time.sleep(2)
+            with _catalog_lock:
+                note = "（平台未确认列表结束，可能仍有未返回作品）" if result["limited"] else "（平台列表已读取结束）"
+                c.update(result, status="done", message=f"识别到 {len(result['entries'])} 个视频{note}，请勾选下载")
+        except Exception as error:
+            with _catalog_lock:
+                c.update(status="error", message=str(error)[:1500])
+
+def _start_catalog(url, me, batch_id="", limit=0):
+    if not video_catalog.platform_url(url):
+        raise HTTPException(400, "主页识别需要视频平台的主页或合集链接")
+    with _catalog_lock:
+        now = time.time()
+        for cid in list(_catalogs):
+            if now - _catalogs[cid]["created"] > 3600 and _catalogs[cid]["status"] != "loading":
+                _catalogs.pop(cid, None)
+        if sum(c["owner"] == me.device and c["status"] == "loading" for c in _catalogs.values()) >= 2:
+            raise HTTPException(429, "已有两个主页正在识别，请稍候")
+        if len(_catalogs) >= 100:
+            raise HTTPException(429, "主页列表暂时繁忙，请稍后再试")
+        c = {"id": uuid.uuid4().hex[:12], "url": url, "owner": me.device,
+             "batch_id": batch_id, "created": now, "limit": limit,
+             "title": "正在识别主页视频…", "status": "loading",
+             "message": "只读取列表，不下载视频，请稍候…", "entries": [], "limited": False}
+        _catalogs[c["id"]] = c
+    threading.Thread(target=_catalog_worker, args=(c["id"],), daemon=True).start()
+    return _catalog_public(c)
+
+class CatalogRequest(BaseModel):
+    url: str
+    limit: int = 0
+
+@app.post("/api/catalogs")
+def create_catalog(body: CatalogRequest, me: Identity = Depends(current_identity)):
+    links = _extract_links(body.url)
+    if len(links) != 1:
+        raise HTTPException(400, "每次请提供一个主页或合集链接")
+    if body.limit not in (0, 100, 200):
+        raise HTTPException(400, "请选择完整主页或分段读取")
+    return _start_catalog(links[0], me, limit=body.limit)
+
+def _get_catalog(cid, me):
+    c = _catalogs.get(cid)
+    if not c or c["owner"] != me.device:
+        raise HTTPException(404, "主页列表不存在或已过期，请重新识别")
+    return c
+
+@app.get("/api/catalogs")
+def list_catalogs(me: Identity = Depends(current_identity)):
+    with _catalog_lock:
+        return [_catalog_public(c) for c in sorted(_catalogs.values(), key=lambda c: c["created"], reverse=True)
+                if c["owner"] == me.device]
+
+@app.delete("/api/catalogs/{cid}")
+def remove_catalog(cid: str, me: Identity = Depends(current_identity)):
+    with _catalog_lock:
+        _get_catalog(cid, me)
+        _catalogs.pop(cid)
+    return {"ok": True}
+
+class CatalogSelection(BaseModel):
+    ids: list[str]
+
+@app.post("/api/catalogs/{cid}/download")
+def download_catalog(cid: str, body: CatalogSelection, request: Request,
+                     me: Identity = Depends(current_identity)):
+    with _catalog_lock:
+        c = _get_catalog(cid, me)
+        if not c["entries"]:
+            raise HTTPException(409, "主页列表尚未识别完成")
+        known = {e["id"]: e for e in c["entries"]}
+        ids = list(dict.fromkeys(body.ids))
+        if not ids or any(i not in known for i in ids):
+            raise HTTPException(400, "请勾选当前主页列表中的视频")
+        entries = [dict(known[i]) for i in ids]
+        job = Job(id=uuid.uuid4().hex[:12], url=c["url"], kind="collection",
+                  title=f"{c['title']} · 已选 {len(entries)} 个", total=len(entries),
+                  owner=me.device, owner_label=_device_label(request.headers.get("user-agent", "")),
+                  batch_id=c["batch_id"], entries=entries)
+    with _lock:
+        JOBS[job.id] = job
+    threading.Thread(target=_worker, args=(job,), daemon=True).start()
+    return {"created": [job.public()]}
+
 @app.post("/api/jobs")
 def create_job(body: NewJob, request: Request,
                me: Identity = Depends(current_identity)) -> dict:
@@ -712,12 +883,17 @@ def create_job(body: NewJob, request: Request,
     seen: set[str] = set()
     created: list[dict] = []
     rejected: list[str] = []
+    catalogs: list[dict] = []
+    batch_id = uuid.uuid4().hex[:16] if len(items) > 1 else ""
 
     for item in items:
         if item in seen:
             continue
         seen.add(item)
 
+        if body.mode == "profile" or (body.mode == "auto" and video_catalog.is_profile(item)):
+            catalogs.append(_start_catalog(item, me, batch_id))
+            continue
         kind = _kind_of(item)
         if body.mode == "file" and kind != "cloud":
             kind = "file"
@@ -725,20 +901,20 @@ def create_job(body: NewJob, request: Request,
             rejected.append(item)
             continue
 
-        job = Job(id=uuid.uuid4().hex[:12], url=item, kind=kind, owner=me.device, owner_label=_device_label(ua))
+        job = Job(id=uuid.uuid4().hex[:12], url=item, kind=kind, owner=me.device, owner_label=_device_label(ua), batch_id=batch_id)
         with _lock:
             JOBS[job.id] = job
         threading.Thread(target=_worker, args=(job,), daemon=True).start()
         created.append(job.public())
 
-    if not created:
+    if not created and not catalogs:
         raise HTTPException(
             400,
             "没有识别出可用链接。请粘贴 Symphony 分享链接/UUID，"
             "或以 http(s):// 开头的视频链接，一行一个。",
         )
 
-    return {"created": created, "rejected": rejected}
+    return {"created": created, "rejected": rejected, "catalogs": catalogs}
 
 
 @app.get("/api/jobs")

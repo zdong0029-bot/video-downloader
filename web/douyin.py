@@ -55,20 +55,20 @@ def _pick_video(aweme: dict) -> tuple[str, int, int, float]:
     """从一条作品数据里挑出最佳无水印地址。"""
     video = aweme.get("video") or {}
 
-    # 优先 bit_rate 列表里码率最高的（和 TikTok 那边一个道理：
-    # 同分辨率下码率决定清晰度，不能只看分辨率）
-    best_url, best_w, best_h, best_br = "", 0, 0, -1
+    # 先取最高分辨率，同分辨率再比较帧率和码率。下载保持源编码，不转码。
+    best_url, best_w, best_h, best_rank = "", 0, 0, (-1, -1, -1)
     for br in (video.get("bit_rate") or []):
         pa = br.get("play_addr") or {}
         urls = pa.get("url_list") or []
         if not urls:
             continue
         rate = int(br.get("bit_rate") or 0)
-        if rate > best_br:
-            best_br = rate
-            best_url = urls[0]
-            best_w = int(pa.get("width") or video.get("width") or 0)
-            best_h = int(pa.get("height") or video.get("height") or 0)
+        width = int(pa.get("width") or video.get("width") or 0)
+        height = int(pa.get("height") or video.get("height") or 0)
+        rank = (min(width, height), float(br.get("FPS") or br.get("fps") or 0), rate)
+        if rank > best_rank:
+            best_rank = rank
+            best_url, best_w, best_h = urls[0], width, height
 
     if not best_url:
         pa = video.get("play_addr") or {}
