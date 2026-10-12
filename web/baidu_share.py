@@ -91,7 +91,10 @@ class Share:
         result=data.get('list')
         if isinstance(result,str):
             try:result=json.loads(result)
-            except (ValueError,TypeError):result=None
+            except (ValueError,TypeError):
+                if result.strip():
+                    raise AuthorizationRequired('百度已返回编码后的下载响应，当前直下载解析器尚不兼容；转用已连接账号的后台下载通道，文件尚未完成。这不等同于账号未登录')
+                result=None
         if not isinstance(result,list):
             raise AuthorizationRequired('百度未向当前授权返回原文件下载地址；需要使用后台账号转存下载，文件尚未完成')
         for entry in result:

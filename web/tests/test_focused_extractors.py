@@ -31,6 +31,23 @@ class Focused(unittest.TestCase):
             for url in ('https://www.ixigua.com/6764662548781335052', 'https://m.ixigua.com/video/6764662548781335052?source=share'):
                 self.assertEqual(ie._match_id(url), '6764662548781335052')
 
+
+    def test_xigua_modern_metadata_is_not_a_completed_video(self):
+        state={'data':{'storeState':{'detail':{'videoData':{'result':{'gid':'123','definition':['720p','1080p'],'url':'not-a-playable-url'},'error':None}}}}}
+        page='<script>window._SSR_DATA = '+json.dumps(state)+'</script>'
+        with yt_dlp.YoutubeDL({'quiet':True}) as ydl:
+            ie=focused.IxiguaIE(ydl)
+            with self.assertRaisesRegex(ExtractorError,'官方App'):
+                ie._get_json_data(page,'123')
+            with self.assertRaisesRegex(ExtractorError,'不一致'):
+                ie._get_json_data(page,'456')
+
+    def test_xigua_old_player_metadata_remains_available(self):
+        state={'anyVideo':{'gidInformation':{'packerData':{'video':{'title':'old playable video'}}}}}
+        page='<script id="SSR_HYDRATED_DATA">window._SSR_HYDRATED_DATA='+json.dumps(state)+'</script>'
+        with yt_dlp.YoutubeDL({'quiet':True}) as ydl:
+            self.assertEqual(focused.IxiguaIE(ydl)._get_json_data(page,'123'),state)
+
     def test_official_domains_do_not_accept_deceptive_or_private_urls(self):
         for value in ('https://bdstatic.com.evil.example/file','http://127.0.0.1/file','https://user:pass@bdstatic.com/file','https://bdstatic.com:8000/file'):
             self.assertFalse(focused.official_url(value,focused.FAMILIES['haokan']))

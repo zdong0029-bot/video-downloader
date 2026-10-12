@@ -1,5 +1,5 @@
 {
-  "generated_at": "2026-10-12 01:05:51",
+  "generated_at": "2026-10-12 09:52:44",
   "engine": "yt-dlp 2026.08.19 + official-player adapters + original media validation",
   "public_site": "https://video-downloader.tail49ff9c.ts.net/",
   "tested_platforms": 34,
@@ -10,7 +10,7 @@
     "最高可下载格式由平台当前授权决定；低分辨率源、网页图片版本、会员档位和原上传文件分别标注，未以放大或转码替代。",
     "正常官网更新的凭据自动加密保存，无程序固定七天重登规则；未证明平台七天后一定续期或永久有效，撤销授权/人工验证仍需处理。",
     "公开Funnel仅用无需账号的爱奇艺片花和好看样例验收；授权的快手、小红书、视频号在localhost完成完整文件与访客隔离测试。",
-    "百度大文件尚未完整校验；阿里为上一轮已通过记录。Rumble、Vimeo、西瓜这次样例未通过，错误全部保留。",
+    "百度大文件未完整校验；阿里为上一轮已通过记录。Vimeo、西瓜、Rumble换公开播放入口后的新失败仍保留。",
     "报告不包含账号Cookie、令牌、二维码、下载签名、用户网盘分享链接和私人文件名。"
   ],
   "sources": [
@@ -21,7 +21,10 @@
     "https://github.com/ucmao/media-parser",
     "https://github.com/ucmao/media-parser/blob/main/docs/parsers/xiaohongshu.md",
     "https://github.com/JoeanAmier/XHS-Downloader",
-    "https://github.com/JoeanAmier/KS-Downloader"
+    "https://github.com/JoeanAmier/KS-Downloader",
+    "https://github.com/yt-dlp/yt-dlp/issues/15089",
+    "https://github.com/yt-dlp/yt-dlp/blob/master/yt_dlp/extractor/vimeo.py",
+    "https://github.com/qjfoidnh/BaiduPCS-Go/issues/469"
   ],
   "platforms": [
     {
@@ -2170,7 +2173,7 @@
       "resolution": "",
       "bytes": null,
       "seconds": 1.625,
-      "note": "最新默认网络复测仍返回HTTP403，未取得文件。未改变网络路径绕过限制。",
+      "note": "公开播放器及原生解析接口均返回HTTP403；本次当前正常网络的官方播放器复查仍403（1.094秒）。未取得文件。上游仍将该403列为已知问题；未切换IP或伪造授权。",
       "attempts": [
         {
           "platform": "rumble",
@@ -2217,6 +2220,16 @@
           "seconds": 1.672,
           "variant": "rumble-current",
           "resolution": ""
+        },
+        {
+          "platform": "rumble",
+          "route": "existing-default-network",
+          "status": "not_completed",
+          "http_status": 403,
+          "seconds": 1.094,
+          "error": "Official player did not return an available media stream; HTTP 403",
+          "variant": "normal-public-player-recheck",
+          "resolution": ""
         }
       ]
     },
@@ -2228,7 +2241,7 @@
       "resolution": "",
       "bytes": null,
       "seconds": 7.218,
-      "note": "重新搜索公开CC样例，网页引擎仍要求登录；此前其他样例401或DRM。当前未完成合法授权的完整下载。",
+      "note": "网页引擎仍要求登录；继续改用官方公开嵌入播放器，分别测试公开CC短片和创作者公开NASA短片的官方oEmbed入口，两条均HTTP401，未取得文件。此前DRM/401记录保留；当前样例未通过，不能断言所有Vimeo内容均不可下载。",
       "attempts": [
         {
           "platform": "vimeo",
@@ -2311,6 +2324,38 @@
           "seconds": 1.39,
           "variant": "vimeo-cc-public",
           "resolution": ""
+        },
+        {
+          "platform": "vimeo-public-embed",
+          "url": "https://player.vimeo.com/video/354385094",
+          "deadline": 140,
+          "limit_mib": 512,
+          "route": "default",
+          "started_at": "2026-10-12 09:38:17",
+          "stages": {
+            "download": "not_passed"
+          },
+          "status": "not_completed",
+          "error": "ERROR: [vimeo] 354385094: Unable to download webpage: HTTP Error 401: Unauthorized (caused by <HTTPError 401: Unauthorized>)",
+          "seconds": 1.437,
+          "variant": "vimeo-public-embed",
+          "resolution": ""
+        },
+        {
+          "platform": "vimeo-nasa-public-embed",
+          "url": "https://player.vimeo.com/video/865581617",
+          "deadline": 150,
+          "limit_mib": 512,
+          "route": "default",
+          "started_at": "2026-10-12 09:41:03",
+          "stages": {
+            "download": "not_passed"
+          },
+          "status": "not_completed",
+          "error": "ERROR: [vimeo] 865581617: Unable to download webpage: HTTP Error 401: Unauthorized (caused by <HTTPError 401: Unauthorized>)",
+          "seconds": 1.391,
+          "variant": "vimeo-nasa-public-embed",
+          "resolution": ""
         }
       ]
     },
@@ -2322,7 +2367,7 @@
       "resolution": "原文件 / 未完成",
       "bytes": 6664185,
       "seconds": 90.078,
-      "note": "分享列表可读；网页直下载接口本轮返回-20，需要官方授权/验证。当前后台账号仍可通过PCS组件下载，但速度慢。PCS与stream各120秒收到9 MB，locate收到5.44 MB，均未完成345.44 MB文件；2线程未显著增速。默认改PCS单线程，授权不适用时回退locate，保留120秒无数据停滞保护。未完整校验的转存继续保留。 此项为2026-10-11有界测速记录，2026-10-12未重新提交大文件；原断点与临时转存保留，不能标成完成。",
+      "note": "此前PCS、stream、locate测速均未完成362,218,646字节大文件，约50–80KB/s，2线程未明显增速。最新复查列表可读、本机max_download_rate=0（未设限速）；直下载接口这次errno=0，但list为当前解析器不兼容的编码响应，没有得到可用直链，不应误报账号未登录。已区分错误并保留已连接账号PCS下载回退。原断点与临时转存保留，未完整校验不删除、不计通过。",
       "attempts": [
         {
           "mode": "pcs",
@@ -2364,6 +2409,23 @@
           "status": "not_completed",
           "resolution": "原文件 / 未完成",
           "expected_bytes": 362218646
+        },
+        {
+          "platform": "baidu",
+          "variant": "authorized-direct-recheck",
+          "started_at": "2026-10-12 09:46:39",
+          "route": "local-authorized-share",
+          "status": "not_completed",
+          "local_rate_limit": 0,
+          "stages": {
+            "listing": "passed"
+          },
+          "expected_bytes": 362218646,
+          "error": "官方接口errno=0，但list为当前解析器不兼容的编码响应，未得到可用直链；不等同于未登录。完整大文件尚未下载。",
+          "seconds": 3.625,
+          "resolution": "",
+          "response_errno": 0,
+          "response_encoding": "encoded-string-not-json"
         }
       ]
     },
@@ -2375,7 +2437,7 @@
       "resolution": "",
       "bytes": null,
       "seconds": 1.282,
-      "note": "修复ID匹配截断最后一位的问题；复用正常公开浏览器访问后，这条旧样例仍没有返回播放元数据。未取得文件，未通过，无法仅凭该响应断定登录或链接失效。",
+      "note": "修复完整ID匹配后，继续检查手机版和电脑入口。发现新版window._SSR_DATA，与旧SSR_HYDRATED_DATA不同；新增识别及准确失败提示。这条新样例官方页面只给作品资料和清晰度标签，并要求打开App，未给可验证完整播放流；两种入口均未取得完整文件。不将封面、标签或预览标记为成功。",
       "attempts": [
         {
           "platform": "xigua",
@@ -2405,6 +2467,36 @@
           "error": "ERROR: [Ixigua] 6764662548781335052: 官方网页未提供该视频的播放数据；可能需要登录、验证或链接已失效",
           "seconds": 14.953,
           "variant": "xigua-id-fixed",
+          "resolution": ""
+        },
+        {
+          "platform": "xigua-new-schema",
+          "url": "https://m.ixigua.com/video/7298671478374531594",
+          "deadline": 120,
+          "route": "default",
+          "started_at": "2026-10-12 09:46:36",
+          "stages": {
+            "download": "not_passed"
+          },
+          "status": "not_completed",
+          "error": "ERROR: [Ixigua] 7298671478374531594: 西瓜新版网页只返回作品信息，未提供可验证的完整视频清晰度与播放流；当前页面要求打开官方App。此链接尚未下载，不计通过",
+          "seconds": 1.141,
+          "variant": "xigua-new-schema",
+          "resolution": ""
+        },
+        {
+          "platform": "xigua-desktop-normal",
+          "url": "https://www.ixigua.com/7298671478374531594",
+          "deadline": 120,
+          "route": "default",
+          "started_at": "2026-10-12 09:46:36",
+          "stages": {
+            "download": "not_passed"
+          },
+          "status": "not_completed",
+          "error": "ERROR: [Ixigua] 7298671478374531594: 西瓜新版网页只返回作品信息，未提供可验证的完整视频清晰度与播放流；当前页面要求打开官方App。此链接尚未下载，不计通过",
+          "seconds": 2.734,
+          "variant": "xigua-desktop-normal",
           "resolution": ""
         }
       ]
@@ -2440,6 +2532,8 @@
     "browser_flow_checks": 10,
     "website_complete_cases": 6,
     "website_public_cases": 2,
-    "website_local_authorized_cases": 4
+    "website_local_authorized_cases": 4,
+    "followup_targeted_checks": 20,
+    "followup_new_regressions": 3
   }
 }

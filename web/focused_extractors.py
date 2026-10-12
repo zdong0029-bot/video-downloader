@@ -90,7 +90,7 @@ def browser_snapshot(url, platform, cookiejar=None):
                     data = page.evaluate('()=>{const p=window.QiyiPlayerProphetData;return p?.dashData?{tvid:p.tvid,videoInfo:p.videoInfo,dashData:p.dashData,ua:navigator.userAgent}:null}')
                 elif platform == 'xigua':
                     html = page.content()
-                    data = {'html': html} if 'SSR_HYDRATED_DATA' in html else None
+                    data = {'html': html} if 'SSR_HYDRATED_DATA' in html or re.search(r'window\._SSR_DATA\s*=', html) else None
                 elif platform == 'xiaohongshu':
                     # Serialize SSR HTML, not Vue's circular reactive objects.
                     note_id = re.search(r'/(?:explore|discovery/item)/([a-f0-9]{24})', urlsplit(page.url).path)
@@ -139,9 +139,26 @@ class IxiguaIE(OriginalIxiguaIE):
     _VALID_URL = r'https?://(?:\w+\.)?ixigua\.com/(?:video/)?(?P<id>\d+)(?:[/?#]|$)'
     def _download_webpage(self, url, *args, **kwargs):
         html = super()._download_webpage(url, *args, **kwargs)
-        if 'SSR_HYDRATED_DATA' not in (html or ''):
+        if 'SSR_HYDRATED_DATA' not in (html or '') and not re.search(r'window\._SSR_DATA\s*=', html or ''):
             html = browser_snapshot(url, 'xigua', self._downloader.cookiejar)['html']
         return html
+    def _get_json_data(self, webpage, video_id):
+        # Current mobile pages contain descriptive data, but may require the App
+        # for actual playback. A definition label is not a downloadable stream.
+        match = re.search(r'window\._SSR_DATA\s*=\s*', webpage or '')
+        if match and 'SSR_HYDRATED_DATA' not in webpage:
+            try:
+                state, _ = json.JSONDecoder().raw_decode(webpage[match.end():])
+                detail = state['data']['storeState']['detail']['videoData']
+                video = detail.get('result') or {}
+            except (ValueError, TypeError, KeyError):
+                raise ExtractorError('西瓜新版网页播放信息无效，尚未取得视频文件', expected=True)
+            if str(video.get('gid')) != video_id:
+                raise ExtractorError('西瓜新版网页信息与提交的视频不一致，已停止', expected=True)
+            if detail.get('error'):
+                raise ExtractorError('西瓜官方网页未授权这条视频的播放，尚未取得视频文件', expected=True)
+            raise ExtractorError('西瓜新版网页只返回作品信息，未提供可验证的完整视频清晰度与播放流；当前页面要求打开官方App。此链接尚未下载，不计通过', expected=True)
+        return super()._get_json_data(webpage, video_id)
 
 class HaokanIE(InfoExtractor):
     _VALID_URL = r'https?://haokan\.baidu\.com/v\?(?:[^#]*?&)?vid=(?P<id>\d+)'

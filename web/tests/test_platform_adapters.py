@@ -31,6 +31,15 @@ class Adapters(unittest.TestCase):
   result=Mock();result.json.return_value={'errno':0,'list':''}
   with patch.object(share,'request',side_effect=[sign,result]),self.assertRaises(AuthorizationRequired):share.download_url({'fs_id':123})
   share.close()
+ def test_share_new_encoding_and_real_login_challenge_are_distinct(self):
+  share=Share('https://pan.baidu.com/s/1example');share.uk=1;share.shareid=2
+  sign=Mock();sign.json.return_value={'errno':0,'data':{'sign':'sign','timestamp':1}}
+  result=Mock();result.json.return_value={'errno':0,'list':'bm90LWpzb24='}
+  with patch.object(share,'request',side_effect=[sign,result]),self.assertRaisesRegex(AuthorizationRequired,'编码后的下载响应'):
+   share.download_url({'fs_id':123})
+  with self.assertRaisesRegex(AuthorizationRequired,'网页验证'):
+   share.check({'errno':-20},'test')
+  share.close()
  def test_cli_local_encoding_not_misreported_as_cleanup_failure(self):
   text='操作成功，已删除 /网站下载任务/abcdef123456'
   self.assertEqual(baidu_backend.decode_log(text.encode('gb18030')),text)
