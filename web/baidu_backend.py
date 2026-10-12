@@ -101,30 +101,27 @@ def run(url,password,out,progress,cancelled):
         if '创建目录成功' not in response: raise ValueError('未确认本次临时目录创建成功，尚未转存')
         cloud_cleanup.register(out.name,identity,'baidu',remote)
         command(['cd',remote]);command(['config','set','-savedir',str(out)])
-        # Separate the transfer from download so the documented PCS mode can be used.
-        # This account's bounded tests received 9 MB via PCS vs 5.4 MB via locate.
+        # Transfer only into this task's directory when the share cannot provide
+        # an authorized original URL; use normal web permission after transfer.
         command(['transfer',url,*([password] if password and '?pwd=' not in url else [])],timeout=180)
-        download_log=command(['download','--mode','pcs','--saveto',str(out),'-p','1','-l','1','--retry','1',remote],timeout=43200,monitor=True)
-        if 'user is not authorized' in download_log.lower():
-            command(['download','--mode','locate','--saveto',str(out),'-p','1','-l','1','--retry','1',remote],timeout=43200,monitor=True)
-        candidates=[p for p in out.rglob('*') if p.is_file() and p.name not in ('meta.json','.cloud-incomplete') and not p.name.endswith(('.part','.tmp','.BaiduPCS-Go-downloading'))]
-        results=[];used=set()
-        for item in files:
-            source=next((p for p in candidates if p not in used and p.name==item['server_filename'] and p.stat().st_size==int(item['size'])),None)
-            if source is None: raise ValueError('原文件未完整下载，不能标记完成；云端转存保留')
-            checksum=item.get('md5','')
-            if re.fullmatch(r'[0-9a-fA-F]{32}',checksum):
-                h=hashlib.md5()
-                with source.open('rb') as f:
-                    for block in iter(lambda:f.read(1024*1024),b''):
-                        if cancelled(): raise Cancelled()
-                        h.update(block)
-                if h.hexdigest().lower()!=checksum.lower(): raise ValueError('原文件MD5校验失败，云端转存保留')
-            used.add(source);target=out/(str(item['fs_id'])+'_'+file_download.safe_name(item['server_filename']))
-            if source!=target: source.replace(target)
-            results.append(target)
+        # The task now owns these transferred originals. Its normal signed-in
+        # web download permission can use the same verified bounded CDN ranges.
+        # A web authentication error is surfaced; no alternate identity is tried.
+        from collections import Counter
+        owned=share.owned_files(remote)
+        expected=Counter((f['server_filename'],int(f['size'])) for f in files)
+        if expected!=Counter((f['server_filename'],int(f['size'])) for f in owned):
+            raise ValueError('临时转存文件与原分享大小或数量不符，转存保留')
+        links=[share.owned_download_url(f) for f in owned]
+        results=[];progress(files,results)
+        headers={'User-Agent':state.get('pan_ua') or 'Mozilla/5.0','Referer':'https://pan.baidu.com/disk/main','Cookie':'; '.join(c.name+'='+c.value for c in share.session.cookies),'_cookie_domains':('baidu.com','baidupcs.com')}
+        for item,link in zip(owned,links):
+            name=str(item['fs_id'])+'_'+file_download.safe_name(item['server_filename'])
+            def report(size):progress(files,results,received=sum(p.stat().st_size for p in results)+size)
+            target=file_download.fetch_original(link,out,name,int(item['size']),report,cancelled,headers,item,range_size=4*1024**2,workers=3)
+            results.append(target);progress(files,results)
         note=cloud_cleanup.complete(out,identity,'baidu',remote,results,delete=lambda remote:remove_command(executable,env,remote))
-        return file_download.CloudResult(results,note)
+        return file_download.CloudResult(results,'百度官方网页授权原文件；4MB分段、3连接；'+note)
     finally:
         if share: share.close()
         if config.parent.resolve()==(ROOT/'private-baidu').resolve() and config.name=='task-'+out.name: shutil.rmtree(config,ignore_errors=True)

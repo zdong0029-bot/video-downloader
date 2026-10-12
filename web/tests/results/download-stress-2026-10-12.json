@@ -1,0 +1,4221 @@
+{
+  "date": "2026-10-12 11:46:26",
+  "units": "bytes; MiB/s=1048576 bytes/s; GB=1000000000 bytes",
+  "scope": "完整文件压力验收；短视频结果不能作为1–2小时通过，大文件直接通道不能作为三个网盘全部通过。",
+  "short_passed": 23,
+  "short_attempted": 24,
+  "long_interval_passed": 6,
+  "cases": [
+    {
+      "id": "acfun-full-retest",
+      "platform": "acfun",
+      "category": "short_video",
+      "status": "passed",
+      "bytes": 139045446,
+      "ready_seconds": 6.109,
+      "average_MiB_s": 21.706,
+      "stages": {
+        "submit": "passed",
+        "server_download": "passed",
+        "full_visitor_transfer": "passed",
+        "sha256": "passed",
+        "guest_isolation": "passed"
+      },
+      "health_before": {
+        "status": 200,
+        "seconds": 0.0
+      },
+      "health_after": {
+        "status": 200,
+        "seconds": 0.0
+      },
+      "case": "all-platforms/acfun-full-retest",
+      "picture": "1080×1920",
+      "duration_seconds": 174.226,
+      "outcome": "通过",
+      "note": "",
+      "files": [
+        {
+          "bytes": 139045446,
+          "sha256": "69e4e3d1f006d36a49eb6b2067cb3b3b3e40cf4b3f0ecbe19fe22d404ea4f026",
+          "transfer_seconds": 0.391,
+          "range_beyond_2g": null,
+          "other_guest_status": 404,
+          "media": {
+            "programs": [],
+            "stream_groups": [],
+            "streams": [
+              {
+                "codec_name": "h264",
+                "codec_type": "video",
+                "width": 1080,
+                "height": 1920,
+                "r_frame_rate": "60/1"
+              },
+              {
+                "codec_name": "aac",
+                "codec_type": "audio",
+                "r_frame_rate": "0/0"
+              }
+            ],
+            "format": {
+              "duration": "174.226000",
+              "size": "139045446"
+            },
+            "decoded_positions": [
+              0,
+              87.113,
+              169.226
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "id": "cctv-full-retest",
+      "platform": "cctv",
+      "category": "short_video",
+      "status": "passed",
+      "bytes": 2206772,
+      "ready_seconds": 4.062,
+      "average_MiB_s": 0.518,
+      "stages": {
+        "submit": "passed",
+        "server_download": "passed",
+        "full_visitor_transfer": "passed",
+        "sha256": "passed",
+        "guest_isolation": "passed"
+      },
+      "health_before": {
+        "status": 200,
+        "seconds": 0.0
+      },
+      "health_after": {
+        "status": 200,
+        "seconds": 0.0
+      },
+      "case": "all-platforms/cctv-full-retest",
+      "picture": "480×270",
+      "duration_seconds": 37.96,
+      "outcome": "通过",
+      "note": "",
+      "files": [
+        {
+          "bytes": 2206772,
+          "sha256": "dac6c743bd8c47b44c29adfd4cf833b2f617c347a7583f52beff1a6cc3c2c1b3",
+          "transfer_seconds": 0.015,
+          "range_beyond_2g": null,
+          "other_guest_status": 404,
+          "media": {
+            "programs": [],
+            "stream_groups": [],
+            "streams": [
+              {
+                "codec_name": "h264",
+                "codec_type": "video",
+                "width": 480,
+                "height": 270,
+                "r_frame_rate": "25/1"
+              },
+              {
+                "codec_name": "aac",
+                "codec_type": "audio",
+                "r_frame_rate": "0/0"
+              }
+            ],
+            "format": {
+              "duration": "37.960000",
+              "size": "2206772"
+            },
+            "decoded_positions": [
+              0,
+              18.98,
+              32.96
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "id": "dailymotion-full-retest",
+      "platform": "dailymotion",
+      "category": "short_video",
+      "status": "passed",
+      "bytes": 6371512,
+      "ready_seconds": 12.109,
+      "average_MiB_s": 0.502,
+      "stages": {
+        "submit": "passed",
+        "server_download": "passed",
+        "full_visitor_transfer": "passed",
+        "sha256": "passed",
+        "guest_isolation": "passed"
+      },
+      "health_before": {
+        "status": 200,
+        "seconds": 0.0
+      },
+      "health_after": {
+        "status": 200,
+        "seconds": 0.0
+      },
+      "case": "all-platforms/dailymotion-full-retest",
+      "picture": "848×480",
+      "duration_seconds": 68.802122,
+      "outcome": "通过",
+      "note": "",
+      "files": [
+        {
+          "bytes": 6371512,
+          "sha256": "3573e4c009fc66fd4933c8f88f28e9b8dd70389d556d50a93aa79d3518247807",
+          "transfer_seconds": 0.031,
+          "range_beyond_2g": null,
+          "other_guest_status": 404,
+          "media": {
+            "programs": [],
+            "stream_groups": [],
+            "streams": [
+              {
+                "codec_name": "aac",
+                "codec_type": "audio",
+                "r_frame_rate": "0/0"
+              },
+              {
+                "codec_name": "h264",
+                "codec_type": "video",
+                "width": 848,
+                "height": 480,
+                "r_frame_rate": "30000/1001"
+              }
+            ],
+            "format": {
+              "duration": "68.802122",
+              "size": "6371512"
+            },
+            "decoded_positions": [
+              0,
+              34.401,
+              63.802
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "id": "douyin-full-retest",
+      "platform": "douyin",
+      "category": "short_video",
+      "status": "passed",
+      "bytes": 1117014,
+      "ready_seconds": 8.031,
+      "average_MiB_s": 0.133,
+      "stages": {
+        "submit": "passed",
+        "server_download": "passed",
+        "full_visitor_transfer": "passed",
+        "sha256": "passed",
+        "guest_isolation": "passed"
+      },
+      "health_before": {
+        "status": 200,
+        "seconds": 0.0
+      },
+      "health_after": {
+        "status": 200,
+        "seconds": 0.0
+      },
+      "case": "all-platforms/douyin-full-retest",
+      "picture": "1080×1920",
+      "duration_seconds": 8.066667,
+      "outcome": "通过",
+      "note": "",
+      "files": [
+        {
+          "bytes": 1117014,
+          "sha256": "60c9c0edd4ab1d0125ec08af677fe3d7383351913c3ae113c2d19d3504e4f254",
+          "transfer_seconds": 0.016,
+          "range_beyond_2g": null,
+          "other_guest_status": 404,
+          "media": {
+            "programs": [],
+            "stream_groups": [],
+            "streams": [
+              {
+                "codec_name": "aac",
+                "codec_type": "audio",
+                "r_frame_rate": "0/0"
+              },
+              {
+                "codec_name": "h264",
+                "codec_type": "video",
+                "width": 1080,
+                "height": 1920,
+                "r_frame_rate": "30/1"
+              }
+            ],
+            "format": {
+              "duration": "8.066667",
+              "size": "1117014"
+            },
+            "decoded_positions": [
+              0,
+              4.033,
+              3.067
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "id": "facebook-full-retest",
+      "platform": "facebook",
+      "category": "short_video",
+      "status": "passed",
+      "bytes": 622802,
+      "ready_seconds": 6.078,
+      "average_MiB_s": 0.098,
+      "stages": {
+        "submit": "passed",
+        "server_download": "passed",
+        "full_visitor_transfer": "passed",
+        "sha256": "passed",
+        "guest_isolation": "passed"
+      },
+      "health_before": {
+        "status": 200,
+        "seconds": 0.015
+      },
+      "health_after": {
+        "status": 200,
+        "seconds": 0.016
+      },
+      "case": "all-platforms/facebook-full-retest",
+      "picture": "480×848",
+      "duration_seconds": 9.566667,
+      "outcome": "通过",
+      "note": "",
+      "files": [
+        {
+          "bytes": 622802,
+          "sha256": "cc12fd22535bfa0d5f224e105c1c4abf3525cc4cf33501d1f7ed6c5c469123a2",
+          "transfer_seconds": 0.0,
+          "range_beyond_2g": null,
+          "other_guest_status": 404,
+          "media": {
+            "programs": [],
+            "stream_groups": [],
+            "streams": [
+              {
+                "codec_name": "h264",
+                "codec_type": "video",
+                "width": 480,
+                "height": 848,
+                "r_frame_rate": "30/1"
+              }
+            ],
+            "format": {
+              "duration": "9.566667",
+              "size": "622802"
+            },
+            "decoded_positions": [
+              0,
+              4.783,
+              4.567
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "id": "haokan-full-retest",
+      "platform": "haokan",
+      "category": "short_video",
+      "status": "passed",
+      "bytes": 4793910,
+      "ready_seconds": 6.079,
+      "average_MiB_s": 0.752,
+      "stages": {
+        "submit": "passed",
+        "server_download": "passed",
+        "full_visitor_transfer": "passed",
+        "sha256": "passed",
+        "guest_isolation": "passed"
+      },
+      "health_before": {
+        "status": 200,
+        "seconds": 0.016
+      },
+      "health_after": {
+        "status": 200,
+        "seconds": 0.015
+      },
+      "case": "all-platforms/haokan-full-retest",
+      "picture": "1280×720",
+      "duration_seconds": 257.28,
+      "outcome": "通过",
+      "note": "",
+      "files": [
+        {
+          "bytes": 4793910,
+          "sha256": "486359e97ad489610e709c4ab5851005f5d8546316f1f30315e34efafb6fd8fc",
+          "transfer_seconds": 0.032,
+          "range_beyond_2g": null,
+          "other_guest_status": 404,
+          "media": {
+            "programs": [],
+            "stream_groups": [],
+            "streams": [
+              {
+                "codec_name": "h264",
+                "codec_type": "video",
+                "width": 1280,
+                "height": 720,
+                "r_frame_rate": "25/1"
+              },
+              {
+                "codec_name": "aac",
+                "codec_type": "audio",
+                "r_frame_rate": "0/0"
+              }
+            ],
+            "format": {
+              "duration": "257.280000",
+              "size": "4793910"
+            },
+            "decoded_positions": [
+              0,
+              128.64,
+              252.28
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "id": "instagram-full-retest",
+      "platform": "instagram",
+      "category": "short_video",
+      "status": "passed",
+      "bytes": 1949801,
+      "ready_seconds": 8.062,
+      "average_MiB_s": 0.231,
+      "stages": {
+        "submit": "passed",
+        "server_download": "passed",
+        "full_visitor_transfer": "passed",
+        "sha256": "passed",
+        "guest_isolation": "passed"
+      },
+      "health_before": {
+        "status": 200,
+        "seconds": 0.0
+      },
+      "health_after": {
+        "status": 200,
+        "seconds": 0.0
+      },
+      "case": "all-platforms/instagram-full-retest",
+      "picture": "720×1280",
+      "duration_seconds": 4.966667,
+      "outcome": "通过",
+      "note": "",
+      "files": [
+        {
+          "bytes": 1949801,
+          "sha256": "64c7d81d2251172ed0f9beaf3a753765adb7afdd8f93e86aee5aed3675f8e35e",
+          "transfer_seconds": 0.016,
+          "range_beyond_2g": null,
+          "other_guest_status": 404,
+          "media": {
+            "programs": [],
+            "stream_groups": [],
+            "streams": [
+              {
+                "codec_name": "h264",
+                "codec_type": "video",
+                "width": 720,
+                "height": 1280,
+                "r_frame_rate": "30/1"
+              }
+            ],
+            "format": {
+              "duration": "4.966667",
+              "size": "1949801"
+            },
+            "decoded_positions": [
+              0,
+              2.483,
+              0
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "id": "iqiyi-full-retest",
+      "platform": "iqiyi",
+      "category": "short_video",
+      "status": "passed",
+      "bytes": 3115777,
+      "ready_seconds": 6.156,
+      "average_MiB_s": 0.483,
+      "stages": {
+        "submit": "passed",
+        "server_download": "passed",
+        "full_visitor_transfer": "passed",
+        "sha256": "passed",
+        "guest_isolation": "passed"
+      },
+      "health_before": {
+        "status": 200,
+        "seconds": 0.031
+      },
+      "health_after": {
+        "status": 200,
+        "seconds": 0.0
+      },
+      "case": "all-platforms/iqiyi-full-retest",
+      "picture": "1280×720",
+      "duration_seconds": 22.476916,
+      "outcome": "通过",
+      "note": "",
+      "files": [
+        {
+          "bytes": 3115777,
+          "sha256": "21ddf31aadcfaebfbd9524cde23738428550b3a4fffcba9442bc141a5f6b6dd6",
+          "transfer_seconds": 0.015,
+          "range_beyond_2g": null,
+          "other_guest_status": 404,
+          "media": {
+            "programs": [],
+            "stream_groups": [],
+            "streams": [
+              {
+                "codec_name": "h264",
+                "codec_type": "video",
+                "width": 1280,
+                "height": 720,
+                "r_frame_rate": "24/1"
+              },
+              {
+                "codec_name": "aac",
+                "codec_type": "audio",
+                "r_frame_rate": "0/0"
+              }
+            ],
+            "format": {
+              "duration": "22.476916",
+              "size": "3115777"
+            },
+            "decoded_positions": [
+              0,
+              11.238,
+              17.477
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "id": "kuaishou-full-retest",
+      "platform": "kuaishou",
+      "category": "short_video",
+      "status": "passed",
+      "bytes": 2010385,
+      "ready_seconds": 6.062,
+      "average_MiB_s": 0.316,
+      "stages": {
+        "submit": "passed",
+        "server_download": "passed",
+        "full_visitor_transfer": "passed",
+        "sha256": "passed",
+        "guest_isolation": "passed"
+      },
+      "health_before": {
+        "status": 200,
+        "seconds": 0.0
+      },
+      "health_after": {
+        "status": 200,
+        "seconds": 0.0
+      },
+      "case": "all-platforms/kuaishou-full-retest",
+      "picture": "720×1280",
+      "duration_seconds": 19.966,
+      "outcome": "通过",
+      "note": "",
+      "files": [
+        {
+          "bytes": 2010385,
+          "sha256": "3ccc4d888ed84ca0a41d8a0a0756fd34b99eb9a01bd35dcf5becd5eb000bb621",
+          "transfer_seconds": 0.016,
+          "range_beyond_2g": null,
+          "other_guest_status": 404,
+          "media": {
+            "programs": [],
+            "stream_groups": [],
+            "streams": [
+              {
+                "codec_name": "hevc",
+                "codec_type": "video",
+                "width": 720,
+                "height": 1280,
+                "r_frame_rate": "30/1"
+              },
+              {
+                "codec_name": "aac",
+                "codec_type": "audio",
+                "r_frame_rate": "0/0"
+              }
+            ],
+            "format": {
+              "duration": "19.966000",
+              "size": "2010385"
+            },
+            "decoded_positions": [
+              0,
+              9.983,
+              14.966
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "id": "niconico-full-retest",
+      "platform": "niconico",
+      "category": "short_video",
+      "status": "passed",
+      "bytes": 19541556,
+      "ready_seconds": 12.109,
+      "average_MiB_s": 1.539,
+      "stages": {
+        "submit": "passed",
+        "server_download": "passed",
+        "full_visitor_transfer": "passed",
+        "sha256": "passed",
+        "guest_isolation": "passed"
+      },
+      "health_before": {
+        "status": 200,
+        "seconds": 0.0
+      },
+      "health_after": {
+        "status": 200,
+        "seconds": 0.0
+      },
+      "case": "all-platforms/niconico-full-retest",
+      "picture": "512×384",
+      "duration_seconds": 219.1,
+      "outcome": "通过",
+      "note": "",
+      "files": [
+        {
+          "bytes": 19541556,
+          "sha256": "b3c1d43d550928d1a7cd8fd82708e5d25fbd7589d8dc93e428009fad2c013aa8",
+          "transfer_seconds": 0.062,
+          "range_beyond_2g": null,
+          "other_guest_status": 404,
+          "media": {
+            "programs": [],
+            "stream_groups": [],
+            "streams": [
+              {
+                "codec_name": "h264",
+                "codec_type": "video",
+                "width": 512,
+                "height": 384,
+                "r_frame_rate": "30/1"
+              },
+              {
+                "codec_name": "aac",
+                "codec_type": "audio",
+                "r_frame_rate": "0/0"
+              }
+            ],
+            "format": {
+              "duration": "219.100000",
+              "size": "19541556"
+            },
+            "decoded_positions": [
+              0,
+              109.55,
+              214.1
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "id": "reddit-full-retest",
+      "platform": "reddit",
+      "category": "short_video",
+      "status": "passed",
+      "bytes": 2328114,
+      "ready_seconds": 38.109,
+      "average_MiB_s": 0.058,
+      "stages": {
+        "submit": "passed",
+        "server_download": "passed",
+        "full_visitor_transfer": "passed",
+        "sha256": "passed",
+        "guest_isolation": "passed"
+      },
+      "health_before": {
+        "status": 200,
+        "seconds": 0.0
+      },
+      "health_after": {
+        "status": 200,
+        "seconds": 0.0
+      },
+      "case": "all-platforms/reddit-full-retest",
+      "picture": "352×640",
+      "duration_seconds": 11.79575,
+      "outcome": "通过",
+      "note": "",
+      "files": [
+        {
+          "bytes": 2328114,
+          "sha256": "2f3ed2edf8620292fa5ca0d742046c758cab8418f2e2a1bf134a334a4acdddf4",
+          "transfer_seconds": 0.016,
+          "range_beyond_2g": null,
+          "other_guest_status": 404,
+          "media": {
+            "programs": [],
+            "stream_groups": [],
+            "streams": [
+              {
+                "codec_name": "h264",
+                "codec_type": "video",
+                "width": 352,
+                "height": 640,
+                "r_frame_rate": "30/1"
+              },
+              {
+                "codec_name": "aac",
+                "codec_type": "audio",
+                "r_frame_rate": "0/0"
+              }
+            ],
+            "format": {
+              "duration": "11.795750",
+              "size": "2328114"
+            },
+            "decoded_positions": [
+              0,
+              5.898,
+              6.796
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "id": "sohu-full-retest",
+      "platform": "sohu",
+      "category": "short_video",
+      "status": "passed",
+      "bytes": 14265796,
+      "ready_seconds": 2.062,
+      "average_MiB_s": 6.598,
+      "stages": {
+        "submit": "passed",
+        "server_download": "passed",
+        "full_visitor_transfer": "passed",
+        "sha256": "passed",
+        "guest_isolation": "passed"
+      },
+      "health_before": {
+        "status": 200,
+        "seconds": 0.015
+      },
+      "health_after": {
+        "status": 200,
+        "seconds": 0.016
+      },
+      "case": "all-platforms/sohu-full-retest",
+      "picture": "848×480",
+      "duration_seconds": 213.066304,
+      "outcome": "通过",
+      "note": "",
+      "files": [
+        {
+          "bytes": 14265796,
+          "sha256": "df55dcd27c17623e6d91fb05f00f9ce8bfc4f12e2c3540ba6a072fa640afcf90",
+          "transfer_seconds": 0.062,
+          "range_beyond_2g": null,
+          "other_guest_status": 404,
+          "media": {
+            "programs": [],
+            "stream_groups": [],
+            "streams": [
+              {
+                "codec_name": "h264",
+                "codec_type": "video",
+                "width": 848,
+                "height": 480,
+                "r_frame_rate": "25/1"
+              },
+              {
+                "codec_name": "aac",
+                "codec_type": "audio",
+                "r_frame_rate": "0/0"
+              }
+            ],
+            "format": {
+              "duration": "213.066304",
+              "size": "14265796"
+            },
+            "decoded_positions": [
+              0,
+              106.533,
+              208.066
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "id": "streamable-full-retest",
+      "platform": "streamable",
+      "category": "short_video",
+      "status": "passed",
+      "bytes": 19286494,
+      "ready_seconds": 8.109,
+      "average_MiB_s": 2.268,
+      "stages": {
+        "submit": "passed",
+        "server_download": "passed",
+        "full_visitor_transfer": "passed",
+        "sha256": "passed",
+        "guest_isolation": "passed"
+      },
+      "health_before": {
+        "status": 200,
+        "seconds": 0.016
+      },
+      "health_after": {
+        "status": 200,
+        "seconds": 0.0
+      },
+      "case": "all-platforms/streamable-full-retest",
+      "picture": "1280×720",
+      "duration_seconds": 61.469002,
+      "outcome": "通过",
+      "note": "",
+      "files": [
+        {
+          "bytes": 19286494,
+          "sha256": "1f88e60f1dcf2586123a061055dba68a9c34e03306c173eb18c4d564ca680124",
+          "transfer_seconds": 0.062,
+          "range_beyond_2g": null,
+          "other_guest_status": 404,
+          "media": {
+            "programs": [],
+            "stream_groups": [],
+            "streams": [
+              {
+                "codec_name": "h264",
+                "codec_type": "video",
+                "width": 1280,
+                "height": 720,
+                "r_frame_rate": "30/1"
+              },
+              {
+                "codec_name": "aac",
+                "codec_type": "audio",
+                "r_frame_rate": "0/0"
+              }
+            ],
+            "format": {
+              "duration": "61.469002",
+              "size": "19286494"
+            },
+            "decoded_positions": [
+              0,
+              30.735,
+              56.469
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "id": "ted-full-retest",
+      "platform": "ted",
+      "category": "short_video",
+      "status": "passed",
+      "bytes": 278125656,
+      "ready_seconds": 22.078,
+      "average_MiB_s": 12.014,
+      "stages": {
+        "submit": "passed",
+        "server_download": "passed",
+        "full_visitor_transfer": "passed",
+        "sha256": "passed",
+        "guest_isolation": "passed"
+      },
+      "health_before": {
+        "status": 200,
+        "seconds": 0.0
+      },
+      "health_after": {
+        "status": 200,
+        "seconds": 0.0
+      },
+      "case": "all-platforms/ted-full-retest",
+      "picture": "1920×1080",
+      "duration_seconds": 680.042789,
+      "outcome": "通过",
+      "note": "",
+      "files": [
+        {
+          "bytes": 278125656,
+          "sha256": "c9f26017015d4dc90a5e117a02428f90d047884787491ae606d1517c7c8657dd",
+          "transfer_seconds": 0.844,
+          "range_beyond_2g": null,
+          "other_guest_status": 404,
+          "media": {
+            "programs": [],
+            "stream_groups": [],
+            "streams": [
+              {
+                "codec_name": "h264",
+                "codec_type": "video",
+                "width": 1920,
+                "height": 1080,
+                "r_frame_rate": "24000/1001"
+              },
+              {
+                "codec_name": "aac",
+                "codec_type": "audio",
+                "r_frame_rate": "0/0"
+              }
+            ],
+            "format": {
+              "duration": "680.042789",
+              "size": "278125656"
+            },
+            "decoded_positions": [
+              0,
+              340.021,
+              675.043
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "id": "tencent-full-retest",
+      "platform": "tencent",
+      "category": "short_video",
+      "status": "passed",
+      "bytes": 61334594,
+      "ready_seconds": 4.11,
+      "average_MiB_s": 14.232,
+      "stages": {
+        "submit": "passed",
+        "server_download": "passed",
+        "full_visitor_transfer": "passed",
+        "sha256": "passed",
+        "guest_isolation": "passed"
+      },
+      "health_before": {
+        "status": 200,
+        "seconds": 0.016
+      },
+      "health_after": {
+        "status": 200,
+        "seconds": 0.0
+      },
+      "case": "all-platforms/tencent-full-retest",
+      "picture": "1280×720",
+      "duration_seconds": 215.958333,
+      "outcome": "通过",
+      "note": "",
+      "files": [
+        {
+          "bytes": 61334594,
+          "sha256": "2d1219ac51d2cab3204318988f6fe55438968f991cbff78931510420e1d05aee",
+          "transfer_seconds": 0.187,
+          "range_beyond_2g": null,
+          "other_guest_status": 404,
+          "media": {
+            "programs": [],
+            "stream_groups": [],
+            "streams": [
+              {
+                "codec_name": "h264",
+                "codec_type": "video",
+                "width": 1280,
+                "height": 720,
+                "r_frame_rate": "25/1"
+              },
+              {
+                "codec_name": "aac",
+                "codec_type": "audio",
+                "r_frame_rate": "0/0"
+              }
+            ],
+            "format": {
+              "duration": "215.958333",
+              "size": "61334594"
+            },
+            "decoded_positions": [
+              0,
+              107.979,
+              210.958
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "id": "tiktok-full-retest",
+      "platform": "tiktok",
+      "category": "short_video",
+      "status": "failed",
+      "stages": {
+        "submit": "passed"
+      },
+      "health_before": {
+        "status": 200,
+        "seconds": 0.0
+      },
+      "health_after": {
+        "status": 200,
+        "seconds": 0.016
+      },
+      "case": "all-platforms/tiktok-full-retest",
+      "picture": "未取得完整成品",
+      "duration_seconds": 0.0,
+      "outcome": "未通过",
+      "note": "画质检查拒绝：实际540×960，低于平台标称576×1024。未标记完成。",
+      "files": []
+    },
+    {
+      "id": "toutiao-full-retest",
+      "platform": "toutiao",
+      "category": "short_video",
+      "status": "passed",
+      "bytes": 1298250,
+      "ready_seconds": 2.063,
+      "average_MiB_s": 0.6,
+      "stages": {
+        "submit": "passed",
+        "server_download": "passed",
+        "full_visitor_transfer": "passed",
+        "sha256": "passed",
+        "guest_isolation": "passed"
+      },
+      "health_before": {
+        "status": 200,
+        "seconds": 0.016
+      },
+      "health_after": {
+        "status": 200,
+        "seconds": 0.0
+      },
+      "case": "all-platforms/toutiao-full-retest",
+      "picture": "1080×1920",
+      "duration_seconds": 9.751995,
+      "outcome": "通过",
+      "note": "",
+      "files": [
+        {
+          "bytes": 1298250,
+          "sha256": "621f84f33fa8e25f963d75f62a400116f12eeda21586d9f434912909900b2496",
+          "transfer_seconds": 0.015,
+          "range_beyond_2g": null,
+          "other_guest_status": 404,
+          "media": {
+            "programs": [],
+            "stream_groups": [],
+            "streams": [
+              {
+                "codec_name": "h264",
+                "codec_type": "video",
+                "width": 1080,
+                "height": 1920,
+                "r_frame_rate": "30/1"
+              },
+              {
+                "codec_name": "aac",
+                "codec_type": "audio",
+                "r_frame_rate": "0/0"
+              }
+            ],
+            "format": {
+              "duration": "9.751995",
+              "size": "1298250"
+            },
+            "decoded_positions": [
+              0,
+              4.876,
+              4.752
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "id": "twitch-full-retest",
+      "platform": "twitch",
+      "category": "short_video",
+      "status": "passed",
+      "bytes": 16299328,
+      "ready_seconds": 6.078,
+      "average_MiB_s": 2.557,
+      "stages": {
+        "submit": "passed",
+        "server_download": "passed",
+        "full_visitor_transfer": "passed",
+        "sha256": "passed",
+        "guest_isolation": "passed"
+      },
+      "health_before": {
+        "status": 200,
+        "seconds": 0.0
+      },
+      "health_after": {
+        "status": 200,
+        "seconds": 0.0
+      },
+      "case": "all-platforms/twitch-full-retest",
+      "picture": "1920×1080",
+      "duration_seconds": 32.099,
+      "outcome": "通过",
+      "note": "",
+      "files": [
+        {
+          "bytes": 16299328,
+          "sha256": "9d3021eae0ac932a520b5ebedf995ec14901d882d97b27eeccbbb5b9440a4317",
+          "transfer_seconds": 0.062,
+          "range_beyond_2g": null,
+          "other_guest_status": 404,
+          "media": {
+            "programs": [],
+            "stream_groups": [],
+            "streams": [
+              {
+                "codec_name": "h264",
+                "codec_type": "video",
+                "width": 1920,
+                "height": 1080,
+                "r_frame_rate": "30000/1001"
+              },
+              {
+                "codec_name": "aac",
+                "codec_type": "audio",
+                "r_frame_rate": "0/0"
+              }
+            ],
+            "format": {
+              "duration": "32.099000",
+              "size": "16299328"
+            },
+            "decoded_positions": [
+              0,
+              16.049,
+              27.099
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "id": "wechat-full-retest",
+      "platform": "wechat",
+      "category": "short_video",
+      "status": "passed",
+      "bytes": 17983796,
+      "ready_seconds": 4.031,
+      "average_MiB_s": 4.255,
+      "stages": {
+        "submit": "passed",
+        "server_download": "passed",
+        "full_visitor_transfer": "passed",
+        "sha256": "passed",
+        "guest_isolation": "passed"
+      },
+      "health_before": {
+        "status": 200,
+        "seconds": 0.016
+      },
+      "health_after": {
+        "status": 200,
+        "seconds": 0.031
+      },
+      "case": "all-platforms/wechat-full-retest",
+      "picture": "1024×576",
+      "duration_seconds": 516.522,
+      "outcome": "通过",
+      "note": "",
+      "files": [
+        {
+          "bytes": 17983796,
+          "sha256": "a2206af9b3b622d515143c92ed3de9bd4ae48c4241491c7dff401040bd5950b0",
+          "transfer_seconds": 0.063,
+          "range_beyond_2g": null,
+          "other_guest_status": 404,
+          "media": {
+            "programs": [],
+            "stream_groups": [],
+            "streams": [
+              {
+                "codec_name": "h264",
+                "codec_type": "video",
+                "width": 1024,
+                "height": 576,
+                "r_frame_rate": "24/1"
+              },
+              {
+                "codec_name": "aac",
+                "codec_type": "audio",
+                "r_frame_rate": "0/0"
+              }
+            ],
+            "format": {
+              "duration": "516.522000",
+              "size": "17983796"
+            },
+            "decoded_positions": [
+              0,
+              258.261,
+              511.522
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "id": "weibo-full-retest",
+      "platform": "weibo",
+      "category": "short_video",
+      "status": "passed",
+      "bytes": 1810094,
+      "ready_seconds": 2.062,
+      "average_MiB_s": 0.837,
+      "stages": {
+        "submit": "passed",
+        "server_download": "passed",
+        "full_visitor_transfer": "passed",
+        "sha256": "passed",
+        "guest_isolation": "passed"
+      },
+      "health_before": {
+        "status": 200,
+        "seconds": 0.0
+      },
+      "health_after": {
+        "status": 200,
+        "seconds": 0.0
+      },
+      "case": "all-platforms/weibo-full-retest",
+      "picture": "480×480",
+      "duration_seconds": 53.173991,
+      "outcome": "通过",
+      "note": "",
+      "files": [
+        {
+          "bytes": 1810094,
+          "sha256": "17f407a0e005d2ab73b276e5d5e1d8345f89fecab7f9e521648f252738575aca",
+          "transfer_seconds": 0.016,
+          "range_beyond_2g": null,
+          "other_guest_status": 404,
+          "media": {
+            "programs": [],
+            "stream_groups": [],
+            "streams": [
+              {
+                "codec_name": "h264",
+                "codec_type": "video",
+                "width": 480,
+                "height": 480,
+                "r_frame_rate": "30/1"
+              },
+              {
+                "codec_name": "aac",
+                "codec_type": "audio",
+                "r_frame_rate": "0/0"
+              }
+            ],
+            "format": {
+              "duration": "53.173991",
+              "size": "1810094"
+            },
+            "decoded_positions": [
+              0,
+              26.587,
+              48.174
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "id": "x-full-retest",
+      "platform": "x",
+      "category": "short_video",
+      "status": "passed",
+      "bytes": 539283,
+      "ready_seconds": 6.109,
+      "average_MiB_s": 0.084,
+      "stages": {
+        "submit": "passed",
+        "server_download": "passed",
+        "full_visitor_transfer": "passed",
+        "sha256": "passed",
+        "guest_isolation": "passed"
+      },
+      "health_before": {
+        "status": 200,
+        "seconds": 0.0
+      },
+      "health_after": {
+        "status": 200,
+        "seconds": 0.0
+      },
+      "case": "all-platforms/x-full-retest",
+      "picture": "1280×720",
+      "duration_seconds": 3.178667,
+      "outcome": "通过",
+      "note": "",
+      "files": [
+        {
+          "bytes": 539283,
+          "sha256": "f64ec4761969ddf3a57bdf34995592342d9978f18dc23e2ad1e7ce7a6f3f4881",
+          "transfer_seconds": 0.016,
+          "range_beyond_2g": null,
+          "other_guest_status": 404,
+          "media": {
+            "programs": [],
+            "stream_groups": [],
+            "streams": [
+              {
+                "codec_name": "h264",
+                "codec_type": "video",
+                "width": 1280,
+                "height": 720,
+                "r_frame_rate": "24000/1001"
+              },
+              {
+                "codec_name": "aac",
+                "codec_type": "audio",
+                "r_frame_rate": "0/0"
+              }
+            ],
+            "format": {
+              "duration": "3.178667",
+              "size": "539283"
+            },
+            "decoded_positions": [
+              0,
+              1.589,
+              0
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "id": "xiaohongshu-full-retest",
+      "platform": "xiaohongshu",
+      "category": "short_video",
+      "status": "passed",
+      "bytes": 71238749,
+      "ready_seconds": 10.031,
+      "average_MiB_s": 6.773,
+      "stages": {
+        "submit": "passed",
+        "server_download": "passed",
+        "full_visitor_transfer": "passed",
+        "sha256": "passed",
+        "guest_isolation": "passed"
+      },
+      "health_before": {
+        "status": 200,
+        "seconds": 0.0
+      },
+      "health_after": {
+        "status": 200,
+        "seconds": 0.0
+      },
+      "case": "all-platforms/xiaohongshu-full-retest",
+      "picture": "1080×1920",
+      "duration_seconds": 326.935478,
+      "outcome": "通过",
+      "note": "",
+      "files": [
+        {
+          "bytes": 71238749,
+          "sha256": "6252983be1b0b6cf479bb44001cfd0dea148dd8e73784045ab52a4bf4a845363",
+          "transfer_seconds": 0.281,
+          "range_beyond_2g": null,
+          "other_guest_status": 404,
+          "media": {
+            "programs": [],
+            "stream_groups": [],
+            "streams": [
+              {
+                "codec_name": "hevc",
+                "codec_type": "video",
+                "width": 1080,
+                "height": 1920,
+                "r_frame_rate": "31/1"
+              },
+              {
+                "codec_name": "aac",
+                "codec_type": "audio",
+                "r_frame_rate": "0/0"
+              }
+            ],
+            "format": {
+              "duration": "326.935478",
+              "size": "71238749"
+            },
+            "decoded_positions": [
+              0,
+              163.468,
+              321.935
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "id": "youku-full-retest",
+      "platform": "youku",
+      "category": "short_video",
+      "status": "passed",
+      "bytes": 257553914,
+      "ready_seconds": 28.11,
+      "average_MiB_s": 8.738,
+      "stages": {
+        "submit": "passed",
+        "server_download": "passed",
+        "full_visitor_transfer": "passed",
+        "sha256": "passed",
+        "guest_isolation": "passed"
+      },
+      "health_before": {
+        "status": 200,
+        "seconds": 0.0
+      },
+      "health_after": {
+        "status": 200,
+        "seconds": 0.0
+      },
+      "case": "all-platforms/youku-full-retest",
+      "picture": "1920×1080",
+      "duration_seconds": 542.133311,
+      "outcome": "通过",
+      "note": "",
+      "files": [
+        {
+          "bytes": 257553914,
+          "sha256": "564a149f4cc5cb92a412f261b0f1804efbc044a302f9247845b24b5de24b8aed",
+          "transfer_seconds": 0.797,
+          "range_beyond_2g": null,
+          "other_guest_status": 404,
+          "media": {
+            "programs": [],
+            "stream_groups": [],
+            "streams": [
+              {
+                "codec_name": "h264",
+                "codec_type": "video",
+                "width": 1920,
+                "height": 1080,
+                "r_frame_rate": "30/1"
+              },
+              {
+                "codec_name": "aac",
+                "codec_type": "audio",
+                "r_frame_rate": "0/0"
+              }
+            ],
+            "format": {
+              "duration": "542.133311",
+              "size": "257553914"
+            },
+            "decoded_positions": [
+              0,
+              271.067,
+              537.133
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "id": "zhihu-full-retest",
+      "platform": "zhihu",
+      "category": "short_video",
+      "status": "passed",
+      "bytes": 17274307,
+      "ready_seconds": 4.078,
+      "average_MiB_s": 4.04,
+      "stages": {
+        "submit": "passed",
+        "server_download": "passed",
+        "full_visitor_transfer": "passed",
+        "sha256": "passed",
+        "guest_isolation": "passed"
+      },
+      "health_before": {
+        "status": 200,
+        "seconds": 0.016
+      },
+      "health_after": {
+        "status": 200,
+        "seconds": 0.0
+      },
+      "case": "all-platforms/zhihu-full-retest",
+      "picture": "1920×1080",
+      "duration_seconds": 146.32,
+      "outcome": "通过",
+      "note": "",
+      "files": [
+        {
+          "bytes": 17274307,
+          "sha256": "3770f61a3b2020b9c7c6885df17a8435b2c74f0671c33ec0587414006143e280",
+          "transfer_seconds": 0.062,
+          "range_beyond_2g": null,
+          "other_guest_status": 404,
+          "media": {
+            "programs": [],
+            "stream_groups": [],
+            "streams": [
+              {
+                "codec_name": "h264",
+                "codec_type": "video",
+                "width": 1920,
+                "height": 1080,
+                "r_frame_rate": "25/1"
+              },
+              {
+                "codec_name": "aac",
+                "codec_type": "audio",
+                "r_frame_rate": "0/0"
+              }
+            ],
+            "format": {
+              "duration": "146.320000",
+              "size": "17274307"
+            },
+            "decoded_positions": [
+              0,
+              73.16,
+              141.32
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "id": "original-file-3g",
+      "platform": "original-file",
+      "category": "multi_gb",
+      "status": "passed",
+      "bytes": 4080486400,
+      "ready_seconds": 96.203,
+      "average_MiB_s": 40.45,
+      "stages": {
+        "submit": "passed",
+        "server_download": "passed",
+        "full_visitor_transfer": "passed",
+        "sha256": "passed",
+        "guest_isolation": "passed",
+        "multi_gb": "passed"
+      },
+      "health_before": {
+        "status": 200,
+        "seconds": 0.015
+      },
+      "health_after": {
+        "status": 200,
+        "seconds": 0.0
+      },
+      "case": "big-file/original-file-3g",
+      "picture": "原文件",
+      "duration_seconds": 0.0,
+      "outcome": "通过",
+      "note": "",
+      "files": [
+        {
+          "bytes": 4080486400,
+          "sha256": "97f3d7ffb032c3eb3b23d2c8be9cc76e60c2c1f2c0146ba5ba9fe01cafae0fd8",
+          "transfer_seconds": 12.797,
+          "range_beyond_2g": "passed",
+          "other_guest_status": 404,
+          "media": null
+        }
+      ]
+    },
+    {
+      "status": "passed",
+      "bytes": 4080486400,
+      "expected_bytes": 4080486400,
+      "sha256": "97f3d7ffb032c3eb3b23d2c8be9cc76e60c2c1f2c0146ba5ba9fe01cafae0fd8",
+      "id": "real-browser-native-4GB",
+      "platform": "file",
+      "case": "browser-large",
+      "picture": "原文件",
+      "duration_seconds": 0.0,
+      "outcome": "浏览器原生保存通过",
+      "note": "实际4,080,486,400字节文件保存到电脑，SHA256与官方一致；JS Blob构造次数为0。",
+      "seconds": 96.422,
+      "blob_constructions": 0,
+      "files": []
+    },
+    {
+      "id": "ali-multi-gb-original",
+      "platform": "ali",
+      "category": "multi_gb",
+      "status": "failed",
+      "expected_bytes": 2956626223,
+      "share_workflow_tested": false,
+      "stages": {},
+      "health_before": {
+        "status": 200,
+        "seconds": 0.0
+      },
+      "health_after": {
+        "status": 200,
+        "seconds": 0.032
+      },
+      "case": "cloud-original/ali",
+      "picture": "未取得完整成品",
+      "duration_seconds": 0.0,
+      "outcome": "大文件未通过",
+      "note": "2,956,626,223字节原文件：账号请求成功，文件大小正常，但官方url/cdn_url均为空；无完整文件。",
+      "files": []
+    },
+    {
+      "id": "baidu-multi-gb-original",
+      "platform": "baidu",
+      "category": "multi_gb",
+      "status": "failed",
+      "expected_bytes": 2508489811,
+      "share_workflow_tested": false,
+      "stages": {},
+      "health_before": {
+        "status": 200,
+        "seconds": 0.0
+      },
+      "health_after": {
+        "status": 200,
+        "seconds": 0.0
+      },
+      "case": "cloud-original/baidu",
+      "picture": "未取得完整成品",
+      "duration_seconds": 0.0,
+      "outcome": "旧路线未通过",
+      "note": "2.51GB目标使用旧PCS路线，约630秒只取得42,739,083字节。正常网页授权路线随后通过。",
+      "files": []
+    },
+    {
+      "id": "baidu-multi-gb-web-original",
+      "platform": "baidu",
+      "category": "multi_gb",
+      "status": "passed",
+      "bytes": 2508489811,
+      "expected_bytes": 2508489811,
+      "download_seconds": 160.5,
+      "MiB_s": 14.905,
+      "sha256": "8576eacb12299ba9b46431e99d81c923b1447e1fd7e4865a24a4d2e48cd4bdfa",
+      "share_workflow_tested": false,
+      "stages": {
+        "full_original": "passed",
+        "source_cdn_md5": "passed",
+        "begin_middle_end_decode": "passed"
+      },
+      "health_before": {
+        "status": 200,
+        "seconds": 0.0
+      },
+      "health_after": {
+        "status": 200,
+        "seconds": 0.016
+      },
+      "case": "cloud-original/baidu-web",
+      "picture": "1080×1920",
+      "duration_seconds": 6162.7,
+      "outcome": "通过",
+      "note": "单个2.51GB账号原文件完整下载；CDN真实MD5与本地一致，SHA256记录、首中尾解码通过。未通过分享提交网站任务，未改动网盘。",
+      "files": []
+    },
+    {
+      "id": "quark-multi-gb-original",
+      "platform": "quark",
+      "category": "multi_gb",
+      "status": "failed",
+      "expected_bytes": 4695916003,
+      "share_workflow_tested": false,
+      "stages": {},
+      "health_before": {
+        "status": 200,
+        "seconds": 0.0
+      },
+      "health_after": {
+        "status": 200,
+        "seconds": 0.0
+      },
+      "case": "cloud-original/quark",
+      "picture": "未取得完整成品",
+      "duration_seconds": 0.0,
+      "outcome": "大文件未通过",
+      "note": "4,695,916,003字节原文件：官方网页下载接口拒绝，代码23018，download file size limit；账号登录不是本次失败原因。",
+      "files": []
+    },
+    {
+      "id": "ali-share-retest",
+      "platform": "ali",
+      "category": "cloud_small",
+      "status": "failed",
+      "stages": {
+        "submit": "passed"
+      },
+      "health_before": {
+        "status": 200,
+        "seconds": 0.0
+      },
+      "case": "complements/ali-share-retest",
+      "picture": "未取得完整成品",
+      "duration_seconds": 0.0,
+      "outcome": "未通过",
+      "note": "1.36GB分享基线约18分钟仍未完成，受控停止以启用百度修复；只记录慢速现象，不算完整通过。",
+      "files": []
+    },
+    {
+      "id": "baidu-share-retest",
+      "platform": "baidu",
+      "category": "cloud_small",
+      "status": "passed",
+      "bytes": 362218646,
+      "ready_seconds": 46.094,
+      "average_MiB_s": 7.494,
+      "stages": {
+        "submit": "passed",
+        "server_download": "passed",
+        "full_visitor_transfer": "passed",
+        "sha256": "passed",
+        "guest_isolation": "passed"
+      },
+      "health_before": {
+        "status": 200,
+        "seconds": 0.0
+      },
+      "health_after": {
+        "status": 200,
+        "seconds": 0.016
+      },
+      "case": "complements/baidu-share-retest",
+      "picture": "原文件",
+      "duration_seconds": 0.0,
+      "outcome": "通过",
+      "note": "",
+      "files": [
+        {
+          "bytes": 362218646,
+          "sha256": "cd86542980babab3cf0f8e85a794b626dae26405afe6b7275e7838256445f391",
+          "transfer_seconds": 1.14,
+          "range_beyond_2g": null,
+          "other_guest_status": 404,
+          "media": null
+        }
+      ]
+    },
+    {
+      "id": "quark-share-retest",
+      "platform": "quark",
+      "category": "cloud_small",
+      "status": "passed",
+      "bytes": 18206733,
+      "ready_seconds": 6.031,
+      "average_MiB_s": 2.879,
+      "stages": {
+        "submit": "passed",
+        "server_download": "passed",
+        "full_visitor_transfer": "passed",
+        "sha256": "passed",
+        "guest_isolation": "passed"
+      },
+      "health_before": {
+        "status": 200,
+        "seconds": 0.0
+      },
+      "health_after": {
+        "status": 200,
+        "seconds": 0.015
+      },
+      "case": "complements/quark-share-retest",
+      "picture": "原文件",
+      "duration_seconds": 0.0,
+      "outcome": "通过",
+      "note": "",
+      "files": [
+        {
+          "bytes": 18206733,
+          "sha256": "c04d1297fa00ac66055d53870b3945a67ae68be31af311daf49a5cbe78d20129",
+          "transfer_seconds": 0.047,
+          "range_beyond_2g": null,
+          "other_guest_status": 404,
+          "media": null
+        }
+      ]
+    },
+    {
+      "id": "xhs-images-full",
+      "platform": "xiaohongshu-images",
+      "category": "images",
+      "status": "passed",
+      "bytes": 28820,
+      "ready_seconds": 18.047,
+      "average_MiB_s": 0.002,
+      "stages": {
+        "submit": "passed",
+        "server_download": "passed",
+        "full_visitor_transfer": "passed",
+        "sha256": "passed",
+        "guest_isolation": "passed"
+      },
+      "health_before": {
+        "status": 200,
+        "seconds": 0.0
+      },
+      "health_after": {
+        "status": 200,
+        "seconds": 0.0
+      },
+      "case": "complements/xhs-images-full",
+      "picture": "原文件",
+      "duration_seconds": 0.0,
+      "outcome": "通过",
+      "note": "",
+      "files": [
+        {
+          "bytes": 28820,
+          "sha256": "07217dc7e11e455547b8447d695469ffca72fc980593f9dc2d4bd3b51f647fc4",
+          "transfer_seconds": 0.015,
+          "range_beyond_2g": null,
+          "other_guest_status": 404,
+          "media": null
+        }
+      ]
+    },
+    {
+      "id": "archive-mit-long",
+      "platform": "archive",
+      "category": "long_video",
+      "status": "failed",
+      "stages": {
+        "submit": "passed"
+      },
+      "health_before": {
+        "status": 200,
+        "seconds": 0.047
+      },
+      "health_after": {
+        "status": 200,
+        "seconds": 0.0
+      },
+      "case": "fixed-final/archive-mit-long",
+      "picture": "未取得完整成品",
+      "duration_seconds": 0.0,
+      "outcome": "未通过",
+      "note": "官方MIT资源访问连接超时，未取得完整文件。",
+      "files": []
+    },
+    {
+      "id": "baidu-gb-share",
+      "platform": "baidu",
+      "category": "cloud_gb_total",
+      "status": "passed",
+      "bytes": 2757024462,
+      "ready_seconds": 190.516,
+      "average_MiB_s": 13.801,
+      "stages": {
+        "submit": "passed",
+        "server_download": "passed",
+        "full_visitor_transfer": "passed",
+        "sha256": "passed",
+        "guest_isolation": "passed",
+        "multi_gb_total": "passed"
+      },
+      "health_before": {
+        "status": 200,
+        "seconds": 0.047
+      },
+      "health_after": {
+        "status": 200,
+        "seconds": 0.0
+      },
+      "case": "fixed-final/baidu-gb-share",
+      "picture": "原文件",
+      "duration_seconds": 0.0,
+      "outcome": "通过",
+      "note": "8个原文件合计2.75GB，最大单文件1,784,282,684字节；网页访客完整取回全部文件并逐个比对SHA256。未转存。",
+      "files": [
+        {
+          "bytes": 61024132,
+          "sha256": "f75d8c50f4767f4d015f3a6c70e3b6bf8158b34ebc1de393eb9e517e48a992e4",
+          "transfer_seconds": 0.188,
+          "range_beyond_2g": null,
+          "other_guest_status": 404,
+          "media": null
+        },
+        {
+          "bytes": 679302251,
+          "sha256": "b4656540831e74b911e2506d2c567cbb146fddd5942b675f80c2f610d6a40f43",
+          "transfer_seconds": 2.109,
+          "range_beyond_2g": null,
+          "other_guest_status": 404,
+          "media": null
+        },
+        {
+          "bytes": 164273,
+          "sha256": "eb9be498c8de75e3294a723ff5b06c72a64e76f3ad341b44025b7868be720d64",
+          "transfer_seconds": 0.0,
+          "range_beyond_2g": null,
+          "other_guest_status": 404,
+          "media": null
+        },
+        {
+          "bytes": 1784282684,
+          "sha256": "d9486ab9b55e56201988c8a05cbf514698228a3660e4135ae8c44dd93b8adeb4",
+          "transfer_seconds": 5.344,
+          "range_beyond_2g": null,
+          "other_guest_status": 404,
+          "media": null
+        },
+        {
+          "bytes": 88244398,
+          "sha256": "d7c63e6b983acfe7f76de436a88796a92901e564c3a5952f88667a3d49103ad6",
+          "transfer_seconds": 0.296,
+          "range_beyond_2g": null,
+          "other_guest_status": 404,
+          "media": null
+        },
+        {
+          "bytes": 55598053,
+          "sha256": "3e7a699ab6a6d608b0c2d7409499afa67c9afec9df745a3d1fbf97c39cb61baf",
+          "transfer_seconds": 0.188,
+          "range_beyond_2g": null,
+          "other_guest_status": 404,
+          "media": null
+        },
+        {
+          "bytes": 164273,
+          "sha256": "eb9be498c8de75e3294a723ff5b06c72a64e76f3ad341b44025b7868be720d64",
+          "transfer_seconds": 0.0,
+          "range_beyond_2g": null,
+          "other_guest_status": 404,
+          "media": null
+        },
+        {
+          "bytes": 88244398,
+          "sha256": "d7c63e6b983acfe7f76de436a88796a92901e564c3a5952f88667a3d49103ad6",
+          "transfer_seconds": 0.266,
+          "range_beyond_2g": null,
+          "other_guest_status": 404,
+          "media": null
+        }
+      ]
+    },
+    {
+      "id": "archive-long",
+      "platform": "archive",
+      "category": "long_video",
+      "status": "failed",
+      "stages": {
+        "submit": "passed"
+      },
+      "health_before": {
+        "status": 200,
+        "seconds": 0.016
+      },
+      "health_after": {
+        "status": 200,
+        "seconds": 0.016
+      },
+      "case": "long/archive-long",
+      "picture": "未取得完整成品",
+      "duration_seconds": 0.0,
+      "outcome": "未通过",
+      "note": "画质检查拒绝：标称400×304，成品400×300。未降低检查要求。",
+      "files": []
+    },
+    {
+      "id": "bilibili-long",
+      "platform": "bilibili",
+      "category": "long_video",
+      "status": "passed",
+      "bytes": 152766559,
+      "ready_seconds": 18.047,
+      "average_MiB_s": 8.073,
+      "stages": {
+        "submit": "passed",
+        "server_download": "passed",
+        "full_visitor_transfer": "passed",
+        "sha256": "passed",
+        "guest_isolation": "passed",
+        "long_duration": "passed"
+      },
+      "health_before": {
+        "status": 200,
+        "seconds": 0.016
+      },
+      "health_after": {
+        "status": 200,
+        "seconds": 0.0
+      },
+      "case": "long/bilibili-long",
+      "picture": "1280×720",
+      "duration_seconds": 4856.337188,
+      "outcome": "通过",
+      "note": "",
+      "files": [
+        {
+          "bytes": 152766559,
+          "sha256": "ef1d58a17edeb6515fb4d7141642cdb843e30a500edf16a2e522bd237e39ce37",
+          "transfer_seconds": 0.438,
+          "range_beyond_2g": null,
+          "other_guest_status": 404,
+          "media": {
+            "programs": [],
+            "stream_groups": [],
+            "streams": [
+              {
+                "codec_name": "h264",
+                "codec_type": "video",
+                "width": 1280,
+                "height": 720,
+                "r_frame_rate": "25/1"
+              },
+              {
+                "codec_name": "aac",
+                "codec_type": "audio",
+                "r_frame_rate": "0/0"
+              }
+            ],
+            "format": {
+              "duration": "4856.337188",
+              "size": "152766559"
+            },
+            "decoded_positions": [
+              0,
+              2428.169,
+              4851.337
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "id": "mango-long",
+      "platform": "mango",
+      "category": "long_video",
+      "status": "passed",
+      "bytes": 397984349,
+      "ready_seconds": 22.078,
+      "average_MiB_s": 17.191,
+      "stages": {
+        "submit": "passed",
+        "server_download": "passed",
+        "full_visitor_transfer": "passed",
+        "sha256": "passed",
+        "guest_isolation": "passed",
+        "long_duration": "passed"
+      },
+      "health_before": {
+        "status": 200,
+        "seconds": 0.0
+      },
+      "health_after": {
+        "status": 200,
+        "seconds": 0.0
+      },
+      "case": "long/mango-long",
+      "picture": "1280×720",
+      "duration_seconds": 4026.549116,
+      "outcome": "通过",
+      "note": "",
+      "files": [
+        {
+          "bytes": 397984349,
+          "sha256": "874b48b3b8c33f4563ced5a755f1db0627c7c1e4e65099f14e81bb38d167b1a8",
+          "transfer_seconds": 1.203,
+          "range_beyond_2g": null,
+          "other_guest_status": 404,
+          "media": {
+            "programs": [],
+            "stream_groups": [],
+            "streams": [
+              {
+                "codec_name": "h264",
+                "codec_type": "video",
+                "width": 1280,
+                "height": 720,
+                "r_frame_rate": "25/1"
+              },
+              {
+                "codec_name": "aac",
+                "codec_type": "audio",
+                "r_frame_rate": "0/0"
+              }
+            ],
+            "format": {
+              "duration": "4026.549116",
+              "size": "397984349"
+            },
+            "decoded_positions": [
+              0,
+              2013.275,
+              4021.549
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "id": "youtube-long",
+      "platform": "youtube",
+      "category": "long_video",
+      "status": "passed",
+      "bytes": 520234483,
+      "ready_seconds": 132.281,
+      "average_MiB_s": 3.751,
+      "stages": {
+        "submit": "passed",
+        "server_download": "passed",
+        "full_visitor_transfer": "passed",
+        "sha256": "passed",
+        "guest_isolation": "passed",
+        "long_duration": "passed"
+      },
+      "health_before": {
+        "status": 200,
+        "seconds": 0.031
+      },
+      "health_after": {
+        "status": 200,
+        "seconds": 0.0
+      },
+      "case": "long/youtube-long",
+      "picture": "1280×720",
+      "duration_seconds": 4346.84517,
+      "outcome": "通过",
+      "note": "",
+      "files": [
+        {
+          "bytes": 520234483,
+          "sha256": "dbe9b9934d1f925f309012bf9f70ee563cbd0e213d2bd7c094e3278f4d099202",
+          "transfer_seconds": 1.453,
+          "range_beyond_2g": null,
+          "other_guest_status": 404,
+          "media": {
+            "programs": [],
+            "stream_groups": [],
+            "streams": [
+              {
+                "codec_name": "h264",
+                "codec_type": "video",
+                "width": 1280,
+                "height": 720,
+                "r_frame_rate": "30000/1001"
+              },
+              {
+                "codec_name": "aac",
+                "codec_type": "audio",
+                "r_frame_rate": "0/0"
+              }
+            ],
+            "format": {
+              "duration": "4346.845170",
+              "size": "520234483"
+            },
+            "decoded_positions": [
+              0,
+              2173.423,
+              4341.845
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "id": "archive-long-alternative",
+      "platform": "archive",
+      "category": "long_video",
+      "status": "failed",
+      "stages": {
+        "submit": "passed"
+      },
+      "health_before": {
+        "status": 200,
+        "seconds": 0.016
+      },
+      "health_after": {
+        "status": 200,
+        "seconds": 0.015
+      },
+      "case": "long-more/archive-long-alternative",
+      "picture": "未取得完整成品",
+      "duration_seconds": 0.0,
+      "outcome": "未通过",
+      "note": "测试资源404，不能据此判断整个平台不可用。",
+      "files": []
+    },
+    {
+      "id": "cctv-long",
+      "platform": "cctv",
+      "category": "long_video",
+      "status": "passed",
+      "bytes": 244840140,
+      "ready_seconds": 28.11,
+      "average_MiB_s": 8.307,
+      "stages": {
+        "submit": "passed",
+        "server_download": "passed",
+        "full_visitor_transfer": "passed",
+        "sha256": "passed",
+        "guest_isolation": "passed",
+        "long_duration": "passed"
+      },
+      "health_before": {
+        "status": 200,
+        "seconds": 0.0
+      },
+      "health_after": {
+        "status": 200,
+        "seconds": 0.0
+      },
+      "case": "long-more/cctv-long",
+      "picture": "480×270",
+      "duration_seconds": 4316.754678,
+      "outcome": "通过",
+      "note": "",
+      "files": [
+        {
+          "bytes": 244840140,
+          "sha256": "051d52398345ca5fb8bed92d5ba777c32396ef6e15404cacc3a632dadf7d816c",
+          "transfer_seconds": 0.703,
+          "range_beyond_2g": null,
+          "other_guest_status": 404,
+          "media": {
+            "programs": [],
+            "stream_groups": [],
+            "streams": [
+              {
+                "codec_name": "h264",
+                "codec_type": "video",
+                "width": 480,
+                "height": 270,
+                "r_frame_rate": "25/1"
+              },
+              {
+                "codec_name": "aac",
+                "codec_type": "audio",
+                "r_frame_rate": "0/0"
+              }
+            ],
+            "format": {
+              "duration": "4316.754678",
+              "size": "244840140"
+            },
+            "decoded_positions": [
+              0,
+              2158.377,
+              4311.755
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "id": "dailymotion-long",
+      "platform": "dailymotion",
+      "category": "long_video",
+      "status": "failed",
+      "stages": {
+        "submit": "passed"
+      },
+      "health_before": {
+        "status": 200,
+        "seconds": 0.0
+      },
+      "health_after": {
+        "status": 200,
+        "seconds": 0.015
+      },
+      "case": "long-more/dailymotion-long",
+      "picture": "未取得完整成品",
+      "duration_seconds": 0.0,
+      "outcome": "未通过",
+      "note": "HLS末段合并时缺少片段文件，留下部分数据，未通过。之后另一NASA长样例完整通过。",
+      "files": []
+    },
+    {
+      "id": "tencent-long",
+      "platform": "tencent",
+      "category": "long_video",
+      "status": "failed",
+      "bytes": 1356404260,
+      "ready_seconds": 228.36,
+      "average_MiB_s": 5.665,
+      "stages": {
+        "submit": "passed",
+        "server_download": "passed",
+        "full_visitor_transfer": "passed",
+        "sha256": "passed",
+        "guest_isolation": "passed"
+      },
+      "health_before": {
+        "status": 200,
+        "seconds": 0.0
+      },
+      "health_after": {
+        "status": 200,
+        "seconds": 0.0
+      },
+      "case": "long-more/tencent-long",
+      "picture": "1280×720",
+      "duration_seconds": 12394.261333,
+      "outcome": "完整文件通过；3小时26分，超出1–2小时区间",
+      "note": "服务器下载、完整访客取回、SHA256、首中尾解码和记录隔离全部通过；原测试器因区间不匹配返回failed，保留原状态。",
+      "files": [
+        {
+          "bytes": 1356404260,
+          "sha256": "393c36750b80e11d357b4837fa201f05e3509e6a52cca8b9338e276efd93be16",
+          "transfer_seconds": 3.781,
+          "range_beyond_2g": null,
+          "other_guest_status": 404,
+          "media": {
+            "programs": [],
+            "stream_groups": [],
+            "streams": [
+              {
+                "codec_name": "h264",
+                "codec_type": "video",
+                "width": 1280,
+                "height": 720,
+                "r_frame_rate": "25/1"
+              },
+              {
+                "codec_name": "aac",
+                "codec_type": "audio",
+                "r_frame_rate": "0/0"
+              }
+            ],
+            "format": {
+              "duration": "12394.261333",
+              "size": "1356404260"
+            },
+            "decoded_positions": [
+              0,
+              6197.131,
+              12389.261
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "id": "facebook-maintainer-long-23",
+      "platform": "facebook",
+      "category": "long_video",
+      "status": "passed",
+      "bytes": 1605042470,
+      "ready_seconds": 108.25,
+      "average_MiB_s": 14.14,
+      "stages": {
+        "submit": "passed",
+        "server_download": "passed",
+        "full_visitor_transfer": "passed",
+        "sha256": "passed",
+        "guest_isolation": "passed",
+        "long_duration": "passed"
+      },
+      "health_before": {
+        "status": 200,
+        "seconds": 0.031
+      },
+      "health_after": {
+        "status": 200,
+        "seconds": 0.0
+      },
+      "case": "maintainer-long/facebook-maintainer-long-23",
+      "picture": "1920×1080",
+      "duration_seconds": 4524.316083,
+      "outcome": "通过",
+      "note": "",
+      "files": [
+        {
+          "bytes": 1605042470,
+          "sha256": "457c05c4a5495ebaa6f85dfea73576f0cf6b9aa825e70d3912372fd2ae592e5b",
+          "transfer_seconds": 4.719,
+          "range_beyond_2g": null,
+          "other_guest_status": 404,
+          "media": {
+            "programs": [],
+            "stream_groups": [],
+            "streams": [
+              {
+                "codec_name": "vp9",
+                "codec_type": "video",
+                "width": 1920,
+                "height": 1080,
+                "r_frame_rate": "30/1"
+              },
+              {
+                "codec_name": "aac",
+                "codec_type": "audio",
+                "r_frame_rate": "0/0"
+              }
+            ],
+            "format": {
+              "duration": "4524.316083",
+              "size": "1605042470"
+            },
+            "decoded_positions": [
+              0,
+              2262.158,
+              4519.316
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "id": "dailymotion-nasa-long-retry",
+      "platform": "dailymotion",
+      "category": "long_video",
+      "status": "passed",
+      "bytes": 1527340917,
+      "ready_seconds": 290.547,
+      "average_MiB_s": 5.013,
+      "stages": {
+        "submit": "passed",
+        "server_download": "passed",
+        "full_visitor_transfer": "passed",
+        "sha256": "passed",
+        "guest_isolation": "passed",
+        "long_duration": "passed"
+      },
+      "health_before": {
+        "status": 200,
+        "seconds": 0.0
+      },
+      "health_after": {
+        "status": 200,
+        "seconds": 0.0
+      },
+      "case": "nasa-retry/dailymotion-nasa-long-retry",
+      "picture": "1280×720",
+      "duration_seconds": 5722.555867,
+      "outcome": "通过",
+      "note": "",
+      "files": [
+        {
+          "bytes": 1527340917,
+          "sha256": "9bbf3165020890169d283ce63530c27f9c4d2bec1c03f9e6f597bff769a17d41",
+          "transfer_seconds": 4.516,
+          "range_beyond_2g": null,
+          "other_guest_status": 404,
+          "media": {
+            "programs": [],
+            "stream_groups": [],
+            "streams": [
+              {
+                "codec_name": "aac",
+                "codec_type": "audio",
+                "r_frame_rate": "0/0"
+              },
+              {
+                "codec_name": "h264",
+                "codec_type": "video",
+                "width": 1280,
+                "height": 720,
+                "r_frame_rate": "30000/1001"
+              }
+            ],
+            "format": {
+              "duration": "5722.555867",
+              "size": "1527340917"
+            },
+            "decoded_positions": [
+              0,
+              2861.278,
+              5717.556
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "id": "baidu-gb-share",
+      "platform": "baidu",
+      "category": "cloud_gb_total",
+      "status": "failed",
+      "stages": {
+        "submit": "passed"
+      },
+      "health_before": {
+        "status": 200,
+        "seconds": 0.0
+      },
+      "case": "other-final/baidu-gb-share",
+      "picture": "未取得完整成品",
+      "duration_seconds": 0.0,
+      "outcome": "未通过",
+      "note": "旧PCS线路约0.05–0.08MiB/s，受控停止；修复后的同一分享完整通过。",
+      "files": []
+    },
+    {
+      "id": "acfun-full-retest",
+      "platform": "acfun",
+      "category": "short_video",
+      "status": "passed",
+      "bytes": 139045446,
+      "ready_seconds": 4.094,
+      "average_MiB_s": 32.39,
+      "stages": {
+        "submit": "passed",
+        "server_download": "passed",
+        "full_visitor_transfer": "passed",
+        "sha256": "passed",
+        "guest_isolation": "passed"
+      },
+      "health_before": {
+        "status": 200,
+        "seconds": 0.0
+      },
+      "health_after": {
+        "status": 200,
+        "seconds": 0.0
+      },
+      "case": "post-deploy/acfun-full-retest",
+      "picture": "1080×1920",
+      "duration_seconds": 174.226,
+      "outcome": "通过",
+      "note": "",
+      "files": [
+        {
+          "bytes": 139045446,
+          "sha256": "69e4e3d1f006d36a49eb6b2067cb3b3b3e40cf4b3f0ecbe19fe22d404ea4f026",
+          "transfer_seconds": 0.422,
+          "range_beyond_2g": null,
+          "other_guest_status": 404,
+          "media": {
+            "programs": [],
+            "stream_groups": [],
+            "streams": [
+              {
+                "codec_name": "h264",
+                "codec_type": "video",
+                "width": 1080,
+                "height": 1920,
+                "r_frame_rate": "60/1"
+              },
+              {
+                "codec_name": "aac",
+                "codec_type": "audio",
+                "r_frame_rate": "0/0"
+              }
+            ],
+            "format": {
+              "duration": "174.226000",
+              "size": "139045446"
+            },
+            "decoded_positions": [
+              0,
+              87.113,
+              169.226
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "id": "cctv-full-retest",
+      "platform": "cctv",
+      "category": "short_video",
+      "status": "passed",
+      "bytes": 2206772,
+      "ready_seconds": 2.047,
+      "average_MiB_s": 1.028,
+      "stages": {
+        "submit": "passed",
+        "server_download": "passed",
+        "full_visitor_transfer": "passed",
+        "sha256": "passed",
+        "guest_isolation": "passed"
+      },
+      "health_before": {
+        "status": 200,
+        "seconds": 0.0
+      },
+      "health_after": {
+        "status": 200,
+        "seconds": 0.0
+      },
+      "case": "post-deploy/cctv-full-retest",
+      "picture": "480×270",
+      "duration_seconds": 37.96,
+      "outcome": "通过",
+      "note": "",
+      "files": [
+        {
+          "bytes": 2206772,
+          "sha256": "dac6c743bd8c47b44c29adfd4cf833b2f617c347a7583f52beff1a6cc3c2c1b3",
+          "transfer_seconds": 0.016,
+          "range_beyond_2g": null,
+          "other_guest_status": 404,
+          "media": {
+            "programs": [],
+            "stream_groups": [],
+            "streams": [
+              {
+                "codec_name": "h264",
+                "codec_type": "video",
+                "width": 480,
+                "height": 270,
+                "r_frame_rate": "25/1"
+              },
+              {
+                "codec_name": "aac",
+                "codec_type": "audio",
+                "r_frame_rate": "0/0"
+              }
+            ],
+            "format": {
+              "duration": "37.960000",
+              "size": "2206772"
+            },
+            "decoded_positions": [
+              0,
+              18.98,
+              32.96
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "id": "dailymotion-full-retest",
+      "platform": "dailymotion",
+      "category": "short_video",
+      "status": "passed",
+      "bytes": 42398512,
+      "ready_seconds": 10.094,
+      "average_MiB_s": 4.006,
+      "stages": {
+        "submit": "passed",
+        "server_download": "passed",
+        "full_visitor_transfer": "passed",
+        "sha256": "passed",
+        "guest_isolation": "passed"
+      },
+      "health_before": {
+        "status": 200,
+        "seconds": 0.0
+      },
+      "health_after": {
+        "status": 200,
+        "seconds": 0.016
+      },
+      "case": "post-deploy/dailymotion-full-retest",
+      "picture": "1920×1080",
+      "duration_seconds": 68.802122,
+      "outcome": "通过",
+      "note": "",
+      "files": [
+        {
+          "bytes": 42398512,
+          "sha256": "21cfe8fe64d76a463e64f4a5ac8581595b99130f867c8cb68dccf0a341038ab7",
+          "transfer_seconds": 0.14,
+          "range_beyond_2g": null,
+          "other_guest_status": 404,
+          "media": {
+            "programs": [],
+            "stream_groups": [],
+            "streams": [
+              {
+                "codec_name": "aac",
+                "codec_type": "audio",
+                "r_frame_rate": "0/0"
+              },
+              {
+                "codec_name": "h264",
+                "codec_type": "video",
+                "width": 1920,
+                "height": 1080,
+                "r_frame_rate": "30000/1001"
+              }
+            ],
+            "format": {
+              "duration": "68.802122",
+              "size": "42398512"
+            },
+            "decoded_positions": [
+              0,
+              34.401,
+              63.802
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "id": "douyin-full-retest",
+      "platform": "douyin",
+      "category": "short_video",
+      "status": "passed",
+      "bytes": 1117014,
+      "ready_seconds": 12.031,
+      "average_MiB_s": 0.089,
+      "stages": {
+        "submit": "passed",
+        "server_download": "passed",
+        "full_visitor_transfer": "passed",
+        "sha256": "passed",
+        "guest_isolation": "passed"
+      },
+      "health_before": {
+        "status": 200,
+        "seconds": 0.0
+      },
+      "health_after": {
+        "status": 200,
+        "seconds": 0.0
+      },
+      "case": "post-deploy/douyin-full-retest",
+      "picture": "1080×1920",
+      "duration_seconds": 8.066667,
+      "outcome": "通过",
+      "note": "",
+      "files": [
+        {
+          "bytes": 1117014,
+          "sha256": "60c9c0edd4ab1d0125ec08af677fe3d7383351913c3ae113c2d19d3504e4f254",
+          "transfer_seconds": 0.015,
+          "range_beyond_2g": null,
+          "other_guest_status": 404,
+          "media": {
+            "programs": [],
+            "stream_groups": [],
+            "streams": [
+              {
+                "codec_name": "aac",
+                "codec_type": "audio",
+                "r_frame_rate": "0/0"
+              },
+              {
+                "codec_name": "h264",
+                "codec_type": "video",
+                "width": 1080,
+                "height": 1920,
+                "r_frame_rate": "30/1"
+              }
+            ],
+            "format": {
+              "duration": "8.066667",
+              "size": "1117014"
+            },
+            "decoded_positions": [
+              0,
+              4.033,
+              3.067
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "id": "facebook-full-retest",
+      "platform": "facebook",
+      "category": "short_video",
+      "status": "passed",
+      "bytes": 622802,
+      "ready_seconds": 6.063,
+      "average_MiB_s": 0.098,
+      "stages": {
+        "submit": "passed",
+        "server_download": "passed",
+        "full_visitor_transfer": "passed",
+        "sha256": "passed",
+        "guest_isolation": "passed"
+      },
+      "health_before": {
+        "status": 200,
+        "seconds": 0.0
+      },
+      "health_after": {
+        "status": 200,
+        "seconds": 0.015
+      },
+      "case": "post-deploy/facebook-full-retest",
+      "picture": "480×848",
+      "duration_seconds": 9.566667,
+      "outcome": "通过",
+      "note": "",
+      "files": [
+        {
+          "bytes": 622802,
+          "sha256": "cc12fd22535bfa0d5f224e105c1c4abf3525cc4cf33501d1f7ed6c5c469123a2",
+          "transfer_seconds": 0.0,
+          "range_beyond_2g": null,
+          "other_guest_status": 404,
+          "media": {
+            "programs": [],
+            "stream_groups": [],
+            "streams": [
+              {
+                "codec_name": "h264",
+                "codec_type": "video",
+                "width": 480,
+                "height": 848,
+                "r_frame_rate": "30/1"
+              }
+            ],
+            "format": {
+              "duration": "9.566667",
+              "size": "622802"
+            },
+            "decoded_positions": [
+              0,
+              4.783,
+              4.567
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "id": "haokan-full-retest",
+      "platform": "haokan",
+      "category": "short_video",
+      "status": "passed",
+      "bytes": 4793910,
+      "ready_seconds": 6.078,
+      "average_MiB_s": 0.752,
+      "stages": {
+        "submit": "passed",
+        "server_download": "passed",
+        "full_visitor_transfer": "passed",
+        "sha256": "passed",
+        "guest_isolation": "passed"
+      },
+      "health_before": {
+        "status": 200,
+        "seconds": 0.015
+      },
+      "health_after": {
+        "status": 200,
+        "seconds": 0.0
+      },
+      "case": "post-deploy/haokan-full-retest",
+      "picture": "1280×720",
+      "duration_seconds": 257.28,
+      "outcome": "通过",
+      "note": "",
+      "files": [
+        {
+          "bytes": 4793910,
+          "sha256": "486359e97ad489610e709c4ab5851005f5d8546316f1f30315e34efafb6fd8fc",
+          "transfer_seconds": 0.031,
+          "range_beyond_2g": null,
+          "other_guest_status": 404,
+          "media": {
+            "programs": [],
+            "stream_groups": [],
+            "streams": [
+              {
+                "codec_name": "h264",
+                "codec_type": "video",
+                "width": 1280,
+                "height": 720,
+                "r_frame_rate": "25/1"
+              },
+              {
+                "codec_name": "aac",
+                "codec_type": "audio",
+                "r_frame_rate": "0/0"
+              }
+            ],
+            "format": {
+              "duration": "257.280000",
+              "size": "4793910"
+            },
+            "decoded_positions": [
+              0,
+              128.64,
+              252.28
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "id": "instagram-full-retest",
+      "platform": "instagram",
+      "category": "short_video",
+      "status": "passed",
+      "bytes": 1949801,
+      "ready_seconds": 8.062,
+      "average_MiB_s": 0.231,
+      "stages": {
+        "submit": "passed",
+        "server_download": "passed",
+        "full_visitor_transfer": "passed",
+        "sha256": "passed",
+        "guest_isolation": "passed"
+      },
+      "health_before": {
+        "status": 200,
+        "seconds": 0.016
+      },
+      "health_after": {
+        "status": 200,
+        "seconds": 0.0
+      },
+      "case": "post-deploy/instagram-full-retest",
+      "picture": "720×1280",
+      "duration_seconds": 4.966667,
+      "outcome": "通过",
+      "note": "",
+      "files": [
+        {
+          "bytes": 1949801,
+          "sha256": "64c7d81d2251172ed0f9beaf3a753765adb7afdd8f93e86aee5aed3675f8e35e",
+          "transfer_seconds": 0.015,
+          "range_beyond_2g": null,
+          "other_guest_status": 404,
+          "media": {
+            "programs": [],
+            "stream_groups": [],
+            "streams": [
+              {
+                "codec_name": "h264",
+                "codec_type": "video",
+                "width": 720,
+                "height": 1280,
+                "r_frame_rate": "30/1"
+              }
+            ],
+            "format": {
+              "duration": "4.966667",
+              "size": "1949801"
+            },
+            "decoded_positions": [
+              0,
+              2.483,
+              0
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "id": "iqiyi-full-retest",
+      "platform": "iqiyi",
+      "category": "short_video",
+      "status": "passed",
+      "bytes": 3115777,
+      "ready_seconds": 4.063,
+      "average_MiB_s": 0.731,
+      "stages": {
+        "submit": "passed",
+        "server_download": "passed",
+        "full_visitor_transfer": "passed",
+        "sha256": "passed",
+        "guest_isolation": "passed"
+      },
+      "health_before": {
+        "status": 200,
+        "seconds": 0.016
+      },
+      "health_after": {
+        "status": 200,
+        "seconds": 0.0
+      },
+      "case": "post-deploy/iqiyi-full-retest",
+      "picture": "1280×720",
+      "duration_seconds": 22.476916,
+      "outcome": "通过",
+      "note": "",
+      "files": [
+        {
+          "bytes": 3115777,
+          "sha256": "21ddf31aadcfaebfbd9524cde23738428550b3a4fffcba9442bc141a5f6b6dd6",
+          "transfer_seconds": 0.031,
+          "range_beyond_2g": null,
+          "other_guest_status": 404,
+          "media": {
+            "programs": [],
+            "stream_groups": [],
+            "streams": [
+              {
+                "codec_name": "h264",
+                "codec_type": "video",
+                "width": 1280,
+                "height": 720,
+                "r_frame_rate": "24/1"
+              },
+              {
+                "codec_name": "aac",
+                "codec_type": "audio",
+                "r_frame_rate": "0/0"
+              }
+            ],
+            "format": {
+              "duration": "22.476916",
+              "size": "3115777"
+            },
+            "decoded_positions": [
+              0,
+              11.238,
+              17.477
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "id": "kuaishou-full-retest",
+      "platform": "kuaishou",
+      "category": "short_video",
+      "status": "passed",
+      "bytes": 2010385,
+      "ready_seconds": 6.078,
+      "average_MiB_s": 0.315,
+      "stages": {
+        "submit": "passed",
+        "server_download": "passed",
+        "full_visitor_transfer": "passed",
+        "sha256": "passed",
+        "guest_isolation": "passed"
+      },
+      "health_before": {
+        "status": 200,
+        "seconds": 0.0
+      },
+      "health_after": {
+        "status": 200,
+        "seconds": 0.015
+      },
+      "case": "post-deploy/kuaishou-full-retest",
+      "picture": "720×1280",
+      "duration_seconds": 19.966,
+      "outcome": "通过",
+      "note": "",
+      "files": [
+        {
+          "bytes": 2010385,
+          "sha256": "3ccc4d888ed84ca0a41d8a0a0756fd34b99eb9a01bd35dcf5becd5eb000bb621",
+          "transfer_seconds": 0.0,
+          "range_beyond_2g": null,
+          "other_guest_status": 404,
+          "media": {
+            "programs": [],
+            "stream_groups": [],
+            "streams": [
+              {
+                "codec_name": "hevc",
+                "codec_type": "video",
+                "width": 720,
+                "height": 1280,
+                "r_frame_rate": "30/1"
+              },
+              {
+                "codec_name": "aac",
+                "codec_type": "audio",
+                "r_frame_rate": "0/0"
+              }
+            ],
+            "format": {
+              "duration": "19.966000",
+              "size": "2010385"
+            },
+            "decoded_positions": [
+              0,
+              9.983,
+              14.966
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "id": "niconico-full-retest",
+      "platform": "niconico",
+      "category": "short_video",
+      "status": "passed",
+      "bytes": 19541556,
+      "ready_seconds": 10.063,
+      "average_MiB_s": 1.852,
+      "stages": {
+        "submit": "passed",
+        "server_download": "passed",
+        "full_visitor_transfer": "passed",
+        "sha256": "passed",
+        "guest_isolation": "passed"
+      },
+      "health_before": {
+        "status": 200,
+        "seconds": 0.0
+      },
+      "health_after": {
+        "status": 200,
+        "seconds": 0.0
+      },
+      "case": "post-deploy/niconico-full-retest",
+      "picture": "512×384",
+      "duration_seconds": 219.1,
+      "outcome": "通过",
+      "note": "",
+      "files": [
+        {
+          "bytes": 19541556,
+          "sha256": "b3c1d43d550928d1a7cd8fd82708e5d25fbd7589d8dc93e428009fad2c013aa8",
+          "transfer_seconds": 0.063,
+          "range_beyond_2g": null,
+          "other_guest_status": 404,
+          "media": {
+            "programs": [],
+            "stream_groups": [],
+            "streams": [
+              {
+                "codec_name": "h264",
+                "codec_type": "video",
+                "width": 512,
+                "height": 384,
+                "r_frame_rate": "30/1"
+              },
+              {
+                "codec_name": "aac",
+                "codec_type": "audio",
+                "r_frame_rate": "0/0"
+              }
+            ],
+            "format": {
+              "duration": "219.100000",
+              "size": "19541556"
+            },
+            "decoded_positions": [
+              0,
+              109.55,
+              214.1
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "id": "reddit-full-retest",
+      "platform": "reddit",
+      "category": "short_video",
+      "status": "passed",
+      "bytes": 2328114,
+      "ready_seconds": 8.078,
+      "average_MiB_s": 0.275,
+      "stages": {
+        "submit": "passed",
+        "server_download": "passed",
+        "full_visitor_transfer": "passed",
+        "sha256": "passed",
+        "guest_isolation": "passed"
+      },
+      "health_before": {
+        "status": 200,
+        "seconds": 0.016
+      },
+      "health_after": {
+        "status": 200,
+        "seconds": 0.0
+      },
+      "case": "post-deploy/reddit-full-retest",
+      "picture": "352×640",
+      "duration_seconds": 11.79575,
+      "outcome": "通过",
+      "note": "",
+      "files": [
+        {
+          "bytes": 2328114,
+          "sha256": "2f3ed2edf8620292fa5ca0d742046c758cab8418f2e2a1bf134a334a4acdddf4",
+          "transfer_seconds": 0.016,
+          "range_beyond_2g": null,
+          "other_guest_status": 404,
+          "media": {
+            "programs": [],
+            "stream_groups": [],
+            "streams": [
+              {
+                "codec_name": "h264",
+                "codec_type": "video",
+                "width": 352,
+                "height": 640,
+                "r_frame_rate": "30/1"
+              },
+              {
+                "codec_name": "aac",
+                "codec_type": "audio",
+                "r_frame_rate": "0/0"
+              }
+            ],
+            "format": {
+              "duration": "11.795750",
+              "size": "2328114"
+            },
+            "decoded_positions": [
+              0,
+              5.898,
+              6.796
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "id": "sohu-full-retest",
+      "platform": "sohu",
+      "category": "short_video",
+      "status": "passed",
+      "bytes": 14265796,
+      "ready_seconds": 2.063,
+      "average_MiB_s": 6.595,
+      "stages": {
+        "submit": "passed",
+        "server_download": "passed",
+        "full_visitor_transfer": "passed",
+        "sha256": "passed",
+        "guest_isolation": "passed"
+      },
+      "health_before": {
+        "status": 200,
+        "seconds": 0.0
+      },
+      "health_after": {
+        "status": 200,
+        "seconds": 0.0
+      },
+      "case": "post-deploy/sohu-full-retest",
+      "picture": "848×480",
+      "duration_seconds": 213.066304,
+      "outcome": "通过",
+      "note": "",
+      "files": [
+        {
+          "bytes": 14265796,
+          "sha256": "df55dcd27c17623e6d91fb05f00f9ce8bfc4f12e2c3540ba6a072fa640afcf90",
+          "transfer_seconds": 0.047,
+          "range_beyond_2g": null,
+          "other_guest_status": 404,
+          "media": {
+            "programs": [],
+            "stream_groups": [],
+            "streams": [
+              {
+                "codec_name": "h264",
+                "codec_type": "video",
+                "width": 848,
+                "height": 480,
+                "r_frame_rate": "25/1"
+              },
+              {
+                "codec_name": "aac",
+                "codec_type": "audio",
+                "r_frame_rate": "0/0"
+              }
+            ],
+            "format": {
+              "duration": "213.066304",
+              "size": "14265796"
+            },
+            "decoded_positions": [
+              0,
+              106.533,
+              208.066
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "id": "streamable-full-retest",
+      "platform": "streamable",
+      "category": "short_video",
+      "status": "passed",
+      "bytes": 19286494,
+      "ready_seconds": 6.062,
+      "average_MiB_s": 3.034,
+      "stages": {
+        "submit": "passed",
+        "server_download": "passed",
+        "full_visitor_transfer": "passed",
+        "sha256": "passed",
+        "guest_isolation": "passed"
+      },
+      "health_before": {
+        "status": 200,
+        "seconds": 0.015
+      },
+      "health_after": {
+        "status": 200,
+        "seconds": 0.0
+      },
+      "case": "post-deploy/streamable-full-retest",
+      "picture": "1280×720",
+      "duration_seconds": 61.469002,
+      "outcome": "通过",
+      "note": "",
+      "files": [
+        {
+          "bytes": 19286494,
+          "sha256": "1f88e60f1dcf2586123a061055dba68a9c34e03306c173eb18c4d564ca680124",
+          "transfer_seconds": 0.062,
+          "range_beyond_2g": null,
+          "other_guest_status": 404,
+          "media": {
+            "programs": [],
+            "stream_groups": [],
+            "streams": [
+              {
+                "codec_name": "h264",
+                "codec_type": "video",
+                "width": 1280,
+                "height": 720,
+                "r_frame_rate": "30/1"
+              },
+              {
+                "codec_name": "aac",
+                "codec_type": "audio",
+                "r_frame_rate": "0/0"
+              }
+            ],
+            "format": {
+              "duration": "61.469002",
+              "size": "19286494"
+            },
+            "decoded_positions": [
+              0,
+              30.735,
+              56.469
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "id": "ted-full-retest",
+      "platform": "ted",
+      "category": "short_video",
+      "status": "passed",
+      "bytes": 278125656,
+      "ready_seconds": 20.109,
+      "average_MiB_s": 13.19,
+      "stages": {
+        "submit": "passed",
+        "server_download": "passed",
+        "full_visitor_transfer": "passed",
+        "sha256": "passed",
+        "guest_isolation": "passed"
+      },
+      "health_before": {
+        "status": 200,
+        "seconds": 0.015
+      },
+      "health_after": {
+        "status": 200,
+        "seconds": 0.0
+      },
+      "case": "post-deploy/ted-full-retest",
+      "picture": "1920×1080",
+      "duration_seconds": 680.042789,
+      "outcome": "通过",
+      "note": "",
+      "files": [
+        {
+          "bytes": 278125656,
+          "sha256": "c9f26017015d4dc90a5e117a02428f90d047884787491ae606d1517c7c8657dd",
+          "transfer_seconds": 0.859,
+          "range_beyond_2g": null,
+          "other_guest_status": 404,
+          "media": {
+            "programs": [],
+            "stream_groups": [],
+            "streams": [
+              {
+                "codec_name": "h264",
+                "codec_type": "video",
+                "width": 1920,
+                "height": 1080,
+                "r_frame_rate": "24000/1001"
+              },
+              {
+                "codec_name": "aac",
+                "codec_type": "audio",
+                "r_frame_rate": "0/0"
+              }
+            ],
+            "format": {
+              "duration": "680.042789",
+              "size": "278125656"
+            },
+            "decoded_positions": [
+              0,
+              340.021,
+              675.043
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "id": "tencent-full-retest",
+      "platform": "tencent",
+      "category": "short_video",
+      "status": "passed",
+      "bytes": 61334594,
+      "ready_seconds": 4.063,
+      "average_MiB_s": 14.397,
+      "stages": {
+        "submit": "passed",
+        "server_download": "passed",
+        "full_visitor_transfer": "passed",
+        "sha256": "passed",
+        "guest_isolation": "passed"
+      },
+      "health_before": {
+        "status": 200,
+        "seconds": 0.0
+      },
+      "health_after": {
+        "status": 200,
+        "seconds": 0.0
+      },
+      "case": "post-deploy/tencent-full-retest",
+      "picture": "1280×720",
+      "duration_seconds": 215.958333,
+      "outcome": "通过",
+      "note": "",
+      "files": [
+        {
+          "bytes": 61334594,
+          "sha256": "2d1219ac51d2cab3204318988f6fe55438968f991cbff78931510420e1d05aee",
+          "transfer_seconds": 0.172,
+          "range_beyond_2g": null,
+          "other_guest_status": 404,
+          "media": {
+            "programs": [],
+            "stream_groups": [],
+            "streams": [
+              {
+                "codec_name": "h264",
+                "codec_type": "video",
+                "width": 1280,
+                "height": 720,
+                "r_frame_rate": "25/1"
+              },
+              {
+                "codec_name": "aac",
+                "codec_type": "audio",
+                "r_frame_rate": "0/0"
+              }
+            ],
+            "format": {
+              "duration": "215.958333",
+              "size": "61334594"
+            },
+            "decoded_positions": [
+              0,
+              107.979,
+              210.958
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "id": "tiktok-full-retest",
+      "platform": "tiktok",
+      "category": "short_video",
+      "status": "failed",
+      "stages": {
+        "submit": "passed"
+      },
+      "health_before": {
+        "status": 200,
+        "seconds": 0.0
+      },
+      "health_after": {
+        "status": 200,
+        "seconds": 0.016
+      },
+      "case": "post-deploy/tiktok-full-retest",
+      "picture": "未取得完整成品",
+      "duration_seconds": 0.0,
+      "outcome": "未通过",
+      "note": "画质检查拒绝：实际540×960，低于平台标称576×1024。未标记完成。",
+      "files": []
+    },
+    {
+      "id": "toutiao-full-retest",
+      "platform": "toutiao",
+      "category": "short_video",
+      "status": "passed",
+      "bytes": 1298250,
+      "ready_seconds": 2.078,
+      "average_MiB_s": 0.596,
+      "stages": {
+        "submit": "passed",
+        "server_download": "passed",
+        "full_visitor_transfer": "passed",
+        "sha256": "passed",
+        "guest_isolation": "passed"
+      },
+      "health_before": {
+        "status": 200,
+        "seconds": 0.031
+      },
+      "health_after": {
+        "status": 200,
+        "seconds": 0.0
+      },
+      "case": "post-deploy/toutiao-full-retest",
+      "picture": "1080×1920",
+      "duration_seconds": 9.751995,
+      "outcome": "通过",
+      "note": "",
+      "files": [
+        {
+          "bytes": 1298250,
+          "sha256": "621f84f33fa8e25f963d75f62a400116f12eeda21586d9f434912909900b2496",
+          "transfer_seconds": 0.016,
+          "range_beyond_2g": null,
+          "other_guest_status": 404,
+          "media": {
+            "programs": [],
+            "stream_groups": [],
+            "streams": [
+              {
+                "codec_name": "h264",
+                "codec_type": "video",
+                "width": 1080,
+                "height": 1920,
+                "r_frame_rate": "30/1"
+              },
+              {
+                "codec_name": "aac",
+                "codec_type": "audio",
+                "r_frame_rate": "0/0"
+              }
+            ],
+            "format": {
+              "duration": "9.751995",
+              "size": "1298250"
+            },
+            "decoded_positions": [
+              0,
+              4.876,
+              4.752
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "id": "twitch-full-retest",
+      "platform": "twitch",
+      "category": "short_video",
+      "status": "passed",
+      "bytes": 16299328,
+      "ready_seconds": 6.062,
+      "average_MiB_s": 2.564,
+      "stages": {
+        "submit": "passed",
+        "server_download": "passed",
+        "full_visitor_transfer": "passed",
+        "sha256": "passed",
+        "guest_isolation": "passed"
+      },
+      "health_before": {
+        "status": 200,
+        "seconds": 0.0
+      },
+      "health_after": {
+        "status": 200,
+        "seconds": 0.0
+      },
+      "case": "post-deploy/twitch-full-retest",
+      "picture": "1920×1080",
+      "duration_seconds": 32.099,
+      "outcome": "通过",
+      "note": "",
+      "files": [
+        {
+          "bytes": 16299328,
+          "sha256": "9d3021eae0ac932a520b5ebedf995ec14901d882d97b27eeccbbb5b9440a4317",
+          "transfer_seconds": 0.062,
+          "range_beyond_2g": null,
+          "other_guest_status": 404,
+          "media": {
+            "programs": [],
+            "stream_groups": [],
+            "streams": [
+              {
+                "codec_name": "h264",
+                "codec_type": "video",
+                "width": 1920,
+                "height": 1080,
+                "r_frame_rate": "30000/1001"
+              },
+              {
+                "codec_name": "aac",
+                "codec_type": "audio",
+                "r_frame_rate": "0/0"
+              }
+            ],
+            "format": {
+              "duration": "32.099000",
+              "size": "16299328"
+            },
+            "decoded_positions": [
+              0,
+              16.049,
+              27.099
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "id": "wechat-full-retest",
+      "platform": "wechat",
+      "category": "short_video",
+      "status": "passed",
+      "bytes": 17983796,
+      "ready_seconds": 4.015,
+      "average_MiB_s": 4.272,
+      "stages": {
+        "submit": "passed",
+        "server_download": "passed",
+        "full_visitor_transfer": "passed",
+        "sha256": "passed",
+        "guest_isolation": "passed"
+      },
+      "health_before": {
+        "status": 200,
+        "seconds": 0.0
+      },
+      "health_after": {
+        "status": 200,
+        "seconds": 0.015
+      },
+      "case": "post-deploy/wechat-full-retest",
+      "picture": "1024×576",
+      "duration_seconds": 516.522,
+      "outcome": "通过",
+      "note": "",
+      "files": [
+        {
+          "bytes": 17983796,
+          "sha256": "a2206af9b3b622d515143c92ed3de9bd4ae48c4241491c7dff401040bd5950b0",
+          "transfer_seconds": 0.047,
+          "range_beyond_2g": null,
+          "other_guest_status": 404,
+          "media": {
+            "programs": [],
+            "stream_groups": [],
+            "streams": [
+              {
+                "codec_name": "h264",
+                "codec_type": "video",
+                "width": 1024,
+                "height": 576,
+                "r_frame_rate": "24/1"
+              },
+              {
+                "codec_name": "aac",
+                "codec_type": "audio",
+                "r_frame_rate": "0/0"
+              }
+            ],
+            "format": {
+              "duration": "516.522000",
+              "size": "17983796"
+            },
+            "decoded_positions": [
+              0,
+              258.261,
+              511.522
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "id": "weibo-full-retest",
+      "platform": "weibo",
+      "category": "short_video",
+      "status": "passed",
+      "bytes": 1810094,
+      "ready_seconds": 2.078,
+      "average_MiB_s": 0.831,
+      "stages": {
+        "submit": "passed",
+        "server_download": "passed",
+        "full_visitor_transfer": "passed",
+        "sha256": "passed",
+        "guest_isolation": "passed"
+      },
+      "health_before": {
+        "status": 200,
+        "seconds": 0.0
+      },
+      "health_after": {
+        "status": 200,
+        "seconds": 0.0
+      },
+      "case": "post-deploy/weibo-full-retest",
+      "picture": "480×480",
+      "duration_seconds": 53.173991,
+      "outcome": "通过",
+      "note": "",
+      "files": [
+        {
+          "bytes": 1810094,
+          "sha256": "17f407a0e005d2ab73b276e5d5e1d8345f89fecab7f9e521648f252738575aca",
+          "transfer_seconds": 0.015,
+          "range_beyond_2g": null,
+          "other_guest_status": 404,
+          "media": {
+            "programs": [],
+            "stream_groups": [],
+            "streams": [
+              {
+                "codec_name": "h264",
+                "codec_type": "video",
+                "width": 480,
+                "height": 480,
+                "r_frame_rate": "30/1"
+              },
+              {
+                "codec_name": "aac",
+                "codec_type": "audio",
+                "r_frame_rate": "0/0"
+              }
+            ],
+            "format": {
+              "duration": "53.173991",
+              "size": "1810094"
+            },
+            "decoded_positions": [
+              0,
+              26.587,
+              48.174
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "id": "x-full-retest",
+      "platform": "x",
+      "category": "short_video",
+      "status": "passed",
+      "bytes": 539283,
+      "ready_seconds": 6.063,
+      "average_MiB_s": 0.085,
+      "stages": {
+        "submit": "passed",
+        "server_download": "passed",
+        "full_visitor_transfer": "passed",
+        "sha256": "passed",
+        "guest_isolation": "passed"
+      },
+      "health_before": {
+        "status": 200,
+        "seconds": 0.0
+      },
+      "health_after": {
+        "status": 200,
+        "seconds": 0.015
+      },
+      "case": "post-deploy/x-full-retest",
+      "picture": "1280×720",
+      "duration_seconds": 3.178667,
+      "outcome": "通过",
+      "note": "",
+      "files": [
+        {
+          "bytes": 539283,
+          "sha256": "f64ec4761969ddf3a57bdf34995592342d9978f18dc23e2ad1e7ce7a6f3f4881",
+          "transfer_seconds": 0.016,
+          "range_beyond_2g": null,
+          "other_guest_status": 404,
+          "media": {
+            "programs": [],
+            "stream_groups": [],
+            "streams": [
+              {
+                "codec_name": "h264",
+                "codec_type": "video",
+                "width": 1280,
+                "height": 720,
+                "r_frame_rate": "24000/1001"
+              },
+              {
+                "codec_name": "aac",
+                "codec_type": "audio",
+                "r_frame_rate": "0/0"
+              }
+            ],
+            "format": {
+              "duration": "3.178667",
+              "size": "539283"
+            },
+            "decoded_positions": [
+              0,
+              1.589,
+              0
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "id": "xiaohongshu-full-retest",
+      "platform": "xiaohongshu",
+      "category": "short_video",
+      "status": "passed",
+      "bytes": 71238749,
+      "ready_seconds": 6.047,
+      "average_MiB_s": 11.235,
+      "stages": {
+        "submit": "passed",
+        "server_download": "passed",
+        "full_visitor_transfer": "passed",
+        "sha256": "passed",
+        "guest_isolation": "passed"
+      },
+      "health_before": {
+        "status": 200,
+        "seconds": 0.0
+      },
+      "health_after": {
+        "status": 200,
+        "seconds": 0.0
+      },
+      "case": "post-deploy/xiaohongshu-full-retest",
+      "picture": "1080×1920",
+      "duration_seconds": 326.935478,
+      "outcome": "通过",
+      "note": "",
+      "files": [
+        {
+          "bytes": 71238749,
+          "sha256": "6252983be1b0b6cf479bb44001cfd0dea148dd8e73784045ab52a4bf4a845363",
+          "transfer_seconds": 0.203,
+          "range_beyond_2g": null,
+          "other_guest_status": 404,
+          "media": {
+            "programs": [],
+            "stream_groups": [],
+            "streams": [
+              {
+                "codec_name": "hevc",
+                "codec_type": "video",
+                "width": 1080,
+                "height": 1920,
+                "r_frame_rate": "31/1"
+              },
+              {
+                "codec_name": "aac",
+                "codec_type": "audio",
+                "r_frame_rate": "0/0"
+              }
+            ],
+            "format": {
+              "duration": "326.935478",
+              "size": "71238749"
+            },
+            "decoded_positions": [
+              0,
+              163.468,
+              321.935
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "id": "youku-full-retest",
+      "platform": "youku",
+      "category": "short_video",
+      "status": "passed",
+      "bytes": 257553914,
+      "ready_seconds": 28.11,
+      "average_MiB_s": 8.738,
+      "stages": {
+        "submit": "passed",
+        "server_download": "passed",
+        "full_visitor_transfer": "passed",
+        "sha256": "passed",
+        "guest_isolation": "passed"
+      },
+      "health_before": {
+        "status": 200,
+        "seconds": 0.016
+      },
+      "health_after": {
+        "status": 200,
+        "seconds": 0.015
+      },
+      "case": "post-deploy/youku-full-retest",
+      "picture": "1920×1080",
+      "duration_seconds": 542.133311,
+      "outcome": "通过",
+      "note": "",
+      "files": [
+        {
+          "bytes": 257553914,
+          "sha256": "564a149f4cc5cb92a412f261b0f1804efbc044a302f9247845b24b5de24b8aed",
+          "transfer_seconds": 0.844,
+          "range_beyond_2g": null,
+          "other_guest_status": 404,
+          "media": {
+            "programs": [],
+            "stream_groups": [],
+            "streams": [
+              {
+                "codec_name": "h264",
+                "codec_type": "video",
+                "width": 1920,
+                "height": 1080,
+                "r_frame_rate": "30/1"
+              },
+              {
+                "codec_name": "aac",
+                "codec_type": "audio",
+                "r_frame_rate": "0/0"
+              }
+            ],
+            "format": {
+              "duration": "542.133311",
+              "size": "257553914"
+            },
+            "decoded_positions": [
+              0,
+              271.067,
+              537.133
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "id": "zhihu-full-retest",
+      "platform": "zhihu",
+      "category": "short_video",
+      "status": "passed",
+      "bytes": 17274307,
+      "ready_seconds": 2.063,
+      "average_MiB_s": 7.985,
+      "stages": {
+        "submit": "passed",
+        "server_download": "passed",
+        "full_visitor_transfer": "passed",
+        "sha256": "passed",
+        "guest_isolation": "passed"
+      },
+      "health_before": {
+        "status": 200,
+        "seconds": 0.0
+      },
+      "health_after": {
+        "status": 200,
+        "seconds": 0.0
+      },
+      "case": "post-deploy/zhihu-full-retest",
+      "picture": "1920×1080",
+      "duration_seconds": 146.32,
+      "outcome": "通过",
+      "note": "",
+      "files": [
+        {
+          "bytes": 17274307,
+          "sha256": "3770f61a3b2020b9c7c6885df17a8435b2c74f0671c33ec0587414006143e280",
+          "transfer_seconds": 0.125,
+          "range_beyond_2g": null,
+          "other_guest_status": 404,
+          "media": {
+            "programs": [],
+            "stream_groups": [],
+            "streams": [
+              {
+                "codec_name": "h264",
+                "codec_type": "video",
+                "width": 1920,
+                "height": 1080,
+                "r_frame_rate": "25/1"
+              },
+              {
+                "codec_name": "aac",
+                "codec_type": "audio",
+                "r_frame_rate": "0/0"
+              }
+            ],
+            "format": {
+              "duration": "146.320000",
+              "size": "17274307"
+            },
+            "decoded_positions": [
+              0,
+              73.16,
+              141.32
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "id": "public-nasa-complete",
+      "platform": "dailymotion",
+      "category": "short_video",
+      "status": "passed",
+      "bytes": 42398512,
+      "ready_seconds": 13.891,
+      "average_MiB_s": 2.911,
+      "stages": {
+        "submit": "passed",
+        "server_download": "passed",
+        "full_visitor_transfer": "passed",
+        "sha256": "passed",
+        "guest_isolation": "passed"
+      },
+      "health_before": {
+        "status": 200,
+        "seconds": 1.703
+      },
+      "health_after": {
+        "status": 200,
+        "seconds": 1.609
+      },
+      "case": "public/public-nasa-complete",
+      "picture": "1920×1080",
+      "duration_seconds": 68.802122,
+      "outcome": "通过",
+      "note": "公网访客完整取回耗时129.0秒，平均0.313MiB/s；表格列出此接收速度，不以主机准备速度替代。",
+      "files": [
+        {
+          "bytes": 42398512,
+          "sha256": "21cfe8fe64d76a463e64f4a5ac8581595b99130f867c8cb68dccf0a341038ab7",
+          "transfer_seconds": 129.0,
+          "range_beyond_2g": null,
+          "other_guest_status": 404,
+          "media": {
+            "programs": [],
+            "stream_groups": [],
+            "streams": [
+              {
+                "codec_name": "aac",
+                "codec_type": "audio",
+                "r_frame_rate": "0/0"
+              },
+              {
+                "codec_name": "h264",
+                "codec_type": "video",
+                "width": 1920,
+                "height": 1080,
+                "r_frame_rate": "30000/1001"
+              }
+            ],
+            "format": {
+              "duration": "68.802122",
+              "size": "42398512"
+            },
+            "decoded_positions": [
+              0,
+              34.401,
+              63.802
+            ]
+          }
+        }
+      ],
+      "visitor_seconds": 129.0,
+      "visitor_MiB_s": 0.313
+    },
+    {
+      "id": "baidu-gb-transfer-recovery",
+      "platform": "baidu",
+      "category": "cloud_gb_total",
+      "status": "passed",
+      "bytes": 2757024462,
+      "expected_bytes": 2757024462,
+      "download_seconds": 156.297,
+      "MiB_s": 16.822,
+      "cleanup": "cleaned",
+      "verified_files": 8,
+      "stages": {
+        "full_original": "passed",
+        "source_size_and_cdn_md5": "passed",
+        "sha256": "passed",
+        "exact_task_cleanup": "passed"
+      },
+      "health_before": {
+        "status": 200,
+        "seconds": 0.0
+      },
+      "health_after": {
+        "status": 200,
+        "seconds": 0.0
+      },
+      "case": "transfer-recovery",
+      "picture": "原文件",
+      "duration_seconds": 0.0,
+      "outcome": "通过",
+      "note": "恢复旧失败测试的8个临时转存原文件，使用新正常网页授权代码，全部校验后只删除该测试临时目录。",
+      "files": [
+        {
+          "bytes": 61024132,
+          "sha256": "f75d8c50f4767f4d015f3a6c70e3b6bf8158b34ebc1de393eb9e517e48a992e4"
+        },
+        {
+          "bytes": 679302251,
+          "sha256": "b4656540831e74b911e2506d2c567cbb146fddd5942b675f80c2f610d6a40f43"
+        },
+        {
+          "bytes": 164273,
+          "sha256": "eb9be498c8de75e3294a723ff5b06c72a64e76f3ad341b44025b7868be720d64"
+        },
+        {
+          "bytes": 1784282684,
+          "sha256": "d9486ab9b55e56201988c8a05cbf514698228a3660e4135ae8c44dd93b8adeb4"
+        },
+        {
+          "bytes": 88244398,
+          "sha256": "d7c63e6b983acfe7f76de436a88796a92901e564c3a5952f88667a3d49103ad6"
+        },
+        {
+          "bytes": 55598053,
+          "sha256": "3e7a699ab6a6d608b0c2d7409499afa67c9afec9df745a3d1fbf97c39cb61baf"
+        },
+        {
+          "bytes": 164273,
+          "sha256": "eb9be498c8de75e3294a723ff5b06c72a64e76f3ad341b44025b7868be720d64"
+        },
+        {
+          "bytes": 88244398,
+          "sha256": "d7c63e6b983acfe7f76de436a88796a92901e564c3a5952f88667a3d49103ad6"
+        }
+      ]
+    }
+  ],
+  "extra": {
+    "public-load-result.json": {
+      "test": "public-home-under-4-client-load",
+      "requests": 20,
+      "passed": 20,
+      "maximum_seconds": 2.672,
+      "checks": [
+        {
+          "status": 200,
+          "seconds": 2.328
+        },
+        {
+          "status": 200,
+          "seconds": 2.672
+        },
+        {
+          "status": 200,
+          "seconds": 2.359
+        },
+        {
+          "status": 200,
+          "seconds": 2.531
+        },
+        {
+          "status": 200,
+          "seconds": 2.016
+        },
+        {
+          "status": 200,
+          "seconds": 2.032
+        },
+        {
+          "status": 200,
+          "seconds": 2.219
+        },
+        {
+          "status": 200,
+          "seconds": 2.078
+        },
+        {
+          "status": 200,
+          "seconds": 2.109
+        },
+        {
+          "status": 200,
+          "seconds": 2.172
+        },
+        {
+          "status": 200,
+          "seconds": 2.234
+        },
+        {
+          "status": 200,
+          "seconds": 2.328
+        },
+        {
+          "status": 200,
+          "seconds": 2.344
+        },
+        {
+          "status": 200,
+          "seconds": 2.343
+        },
+        {
+          "status": 200,
+          "seconds": 2.641
+        },
+        {
+          "status": 200,
+          "seconds": 2.578
+        },
+        {
+          "status": 200,
+          "seconds": 1.891
+        },
+        {
+          "status": 200,
+          "seconds": 1.844
+        },
+        {
+          "status": 200,
+          "seconds": 2.047
+        },
+        {
+          "status": 200,
+          "seconds": 2.016
+        }
+      ],
+      "completed_download": "passed"
+    },
+    "baidu-cleanup-result.json": {
+      "test": "baidu-gb-share-cleanup",
+      "status": "not_needed",
+      "no_temporary_transfer": true
+    }
+  },
+  "regression_tests": {
+    "baidu_web_transfer": 4,
+    "bounded_transfer": 13,
+    "cloud_downloads": 17,
+    "focused_extractors": 13,
+    "browser_flows": 11
+  }
+}

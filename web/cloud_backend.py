@@ -75,6 +75,8 @@ class Client:
             message = str(d.get('message') or '平台拒绝该操作')
             if r.status_code == 401 or code in (31001, 31002, 401, 'AccessTokenInvalid', 'AccessTokenExpired', 'RefreshTokenInvalid') or any(word in message.lower() for word in ('未登录', '登录失效', 'login required', 'invalid token')):
                 raise LoginRequired(NAMES[self.key] + '授权已失效，请管理员在首页重新扫码；原账号和已下载文件均保留')
+            if self.key=='quark' and code==23018:
+                raise PlatformError('夸克官方网页通道限制此文件大小（23018）；账号已登录，需要官方支持的大文件下载通道，不能用预览流代替原文件',code)
             # Do not forward response bodies: they can contain account tokens or signed URLs.
             raise PlatformError(NAMES[self.key] + '操作未通过（代码 ' + str(code or r.status_code) + '）：请在官方分享页检查提取码、有效期、容量或下载权限', code)
         return d

@@ -330,6 +330,7 @@ def _run_web(job: Job) -> None:
         "windowsfilenames": True,
         "retries": 10,
         "fragment_retries": 10,
+        "skip_unavailable_fragments": False,
         "socket_timeout": 30,
         "concurrent_fragment_downloads": 4,
         "progress_hooks": [hook],

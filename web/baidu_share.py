@@ -102,4 +102,49 @@ class Share:
                 return entry['dlink']
         raise ValueError('百度未返回选中文件的下载地址')
 
+    @staticmethod
+    def web_sign(key, value):
+        # The signed-in official web page's RC4 signature; uses this account only.
+        import base64
+        box=list(range(256));j=0;key=key.encode();value=value.encode()
+        for i in range(256):
+            j=(j+box[i]+key[i%len(key)])%256;box[i],box[j]=box[j],box[i]
+        i=j=0;result=bytearray()
+        for byte in value:
+            i=(i+1)%256;j=(j+box[i])%256;box[i],box[j]=box[j],box[i]
+            result.append(byte^box[(box[i]+box[j])%256])
+        return base64.b64encode(result).decode()
+
+    def owned_files(self, remote):
+        if not re.fullmatch(r'/网站下载任务/[0-9a-f]{12}', remote):
+            raise ValueError('下载目录不属于本次临时任务')
+        pending=[remote];seen=set();files=[]
+        while pending:
+            directory=pending.pop(0)
+            if directory in seen:continue
+            seen.add(directory)
+            if len(seen)>100:raise ValueError('临时任务目录过多')
+            for page in range(1,23):
+                data=self.check(self.request('/api/list',params={'dir':directory,'page':page,'num':100,'order':'name','desc':0,'web':1,'clienttype':0}).json(),'读取临时任务')
+                entries=data.get('list',[])
+                for item in entries:
+                    if not str(item.get('path','')).startswith(remote+'/') or '..' in str(item.get('path','')).split('/'):
+                        raise ValueError('平台返回了临时任务以外的文件')
+                    if item.get('isdir'):pending.append(item['path'])
+                    else:files.append(item)
+                if len(files)+len(pending)>2000:raise ValueError('临时任务文件过多')
+                if len(entries)<100:break
+            else:raise ValueError('临时任务目录超过单次读取上限')
+        return files
+
+    def owned_download_url(self, item):
+        data=self.check(self.request('/api/gettemplatevariable',params={'fields':json.dumps(['bdstoken','sign1','sign3','timestamp']),'web':1,'clienttype':0,'app_id':250528}).json(),'读取官方网页下载授权')['result']
+        if not all(data.get(k) for k in ('bdstoken','sign1','sign3','timestamp')):
+            raise AuthorizationRequired('百度未提供完整官方网页下载授权')
+        result=self.check(self.request('/api/download',params={'web':1,'clienttype':0,'channel':'chunlei','bdstoken':data['bdstoken']},data={'fidlist':json.dumps([item['fs_id']]),'type':'dlink','sign':self.web_sign(data['sign3'],data['sign1']),'timestamp':data['timestamp']}).json(),'获取临时原文件')
+        for entry in result.get('dlink') or []:
+            if str(entry.get('fs_id'))==str(item['fs_id']) and entry.get('dlink'):
+                return entry['dlink']
+        raise AuthorizationRequired('百度未提供临时原文件下载地址')
+
     def close(self): self.session.close()
