@@ -93,7 +93,7 @@ def browser_snapshot(url, platform, cookiejar=None):
                     data = {'html': html} if 'SSR_HYDRATED_DATA' in html or re.search(r'window\._SSR_DATA\s*=', html) else None
                 elif platform == 'xiaohongshu':
                     # Serialize SSR HTML, not Vue's circular reactive objects.
-                    note_id = re.search(r'/(?:explore|discovery/item)/([a-f0-9]{24})', urlsplit(page.url).path)
+                    note_id = re.search(r'/(?:explore|discovery/item|user/profile/[a-f0-9]{24})/([a-f0-9]{24})', urlsplit(page.url).path)
                     exact = page.evaluate("id=>!!window.__INITIAL_STATE__?.note?.noteDetailMap?.[id]?.note", note_id.group(1) if note_id else '')
                     data = {'html': page.content(), 'url': page.url} if exact else None
                 else:
@@ -298,11 +298,12 @@ def xhs_media_formats(note):
     return formats
 
 class XiaoHongShuIE(OriginalXiaoHongShuIE):
+    _VALID_URL = r'https?://(?:www\.)?xiaohongshu\.com/(?:explore|discovery/item|user/profile/[a-f0-9]{24})/(?P<id>[a-f0-9]{24})(?:[/?#]|$)'
     def _download_webpage(self, *args, **kwargs):
         page = super()._download_webpage(*args, **kwargs)
         url = args[0] if args else kwargs.get('url_or_request', '')
         if isinstance(url, str) and official_url(url, FAMILIES['xiaohongshu']) and '/login' not in urlsplit(url).path:
-            expected_id = re.search(r'/(?:explore|discovery/item)/([a-f0-9]{24})', urlsplit(url).path)
+            expected_id = re.search(r'/(?:explore|discovery/item|user/profile/[a-f0-9]{24})/([a-f0-9]{24})', urlsplit(url).path)
             # A requests-only page may be a login redirect even with valid saved auth.
             if expected_id and not xhs_note(page or '', expected_id.group(1)):
                 page = browser_snapshot(url, 'xiaohongshu', self._downloader.cookiejar)['html']

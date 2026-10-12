@@ -338,6 +338,11 @@ def _run_web(job: Job) -> None:
         "no_warnings": True,
         "noprogress": True,
     }
+    # A nonresponsive Tencent CDN must not hold the queue for ten retries
+    # on every fragment. Keep full-quality selection and reject missing data.
+    from urllib.parse import urlsplit
+    if (urlsplit(job.url).hostname or '').lower() == 'v.qq.com':
+        opts.update(retries=2, fragment_retries=2, socket_timeout=15)
 
     # 部分站点（B站高清、小红书、微博等）要带浏览器 cookie 才给数据。
     # 优先用手动导出的 cookies.txt；没有就尝试从 Firefox 读。
@@ -848,10 +853,12 @@ def _catalog_worker(cid):
                     time.sleep(2)
             with _catalog_lock:
                 note = "（平台未确认列表结束，可能仍有未返回作品）" if result["limited"] else "（平台列表已读取结束）"
-                c.update(result, status="done", message=f"识别到 {len(result['entries'])} 个视频{note}，请勾选下载")
+                detail = result.get('note') or ''
+                c.update(result, status="done", message=f"识别到 {len(result['entries'])} 个作品{note}，请勾选下载" + (f"；{detail}" if detail else ''))
         except Exception as error:
             with _catalog_lock:
-                c.update(status="error", message=str(error)[:1500])
+                c.update(status="error", title=c["title"] if c["entries"] else "主页识别失败",
+                         message=str(error)[:1500])
 
 def _start_catalog(url, me, batch_id="", limit=0):
     if not video_catalog.platform_url(url):

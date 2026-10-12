@@ -70,7 +70,7 @@ def download(url,out,progress,cancelled):
             for cookie in accounts.live_cookies(state):
                 session.cookies.set(cookie['name'], cookie['value'], domain=cookie['domain'], path=cookie.get('path','/'), expires=int(cookie['expires']) if cookie.get('expires', -1) > 0 else None)
         page, final_url = public_page(session,url)
-        match = re.search(r'/(?:explore|discovery/item)/([a-fA-F0-9]{24})',urlsplit(final_url).path)
+        match = re.search(r'/(?:explore|discovery/item|user/profile/[a-fA-F0-9]{24})/([a-fA-F0-9]{24})',urlsplit(final_url).path)
         note_id = match.group(1) if match else None
         if any(marker in page for marker in ('IP\u5b58\u5728\u98ce\u9669', 'IP \u5b58\u5728\u98ce\u9669', '300012', '\u8bf7\u5b8c\u6210\u5b89\u5168\u9a8c\u8bc1')):
             parse(page, note_id)  # Report the official challenge; no route switching.
@@ -79,7 +79,7 @@ def download(url,out,progress,cancelled):
             # A valid account can require its ordinary browser to read the note.
             snapshot = browser_snapshot(url, 'xiaohongshu')
             page, final_url = snapshot['html'], snapshot['url']
-            match = re.search(r'/(?:explore|discovery/item)/([a-fA-F0-9]{24})', urlsplit(final_url).path)
+            match = re.search(r'/(?:explore|discovery/item|user/profile/[a-fA-F0-9]{24})/([a-fA-F0-9]{24})', urlsplit(final_url).path)
             note_id = match.group(1) if match else None
         result=parse(page,note_id)
         # Browser refresh owns its newer state; HTTP cannot overwrite that revision.

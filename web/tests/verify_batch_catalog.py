@@ -7,9 +7,9 @@ import tempfile
 from pathlib import Path
 
 WEB = Path(__file__).resolve().parent.parent
-MODULES = ('app.py', 'auth.py', 'common.py', 'symphony.py', 'douyin.py',
-           'file_download.py','xhs_images.py','video_accounts.py','video_platform_accounts.py','wechat_channels.py','platform_extractors.py','focused_extractors.py', 'media_quality.py', 'baidu_backend.py', 'baidu_share.py',
-           'cloud_accounts.py', 'cloud_backend.py', 'cloud_browser.py', 'cloud_cleanup.py', 'video_catalog.py')
+# Copy source modules only, never saved account/session files. New adapters
+# must be available in the isolated test just as they are in the real app.
+MODULES = tuple(p.name for p in WEB.glob('*.py'))
 with tempfile.TemporaryDirectory(prefix='downloader-batch-test-') as temporary:
     root = Path(temporary)
     for name in MODULES:

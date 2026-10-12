@@ -10,7 +10,13 @@ import yt_dlp
 HOSTS = ('youtube.com', 'youtu.be', 'bilibili.com', 'b23.tv', 'douyin.com',
          'iesdouyin.com', 'tiktok.com', 'vimeo.com', 'dailymotion.com',
          'instagram.com', 'facebook.com', 'x.com', 'twitter.com',
-         'reddit.com', 'weibo.com', 'xiaohongshu.com', 'ixigua.com', 'twitch.tv')
+         'reddit.com', 'weibo.com', 'weibo.cn', 'xiaohongshu.com', 'ixigua.com', 'twitch.tv',
+         'nicovideo.jp', 'nico.ms', 'ted.com', 'archive.org', 'youku.com', 'iqiyi.com',
+         'iq.com', 'mgtv.com', 'qq.com', 'acfun.cn', 'kuaishou.com', 'toutiao.com',
+         'baidu.com', 'cctv.com', 'cntv.cn', 'sohu.com', 'zhihu.com', 'rumble.com', 'streamable.com')
+
+def _host(host, domain):
+    return host == domain or host.endswith('.' + domain)
 
 def platform_url(url):
     try:
@@ -23,27 +29,59 @@ def platform_url(url):
         return False
 
 def is_profile(url):
+    if not platform_url(url):
+        return False
     try:
         p = urlsplit(url)
     except ValueError:
         return False
     host, path = (p.hostname or '').lower(), p.path.rstrip('/')
-    if host.endswith('douyin.com'):
+    if _host(host, 'douyin.com'):
         return path.startswith('/user/')
-    if host.endswith('tiktok.com'):
+    if _host(host, 'tiktok.com'):
         return bool(re.fullmatch(r'/@[^/]+', path))
-    if host.endswith('youtube.com'):
+    if _host(host, 'youtube.com'):
         return bool(re.match(r'^/(?:@[^/]+|channel/[^/]+|c/[^/]+|user/[^/]+)(?:/|$)', path)) or path == '/playlist'
     if host == 'space.bilibili.com':
         return True
-    if host.endswith('instagram.com'):
+    if _host(host, 'instagram.com'):
         return bool(re.fullmatch(r'/[^/]+(?:/reels)?', path))
+    if _host(host,'xiaohongshu.com'):return bool(re.fullmatch(r'/user/profile/[a-f0-9]{24}',path))
+    if _host(host,'kuaishou.com'):return bool(re.fullmatch(r'/profile/[A-Za-z0-9]+',path))
+    if _host(host,'dailymotion.com'):return bool(re.fullmatch(r'/(?:user/|playlist/)?[^/]+',path)) and path not in ('/video','/embed','/search')
+    if _host(host,'twitch.tv'):return bool(re.fullmatch(r'/[^/]+(?:/(?:videos|clips|collections))?',path)) and path not in ('/directory','/search')
+    if _host(host,'weibo.com'):return bool(re.fullmatch(r'/u/\d+',path))
+    if _host(host,'vimeo.com'):return bool(re.fullmatch(r'/(?:user\d+|[A-Za-z][\w-]*)(?:/videos)?',path) or re.match(r'^/(?:showcase|album|channels)/[^/]+$',path))
+    if _host(host,'nicovideo.jp'):return bool(re.match(r'^/(?:user/\d+(?:/(?:video|mylist/\d+|series/\d+))?|mylist/\d+|series/\d+)$',path))
+    if _host(host,'ted.com'):return path.startswith('/playlists/')
+    if _host(host,'archive.org'):return bool(re.fullmatch(r'/details/[^/]+',path))
+    if _host(host,'youku.com'):return path.startswith('/show/') or path.startswith('/u/')
+    if _host(host,'iqiyi.com'):return path.startswith('/a_')
+    if _host(host,'iq.com'):return path.startswith('/album/')
+    if host=='v.qq.com':return bool(re.fullmatch(r'/x/cover/[\w]+\.html',path))
+    if _host(host,'acfun.cn'):return bool(re.fullmatch(r'/u/\d+',path))
+    if _host(host,'mgtv.com'):return bool(re.fullmatch(r'/h/\d+\.html',path))
+    if _host(host,'ixigua.com'):return bool(re.fullmatch(r'/home/[^/]+',path))
+    if _host(host,'toutiao.com'):return bool(re.fullmatch(r'/c/user/(?:token/)?[^/]+',path))
+    if host=='haokan.baidu.com':return path.startswith('/author/')
+    if _host(host,'facebook.com'):return bool(re.fullmatch(r'/[^/]+/(?:videos|reels)',path))
+    if _host(host,'x.com') or _host(host,'twitter.com'):return bool(re.fullmatch(r'/[^/]+(?:/media)?',path))
+    if _host(host,'reddit.com'):return bool(re.fullmatch(r'/(?:r|user)/[^/]+',path))
+    if _host(host,'rumble.com'):return path.startswith(('/c/','/user/'))
+    if _host(host,'zhihu.com'):return path.startswith('/people/')
+    if _host(host,'sohu.com'):return host=='my.tv.sohu.com' and path.endswith('/index.shtml')
+    if _host(host,'cctv.com'):return path.endswith('/index.shtml')
     return False
 
-def normalize_entry(entry, index):
+def normalize_entry(entry, index, source_url=''):
     if not isinstance(entry, dict) or entry.get('_type') in ('playlist', 'url_transparent_playlist', 'url_playlist'):
         return None
     url = entry.get('webpage_url') or entry.get('url') or ''
+    if source_url and url.split('?')[0].rstrip('/') == source_url.split('?')[0].rstrip('/'):
+        url = entry.get('url') or ''
+        if _host(urlsplit(source_url).hostname or '', 'weibo.com') and entry.get('display_id'):
+            uid=urlsplit(source_url).path.rstrip('/').split('/')[-1]
+            url='https://weibo.com/'+uid+'/'+str(entry['display_id'])
     ie = (entry.get('ie_key') or entry.get('extractor_key') or '').lower()
     if not url.startswith(('http://', 'https://')) and ie == 'youtube':
         url = 'https://www.youtube.com/watch?v=' + (entry.get('id') or url)
@@ -63,8 +101,19 @@ def resolve(url, limit=0, cookie_options=None, on_update=None):
     if not platform_url(url):
         raise ValueError('请提供视频平台的主页或合集链接')
     parts = urlsplit(url)
-    if 'douyin.com' in (parts.hostname or ''):
+    host=parts.hostname or ''
+    if _host(host,'xiaohongshu.com') or _host(host,'kuaishou.com') or _host(host,'acfun.cn'):
+        from profile_browser import resolve as browser_resolve
+        platform='xiaohongshu' if _host(host,'xiaohongshu.com') else 'kuaishou' if _host(host,'kuaishou.com') else 'acfun'
+        return browser_resolve(url,platform,limit,cookie_options,on_update)
+    special = 'haokan' if host=='haokan.baidu.com' else 'mgtv' if _host(host,'mgtv.com') else 'cctv' if _host(host,'cctv.com') else 'iqiyi' if _host(host,'iqiyi.com') and parts.path.startswith('/a_') else 'sohu' if host=='my.tv.sohu.com' and parts.path.startswith(('/us/','/pl/')) else None
+    if special:
+        from profile_browser import resolve as browser_resolve
+        return browser_resolve(url,special,limit,cookie_options,on_update)
+    if _host(host,'douyin.com'):
         return _douyin(url, limit, cookie_options, on_update)
+    if _host(host,'instagram.com'):
+        url=re.sub(r'/reels/?$', '/', url.split('?')[0]);parts=urlsplit(url)
     sources = [url]
     if (parts.hostname or '').endswith('youtube.com') and is_profile(url) and parts.path.rstrip('/') != '/playlist':
         # A channel homepage includes uploads, Shorts and recorded public live streams.
@@ -77,6 +126,8 @@ def resolve(url, limit=0, cookie_options=None, on_update=None):
     opts.update(cookie_options or {})
     entries, seen, incomplete, title = [], set(), False, '主页视频'
     with yt_dlp.YoutubeDL(opts) as ydl:
+        import platform_extractors
+        platform_extractors.install(ydl)
         for source in sources:
             if limit and len(entries) >= limit:
                 break
@@ -88,11 +139,11 @@ def resolve(url, limit=0, cookie_options=None, on_update=None):
                     title = info.get('title') or title
                 raw = info.get('entries')
                 if raw is None:
-                    raw = [info]
+                    raise ValueError('该网址未返回作者作品列表；不能把主页本身或推荐视频当作该作者作品')
                 for item in raw:
                     if limit and len(entries) >= limit:
                         break
-                    entry = normalize_entry(item, len(entries) + 1)
+                    entry = normalize_entry(item, len(entries) + 1, source)
                     if entry and entry['url'] not in seen:
                         seen.add(entry['url'])
                         entries.append(entry)
@@ -104,9 +155,18 @@ def resolve(url, limit=0, cookie_options=None, on_update=None):
                 if len(sources) > 1 and empty_tab:
                     continue
                 if not entries:
+                    if _host(host,'tiktok.com'):
+                        from profile_browser import resolve as browser_resolve
+                        return browser_resolve(url,'tiktok',limit,cookie_options,on_update)
+                    if host=='space.bilibili.com':
+                        from profile_browser import resolve as browser_resolve
+                        return browser_resolve(url,'bilibili',limit,cookie_options,on_update)
                     raise
                 incomplete = True
     if not entries:
+        if host=='v.qq.com' or host=='space.bilibili.com':
+            from profile_browser import resolve as browser_resolve
+            return browser_resolve(url,'tencent' if host=='v.qq.com' else 'bilibili',limit,cookie_options,on_update)
         raise ValueError('没有识别到可下载视频；此平台可能需要登录或暂不支持主页列表')
     return {'title': title, 'entries': entries,
             'limited': bool((limit and len(entries) >= limit) or incomplete)}
