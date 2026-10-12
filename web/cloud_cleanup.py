@@ -5,7 +5,7 @@ ROOT = Path(__file__).resolve().parent
 DIRECTORY = ROOT/'data'/'cloud-transfers'
 DOWNLOADS = ROOT/'downloads'
 LOCK = threading.RLock()
-NAMES = {'baidu':'百度网盘','ali':'阿里云盘','quark':'夸克网盘'}
+NAMES = {'baidu':'百度网盘','ali':'阿里云盘','quark':'夸克网盘','uc':'UC网盘','xunlei':'迅雷云盘'}
 
 def receipt_path(job):
     if not re.fullmatch(r'[0-9a-f]{12}',job): raise ValueError('无效的清理任务编号')
@@ -53,7 +53,7 @@ def ensure_files(record):
         if p.parent.resolve()!=directory.resolve() or p.is_symlink() or not p.is_file() or p.stat().st_size!=f['size'] or digest(p)!=f['sha256']: raise ValueError('电脑上的完整文件缺失或校验不符，未删除云端转存')
 
 def perform(record,client=None,delete=None):
-    if record['provider']=='quark':
+    if record['provider'] in ('quark','uc'):
         if client is None: raise ValueError('缺少转存账号连接')
         roots=client.quark_list('0')
         item=next((x for x in roots if str(x.get('fid'))==record['remote']),None)
@@ -90,6 +90,18 @@ def perform(record,client=None,delete=None):
                 if not after or after.get('trashed'):break
                 time.sleep(.5)
             else:raise ValueError('阿里临时转存清理尚未确认')
+    elif record['provider']=='xunlei':
+        if client is None:raise ValueError('缺少转存账号连接')
+        roots=client.xunlei_list('')
+        item=next((f for f in roots if str(f.get('id'))==record['remote']),None)
+        if item:
+            if item.get('name')!='网站下载任务-'+record['job'] or item.get('kind')!='drive#folder':
+                raise ValueError('云端目录名称或类型已改变，未清理')
+            client.xunlei_delete_task(record['remote'],record['job'])
+            for _ in range(20):
+                if not any(str(f.get('id'))==record['remote'] for f in client.xunlei_list('')):break
+                time.sleep(.5)
+            else:raise ValueError('迅雷临时转存清理尚未确认')
     elif record['provider']=='baidu':
         if record['remote']!='/网站下载任务/'+record['job']: raise ValueError('转存目录不属于本次任务')
         if delete is None: raise ValueError('缺少转存账号连接')
@@ -144,7 +156,10 @@ def retry(job):
         if not lock.acquire(blocking=False): raise ValueError('网盘正在下载，请稍后重试清理')
         c=None
         try:
-            c=cloud_backend.Client(provider,json.loads(content),record['account'])
+            if provider in ('uc','xunlei'):
+                from linkswift_cloud import Client
+            else:Client=cloud_backend.Client
+            c=Client(provider,json.loads(content),record['account'])
             with LOCK: note=attempt(record,c)
         finally:
             try:

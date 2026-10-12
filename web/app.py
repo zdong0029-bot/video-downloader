@@ -459,7 +459,7 @@ def _worker(job: Job) -> None:
             elif job.kind == "cloud":
                 job.title = file_download.provider(job.url) + "分享文件"
                 if not cloud_backend.provider(job.url):
-                    raise ValueError("此网盘暂不支持，请使用百度、阿里或夸克分享链接")
+                    raise ValueError("此网盘暂不支持，请使用页面列出的官方分享链接")
                 job.message = "正在解析网盘文件，等待下载通道…"
                 cloud_rate=[time.monotonic(),0,0.0]
                 def cloud_progress(items, paths, received=None):
@@ -768,14 +768,14 @@ def _extract_links(text: str) -> list[str]:
     matches = list(_URL_RE.finditer(text or ""))
     for index, m in enumerate(matches):
         u = m.group(0).rstrip(".,;:!?)）】」》\"'")
-        if file_download.provider(u) == "百度网盘":
+        if cloud_backend.provider(u):
             from urllib.parse import urlsplit, urlunsplit, parse_qsl, urlencode
             parts = urlsplit(u)
             query = parse_qsl(parts.query, keep_blank_values=True)
             # Associate only the text following this link, before the next link.
             end = matches[index + 1].start() if index + 1 < len(matches) else len(text)
-            code = re.search(r'(?:提取码|提取碼|访问码)\s*[:：]?\s*([A-Za-z0-9]{4})(?![A-Za-z0-9])', text[m.end():end])
-            if code and not any(k == "pwd" and v for k, v in query):
+            code = re.search(r'(?:提取码|提取碼|访问码|訪問碼|密码|密碼)\s*[:：]?\s*([A-Za-z0-9]{4})(?![A-Za-z0-9])', text[m.end():end])
+            if code and not any(k in ("pwd","password") and v for k, v in query):
                 query = [(k, v) for k, v in query if k != "pwd"]
                 query.append(("pwd", code[1]))
                 u = urlunsplit((parts.scheme, parts.netloc, parts.path, urlencode(query), parts.fragment))
@@ -1254,7 +1254,7 @@ def cloud_account_activate(body: CloudSelection, me: Identity = Depends(admin_on
     return {'ok':True}
 
 class CloudConnect(BaseModel):
-    provider: Literal['baidu','ali','quark']
+    provider: Literal['baidu','ali','quark','uc','pan123','tianyi','mobile','xunlei']
 
 @app.post('/api/admin/cloud-accounts/connect')
 def cloud_account_connect(body: CloudConnect, request: Request, me: Identity = Depends(admin_only)):

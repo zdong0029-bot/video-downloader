@@ -6,10 +6,11 @@ import cloud_accounts as accounts
 import cloud_backend
 import json
 from urllib.parse import urlsplit
+import cloud_providers
 
 provider=sys.argv[1]
 if provider not in accounts.PROVIDERS: raise SystemExit(2)
-urls={'baidu':'https://pan.baidu.com/disk/main','ali':'https://www.alipan.com/','quark':'https://pan.quark.cn/'}
+urls=cloud_providers.LOGIN_URLS
 with sync_playwright() as p:
     browser=p.chromium.launch(headless=False)
     context=browser.new_context();page=context.new_page()
@@ -40,7 +41,9 @@ with sync_playwright() as p:
                 for candidate in context.pages:
                     if candidate.is_closed(): continue
                     current=urlsplit(candidate.evaluate('location.href'))
-                    valid=(current.hostname in ('www.alipan.com','www.aliyundrive.com') and current.path.startswith('/drive/')) if provider=='ali' else (current.hostname=='pan.quark.cn' and current.path.startswith('/list'))
+                    if provider=='ali':valid=current.hostname in ('www.alipan.com','www.aliyundrive.com') and current.path.startswith('/drive/')
+                    elif provider=='quark':valid=current.hostname=='pan.quark.cn' and current.path.startswith('/list')
+                    else:valid=cloud_providers.official(provider,current.geturl())
                     if valid: logged_in=True;break
                 if not logged_in: raise ValueError('未检测到文件页，请在此授权窗口打开的浏览器中登录后再保存')
                 state=cloud_backend.validate(provider,context.storage_state())

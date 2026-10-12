@@ -15,7 +15,17 @@ EXTENSIONS = {'.zip','.7z','.rar','.exe','.msi','.apk','.dmg','.iso','.pkg',
               '.pdf','.docx','.xlsx','.pptx','.txt','.mp4','.mov','.mkv','.webm','.avi','.mp3','.wav','.jpg','.jpeg','.png','.webp','.gif'}
 LIMIT = 10 * 1024**3
 
+class TransferHTTPError(ValueError):
+    def __init__(self, status, retry_after=None):
+        self.status = int(status)
+        try: self.retry_after = min(max(float(retry_after or 0),0),30)
+        except (ValueError,TypeError): self.retry_after = 0
+        super().__init__('文件服务器返回 HTTP '+str(self.status))
+
 def provider(url):
+    import cloud_providers
+    key=cloud_providers.provider(url)
+    if key:return cloud_providers.PROVIDERS[key]
     host = (urlsplit(url).hostname or '').lower()
     for suffix, name in [('pan.baidu.com','百度网盘'),('yun.baidu.com','百度网盘'),
                          ('pan.quark.cn','夸克网盘'),('alipan.com','阿里云盘'),
@@ -56,13 +66,19 @@ def open_public(url, headers=None, offset=0, end=None):
             else:
                 conn.sock = socket.create_connection((addresses[0][4][0],port),timeout=30)
             if u.scheme == 'https': conn.sock = ssl.create_default_context().wrap_socket(conn.sock,server_hostname=u.hostname)
-            conn.request('GET',(u.path or '/')+('?' + u.query if u.query else ''),headers=_download_headers(u.hostname, headers, offset, end))
+            request_headers=_download_headers(u.hostname, headers, offset, end)
+            # HTTPConnection defaults to port 80 even when its socket is wrapped
+            # in TLS. Supply the normal HTTPS Host instead of appending :443;
+            # signed cloud CDNs can reject that different authority.
+            request_headers['Host']=u.hostname
+            conn.request('GET',(u.path or '/')+('?' + u.query if u.query else ''),headers=request_headers)
             response = conn.getresponse()
             if response.status in (301,302,303,307,308):
                 location=response.getheader('Location'); response.close(); conn.close()
                 if not location: raise ValueError('下载跳转缺少目标地址')
                 url=urljoin(url,location); continue
-            if response.status not in ((200,206) if offset or end is not None else (200,)): raise ValueError('文件服务器返回 HTTP '+str(response.status))
+            if response.status not in ((200,206) if offset or end is not None else (200,)):
+                raise TransferHTTPError(response.status,response.getheader('Retry-After'))
             return conn,response,url
         except Exception:
             if response is not None:response.close()
@@ -112,12 +128,26 @@ def _download_headers(host, extra, offset, end=None):
     if offset or end is not None: headers['Range'] = 'bytes=' + str(offset) + '-' + (str(end) if end is not None else '')
     return headers
 
+def xunlei_gcid(path,cancelled=lambda:False):
+    """Official Xunlei object digest: SHA1 of the ordered block SHA1 digests."""
+    import hashlib
+    size=path.stat().st_size;block_size=0x40000
+    while size/block_size>0x200 and block_size<0x200000:block_size*=2
+    result=hashlib.sha1()
+    with path.open('rb') as stream:
+        for data in iter(lambda:stream.read(block_size),b''):
+            if cancelled():raise Cancelled()
+            result.update(hashlib.sha1(data).digest())
+    return result.hexdigest()
 
-def fetch_original(url, directory, name, expected, progress, cancelled, headers=None, checksums=None, range_size=0, workers=3):
+
+def fetch_original(url, directory, name, expected, progress, cancelled, headers=None, checksums=None, range_size=0, workers=3, prefer_chunks=False, renew_url=None):
     """Bounded original transfer, with safe redirects, resume and hash validation."""
     import hashlib, time
     name = safe_name(name); expected = int(expected or 0)
     range_size = min(max(int(range_size or 0), 0), 4*1024**2)
+    if prefer_chunks and expected >= 8*1024**2 and not range_size:
+        range_size = 4*1024**2
     partial = directory / (name + '.part'); target = directory / name
     budget = min(LIMIT, max(0, shutil.disk_usage(directory).free - 512*1024**2))
     if expected > budget: raise ValueError('原文件超过可用空间或单文件10GB上限')
@@ -126,11 +156,17 @@ def fetch_original(url, directory, name, expected, progress, cancelled, headers=
     size = 0
     transport_md5 = None
     resume_validator = None
-    has_source_hash = any(re.fullmatch(pattern, str((checksums or {}).get(k, '')))
+    source_gcid=str((checksums or {}).get('gcid','')).lower()
+    if not re.fullmatch(r'[0-9a-f]{40}',source_gcid):source_gcid=''
+    has_source_hash = bool(source_gcid) or any(re.fullmatch(pattern, str((checksums or {}).get(k, '')))
                           for k, pattern in (('md5', r'[0-9a-fA-F]{32}'), ('sha1', r'[0-9a-fA-F]{40}')))
     last_report = 0.0
+    # This checkpoint belongs only to this invocation. Existing files from an
+    # unrelated request are never accepted as resumable chunks.
+    checkpoint = {}
     try:
-        for attempt in range(3):
+        attempts=6 if range_size else 3
+        for attempt in range(attempts):
             if cancelled(): raise Cancelled()
             conn = None; response = None
             # Appending bytes needs either the same strong object validator or
@@ -141,6 +177,17 @@ def fetch_original(url, directory, name, expected, progress, cancelled, headers=
             try:
                 end = min(size + range_size, expected)-1 if range_size and expected else None
                 conn, response, final = open_public(url, headers, size, end) if end is not None else open_public(url, headers, size)
+                if prefer_chunks and range_size:
+                    # Cloud CDNs may throttle long responses but deliver small
+                    # original ranges quickly. Servers without range/version
+                    # support retain the verified full-stream fallback.
+                    if response.status == 200:
+                        range_size = 0
+                    elif response.status == 206 and not (
+                            (response.getheader('ETag') or '').startswith('"')
+                            or response.getheader('Content-MD5') or has_source_hash):
+                        range_size = 0
+                        continue
                 content_type = (response.getheader('Content-Type') or '').split(';')[0].lower()
                 if content_type in ('text/html','application/xhtml+xml') or (content_type == 'application/json' and not name.lower().endswith('.json')):
                     raise ValueError('平台返回登录或错误页面，没有提供原文件')
@@ -150,7 +197,10 @@ def fetch_original(url, directory, name, expected, progress, cancelled, headers=
                     raise ValueError('续传时原文件版本发生变化，未标记完成')
                 if response.status == 200 and current_validator.startswith('"'):
                     resume_validator = current_validator
-                if (response.status == 200 or (range_size and response.status == 206 and not size)) and response.getheader('Content-MD5'):
+                # Xunlei's edge Content-MD5 may identify a storage object rather
+                # than the delivered original bytes. When its official GCID is
+                # available, verify that stronger source identity at completion.
+                if not source_gcid and (response.status == 200 or (range_size and response.status == 206 and not size)) and response.getheader('Content-MD5'):
                     import base64
                     value=response.getheader('Content-MD5')
                     # Baidu's bounded original response uses whole-object hex MD5;
@@ -177,12 +227,12 @@ def fetch_original(url, directory, name, expected, progress, cancelled, headers=
                     validator = response.getheader('ETag')
                     getattr(response,'close',lambda:None)(); conn.close(); conn = None
                     _chunked_original(final, headers, partial, expected, validator,
-                                      progress, cancelled, range_size, workers)
+                                      progress, cancelled, range_size, workers, renew_url, checkpoint)
                     size = expected
                     break
                 # Four bounded ranges for large immutable originals. A server that
                 # ignores ranges or changes validators falls back to one full stream.
-                if not size and total >= 8*1024**2 and total*2 <= max(0,shutil.disk_usage(directory).free-512*1024**2) and (transport_md5 or (response.getheader('ETag') or '').startswith('"') or any(re.fullmatch(pattern,str((checksums or {}).get(k,''))) for k,pattern in (('md5',r'[0-9a-fA-F]{32}'),('sha1',r'[0-9a-fA-F]{40}')))):
+                if not size and total >= 8*1024**2 and total*2 <= max(0,shutil.disk_usage(directory).free-512*1024**2) and (transport_md5 or (response.getheader('ETag') or '').startswith('"') or has_source_hash):
                     validator = response.getheader('ETag')
                     getattr(response,'close',lambda:None)(); conn.close(); conn = None
                     try:
@@ -215,9 +265,20 @@ def fetch_original(url, directory, name, expected, progress, cancelled, headers=
                 if expected and size != expected: raise ConnectionError('文件传输中断')
                 if not size: raise ValueError('平台返回空文件')
                 break
+            except TransferHTTPError as error:
+                if attempt == attempts-1: raise
+                if error.status == 403 and renew_url:
+                    updated_url,updated_headers=renew_url()
+                    if updated_url == url: raise
+                    url,headers=updated_url,updated_headers
+                elif error.status in (429,500,502,503,504):
+                    if range_size and error.status in (429,503):workers=max(1,int(workers)//2)
+                    time.sleep(max(error.retry_after,1+attempt*2))
+                else: raise
+                size = partial.stat().st_size if partial.exists() else 0
             except (OSError, http.client.HTTPException):
                 size = partial.stat().st_size if partial.exists() else 0
-                if attempt == 2: raise ValueError('原文件传输中断，自动续传失败，未标记完成') from None
+                if attempt == attempts-1: raise ValueError('原文件传输中断，自动续传失败，未标记完成') from None
                 for _ in range(4):
                     if cancelled(): raise Cancelled()
                     time.sleep(.25)
@@ -238,10 +299,13 @@ def fetch_original(url, directory, name, expected, progress, cancelled, headers=
                     if cancelled():raise Cancelled()
                     for h in hashes.values():h.update(block)
             if any(hashes[k].hexdigest()!=v for k,v in wanted.items()):raise ValueError('原文件哈希校验未通过，未标记完成')
+        if source_gcid and xunlei_gcid(partial,cancelled)!=source_gcid:
+            raise ValueError('迅雷原文件GCID校验未通过，未标记完成')
         os.replace(partial,target)
         return target
     finally:
         partial.unlink(missing_ok=True)
+        for piece in checkpoint.get('pieces', []): piece.unlink(missing_ok=True)
 
 
 def _parallel_original(url, headers, partial, total, validator, progress, cancelled):
@@ -308,17 +372,48 @@ def _parallel_original(url, headers, partial, total, validator, progress, cancel
 
 
 def _chunked_original(url, headers, partial, total, validator, progress, cancelled,
-                      chunk_size=4*1024**2, workers=3):
-    """Bounded 4 MiB ranges with three connections and in-chunk resume.
+                      chunk_size=4*1024**2, workers=3, renew_url=None, checkpoint=None):
+    """Bounded original ranges, with interruption and signed-URL recovery.
 
     Each range must identify the same object and exact requested byte offsets.
-    Authorization errors stop the transfer; only network interruptions retry.
+    Permission errors stop the transfer; transient errors retry with backoff.
     """
     import threading, time
     from concurrent.futures import ThreadPoolExecutor
     count=(total+chunk_size-1)//chunk_size
     pieces=[partial.with_name(partial.name+'.chunk-'+str(i)) for i in range(count)]
+    version=(total,chunk_size,validator)
+    resumed=bool(checkpoint and checkpoint.get('version'))
+    if resumed and checkpoint['version']!=version:
+        raise ValueError('重试时原文件版本发生变化，未标记完成')
+    if checkpoint is not None:
+        checkpoint.update(version=version,pieces=pieces)
+    if not resumed:
+        for piece in pieces:piece.unlink(missing_ok=True)
     received=[0]*count;lock=threading.Lock();stop=threading.Event();cursor=[0];last=[0.0]
+    if resumed:
+        for index,piece in enumerate(pieces):
+            if piece.exists():
+                size=piece.stat().st_size
+                if size>min(chunk_size,total-index*chunk_size):raise ValueError('已接收分段长度异常')
+                received[index]=size
+    current=[url,headers];renew_lock=threading.Lock();renewals=[0];failure=[None]
+    def abort(error):
+        with lock:
+            if failure[0] is None:failure[0]=error
+            stop.set()
+    def stopped():
+        return failure[0] or ValueError('原文件分段下载已停止')
+    def renew(observed):
+        with renew_lock:
+            if current[0] != observed: return
+            try:
+                if not renew_url or renewals[0]>=16:raise TransferHTTPError(403)
+                if cancelled():raise Cancelled()
+                updated_url,updated_headers=renew_url()
+                if updated_url==observed:raise TransferHTTPError(403)
+            except BaseException as error:abort(error);raise
+            current[:]=[updated_url,updated_headers];renewals[0]+=1
     def report():
         now=time.monotonic()
         if now-last[0]>=.25:
@@ -329,13 +424,15 @@ def _chunked_original(url, headers, partial, total, validator, progress, cancell
                 if cursor[0]>=count:return
                 index=cursor[0];cursor[0]+=1
             start=index*chunk_size;end=min(start+chunk_size,total)-1;wanted=end-start+1
-            size=0
-            for attempt in range(3):
+            size=received[index]
+            if size==wanted:continue
+            for attempt in range(6):
                 if cancelled():raise Cancelled()
-                if stop.is_set():raise ValueError('原文件分段下载已停止')
+                if stop.is_set():raise stopped()
                 conn=None;r=None
                 try:
-                    conn,r,_=open_public(url,headers,start+size,end)
+                    with renew_lock:active_url,active_headers=current
+                    conn,r,_=open_public(active_url,active_headers,start+size,end)
                     if r.status!=206 or r.getheader('Content-Range')!=f'bytes {start+size}-{end}/{total}':
                         raise ValueError('原文件分段范围不一致，未标记完成')
                     if int(r.getheader('Content-Length') or 0) not in (0,wanted-size):
@@ -347,26 +444,38 @@ def _chunked_original(url, headers, partial, total, validator, progress, cancell
                     with pieces[index].open('ab' if size else 'wb',buffering=1024*1024) as f:
                         while size<wanted:
                             if cancelled():raise Cancelled()
-                            if stop.is_set():raise ValueError('原文件分段下载已停止')
+                            if stop.is_set():raise stopped()
                             data=r.read(min(256*1024,wanted-size))
                             if not data:raise ConnectionError('原文件分段传输中断')
                             f.write(data);size+=len(data)
                             with lock:received[index]=size;report()
                         if r.read(1):raise ValueError('原文件分段超出请求长度')
                     break
-                except (OSError,http.client.HTTPException):
+                except TransferHTTPError as error:
+                    if attempt==5:abort(error);raise
+                    if error.status==403 and renew_url:renew(active_url)
+                    elif error.status in (429,500,502,503,504):
+                        # Respect server backoff and retain already checked bytes.
+                        for _ in range(int(max(error.retry_after,1+attempt*2)*4)):
+                            if cancelled():raise Cancelled()
+                            if stop.is_set():raise stopped()
+                            time.sleep(.25)
+                    else:abort(error);raise
+                except (OSError,http.client.HTTPException) as error:
                     size=pieces[index].stat().st_size if pieces[index].exists() else 0
                     with lock:received[index]=size
                     if size==wanted:break
-                    if attempt==2:stop.set();raise
-                except BaseException:
-                    stop.set();raise
+                    if attempt==5:abort(error);raise
+                    time.sleep(min(1+attempt,5))
+                except BaseException as error:
+                    abort(error);raise
                 finally:
                     if r is not None:r.close()
                     if conn:conn.close()
     try:
-        with ThreadPoolExecutor(max_workers=min(max(int(workers),1),4)) as pool:
-            tasks=[pool.submit(worker) for _ in range(min(max(int(workers),1),4))]
+        concurrency=min(max(int(workers),1),16)
+        with ThreadPoolExecutor(max_workers=concurrency) as pool:
+            tasks=[pool.submit(worker) for _ in range(concurrency)]
             for task in tasks:task.result()
         with partial.open('wb',buffering=1024*1024) as merged:
             for index,piece in enumerate(pieces):
@@ -381,7 +490,8 @@ def _chunked_original(url, headers, partial, total, validator, progress, cancell
         progress(total)
     finally:
         stop.set()
-        for piece in pieces:piece.unlink(missing_ok=True)
+        if checkpoint is None:
+            for piece in pieces:piece.unlink(missing_ok=True)
 
 
 class CloudResult(list):

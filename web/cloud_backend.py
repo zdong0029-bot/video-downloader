@@ -7,9 +7,13 @@ from common import Cancelled
 import cloud_accounts as accounts
 import file_download
 
-NAMES = {'baidu': '百度网盘', 'ali': '阿里云盘', 'quark': '夸克网盘'}
-LOCKS = {p: threading.RLock() for p in ('ali', 'quark')}
+import cloud_providers
+NAMES = cloud_providers.PROVIDERS
+LOCKS = {p: threading.RLock() for p in NAMES if p!='baidu'}
 UA = 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/130.0.0.0 Safari/537.36'
+QUARK_DESKTOP_UA = ('Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 '
+                    '(KHTML, like Gecko) quark-cloud-drive/3.20.0 Chrome/112.0.5615.165 '
+                    'Electron/24.1.3.8 Safari/537.36 Channel/pckk_other_ch')
 
 class LoginRequired(ValueError):
     pass
@@ -20,13 +24,13 @@ class PlatformError(ValueError):
 
 
 def provider(url):
-    return next((key for key, name in NAMES.items() if file_download.provider(url) == name), None)
+    return cloud_providers.provider(url)
 
 
 def parse_share(url, password=''):
     u = urlsplit(url)
     key = provider(url)
-    if not key or u.username or u.password or u.scheme not in ('http', 'https') or u.port not in (None, 80, 443):
+    if key not in ('baidu','ali','quark') or u.username or u.password or u.scheme not in ('http', 'https') or u.port not in (None, 80, 443):
         raise ValueError('请提供百度、阿里或夸克的完整分享链接')
     hosts = {'baidu': ('pan.baidu.com', 'yun.baidu.com'), 'ali': ('www.alipan.com', 'alipan.com', 'www.aliyundrive.com', 'aliyundrive.com'), 'quark': ('pan.quark.cn',)}
     if u.hostname not in hosts[key]:
@@ -56,7 +60,7 @@ class Client:
                 self.s.cookies.set(c['name'], c['value'], domain=domain, path=c.get('path', '/'))
         self.token = None
 
-    def request(self, path, body=None, params=None, host=None, extra=None):
+    def request(self, path, body=None, params=None, host=None, extra=None, _auth_retried=False):
         if self.cancelled(): raise Cancelled()
         base = host or ('https://drive-pc.quark.cn/1/clouddrive' if self.key == 'quark' else 'https://api.alipan.com')
         query = {'pr': 'ucpro', 'fr': 'pc'} if self.key == 'quark' else {}
@@ -70,6 +74,14 @@ class Client:
             if r.status_code>=400: raise PlatformError(NAMES[self.key]+'接口返回HTTP '+str(r.status_code)+'，未取得原文件',r.status_code) from None
             raise ValueError(NAMES[self.key] + '返回了网页验证，尚未取得原文件') from None
         code = d.get('code', 0)
+        # A long job can outlive its access token or another official client can
+        # rotate it. Renew this same saved profile once, without asking for QR.
+        if (self.key=='ali' and code in ('AccessTokenInvalid','AccessTokenExpired')
+                and not _auth_retried and self.token
+                and (extra or {}).get('Authorization')=='Bearer '+self.token.get('access_token','')):
+            old=self.token['access_token'];self.ali_renew(old)
+            updated={**(extra or {}),'Authorization':'Bearer '+self.token['access_token']}
+            return self.request(path,body,params,host,updated,_auth_retried=True)
         bad = r.status_code >= 400 or (self.key == 'quark' and (d.get('status', 200) >= 400 or code != 0)) or (self.key == 'ali' and bool(code))
         if bad:
             message = str(d.get('message') or '平台拒绝该操作')
@@ -100,6 +112,23 @@ class Client:
         if self.identity: accounts.update_payload(self.identity, self.state)
         self.token = d
         return d
+
+    def ali_renew(self, previous):
+        # The saved identity is bound to the task; an active-account switch may
+        # not redirect an in-flight job or its cleanup to a different account.
+        def update():
+            if self.identity:
+                key,payload=accounts.payload(self.identity)
+                if key!='ali':raise LoginRequired('阿里任务账号配置不匹配')
+                self.state=json.loads(payload)
+            saved=self.state.get('_ali_token') or {}
+            self.token=saved if saved.get('access_token') and saved['access_token']!=previous else None
+            self.ali_auth()
+            if getattr(self,'share_headers',{}).get('Authorization')=='Bearer '+previous:
+                self.share_headers['Authorization']='Bearer '+self.token['access_token']
+        if self.identity:
+            with accounts.LOCK:update()
+        else:update()
 
     def verify(self):
         if self.key == 'quark':
@@ -157,8 +186,9 @@ class Client:
         # An account may download its own share directly. Quark rejects saving
         # one's own share with 41017, so try its original file permission first.
         try:
-            direct = self.request('/file/download', {'fids':[expected[0]['id']]})['data']
-        except PlatformError:
+            direct = self.quark_download(expected[0]['id'])
+        except PlatformError as error:
+            if error.code == 23018: raise
             direct = []
         if direct and direct[0].get('download_url'):
             expected[0]['_direct_download'] = direct[0]
@@ -235,17 +265,44 @@ class Client:
             saved.append({**item,'id':result['file_id'],'drive_id':drive,'_owned':True})
         return saved
 
+    def quark_download(self, fid):
+        """Use the authorized original-file desktop channel for web size limits."""
+        try:
+            data = self.request('/file/download', {'fids':[fid]})['data']
+            self.quark_download_ua = UA
+            return data
+        except PlatformError as error:
+            if error.code != 23018: raise
+        data = self.request('/file/download', {'fids':[fid]},
+                            params={'entry':'ft'},
+                            extra={'User-Agent':QUARK_DESKTOP_UA,'Origin':'https://pan.quark.cn'})['data']
+        self.quark_download_ua = QUARK_DESKTOP_UA
+        return data
+
     def link(self, item, share_id):
         if self.key == 'quark':
-            data = [item.pop('_direct_download')] if item.get('_direct_download') else self.request('/file/download', {'fids':[item['id']]})['data']
+            data = [item.pop('_direct_download')] if item.get('_direct_download') else self.quark_download(item['id'])
             if not data or not data[0].get('download_url'): raise ValueError('夸克未提供原文件下载地址')
             # Quark's API md5 is not the raw file digest for this provider.
             # The original CDN Content-MD5 is verified by fetch_original.
             if data[0].get('md5'): item['provider_md5'] = data[0]['md5']
             cookie = '; '.join(c.name + '=' + c.value for c in self.s.cookies if c.domain.lstrip('.') == 'quark.cn' or c.domain.endswith('.quark.cn'))
-            return data[0]['download_url'], {'User-Agent':UA,'Referer':'https://pan.quark.cn/','Cookie':cookie}
+            if data[0].get('size') is not None and int(data[0]['size']) != int(item['size']):
+                raise ValueError('夸克原文件大小与分享列表不符，未开始下载')
+            return data[0]['download_url'], {'User-Agent':getattr(self,'quark_download_ua',UA),'Referer':'https://pan.quark.cn/','Cookie':cookie}
         if item.get('_owned'):
             d=self.ali_private('/v2/file/get_download_url',{'drive_id':item['drive_id'],'file_id':item['id'],'expire_sec':600})
+            if item['size']>=8*1024**2 or not any(d.get(k) for k in ('cdn_url','url','download_url')):
+                # The same authorized original can be unavailable in web mode.
+                # Request the original with the client's supported channel;
+                # this never reads or substitutes video preview URLs.
+                native=self.request('/v2/file/get_download_url',
+                               {'drive_id':item['drive_id'],'file_id':item['id'],'expire_sec':14400},
+                               host='https://api.aliyundrive.com',
+                               extra={'Authorization':'Bearer '+self.ali_auth()['access_token'],
+                                      'X-Canary':'client=windows,app=adrive,version=v6.0.0',
+                                      'Origin':'https://www.alipan.com'})
+                if any(native.get(k) for k in ('cdn_url','url','download_url')):d=native
             if d.get('size') is not None and int(d['size'])!=item['size']:raise ValueError('阿里原文件大小与分享列表不符')
             if str(d.get('content_hash_name','')).lower()=='sha1' and re.fullmatch(r'[0-9a-fA-F]{40}',str(d.get('content_hash',''))):
                 if item.get('sha1') and item['sha1'].lower()!=d['content_hash'].lower():raise ValueError('阿里原文件来源SHA1不符')
@@ -268,8 +325,12 @@ def budget(files, out=None):
 def validate(key, state, identity=None):
     lock = LOCKS[key]
     if not lock.acquire(blocking=False): raise ValueError(NAMES[key] + '正在下载，请完成或取消后检测 / 更换账号')
-    c = Client(key, state, identity)
+    c = None
     try:
+        if key not in ('ali','quark'):
+            import linkswift_cloud
+            return linkswift_cloud.validate(key,state,identity)
+        c = Client(key, state, identity)
         c.verify()
         if identity: accounts.health(identity, True, '官方账号验证通过')
         return c.state
@@ -277,11 +338,16 @@ def validate(key, state, identity=None):
         if identity: accounts.health(identity, False, '登录授权已失效，请重新扫码')
         raise
     finally:
-        try: c.close()
+        try:
+            if c:c.close()
         finally: lock.release()
 
 
 def run(url, password, out, progress, cancelled):
+    key=provider(url)
+    if key in NAMES and key not in ('baidu','ali','quark'):
+        import linkswift_cloud
+        return linkswift_cloud.run(url,password,out,progress,cancelled)
     key, share_id, password, kind = parse_share(url, password)
     if key == 'baidu':
         import baidu_backend
@@ -316,7 +382,9 @@ def run(url, password, out, progress, cancelled):
             name = prefix + '_' + file_download.safe_name(item['name'])
             def report(size):
                 progress(items, paths + [p for p in out.iterdir() if p.name==name+'.part' or p.name.startswith(name+'.part.')])
-            target = file_download.fetch_original(link, out, name, item['size'], report, cancelled, headers, item)
+            target = file_download.fetch_original(link, out, name, item['size'], report, cancelled, headers, item,
+                                                  workers=16 if key=='ali' else 4, prefer_chunks=True,
+                                                  renew_url=lambda:c.link(item,share_id))
             paths.append(target);progress(items, paths)
         note = '网盘原文件直下载；未转存'
         if getattr(c,'temp_dest',None):

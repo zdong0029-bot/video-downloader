@@ -1,5 +1,5 @@
 (() => {
-  const names = {baidu:'百度网盘', ali:'阿里云盘', quark:'夸克网盘'};
+  const names = {baidu:'百度网盘',ali:'阿里云盘',quark:'夸克网盘',uc:'UC网盘',pan123:'123云盘',tianyi:'天翼云盘',mobile:'中国移动云盘',xunlei:'迅雷云盘'};
   const msg = document.querySelector('#cloudMessage');
   let opening = false, refreshing = false;
   function node(tag, value, cls) {const e=document.createElement(tag);e.textContent=value;if(cls)e.className=cls;return e;}
@@ -29,11 +29,12 @@
       const d=await api('/api/admin/cloud-accounts'), cards=document.querySelector('#cloudCards');cards.replaceChildren();
       for(const [key,name] of Object.entries(names)) {
         const card=document.createElement('article');card.append(node('h4',name));
-        card.append(node('p',key==='baidu'?'使用后台账号下载，任务串行处理；优先直下载；必须转存时只使用本次任务目录，完整下载到主机并校验后自动清理。':key==='quark'?'下载原文件；自己的分享优先直下载；其他分享需转存时，下载校验完成后清理临时目录。':'普通分享优先原文件直下载；平台要求转存时，校验完成后自动清理；过期快传需要换新。','muted'));
+        const text=key==='baidu'?'使用后台账号下载，任务串行处理；必须转存时只使用本次任务目录，完整下载到主机并校验后自动清理。':key==='quark'||key==='uc'||key==='xunlei'?'优先下载原文件；分享要求转存时只处理本任务目录，完整下载并校验后清理。':key==='ali'?'普通分享优先原文件直下载；必须转存时校验完成后自动清理；过期快传需要换新。':'接入 LinkSwift 的官方原文件接口。连接账号后仍需实测分享下载；平台的会员、额度和文件权限会影响结果。';
+        card.append(node('p',text,'muted'));
         const add=node('button','扫码连接 / 添加账号','primary');add.type='button';
         add.onclick=()=>action(add,async()=>{const r=await api('/api/admin/cloud-accounts/connect',{provider:key});opening=true;msg.textContent=r.message;});card.append(add);
         const list=d.accounts.filter(a=>a.provider===key);
-        if(!list.length)card.append(node('p','后台账号未连接。管理员扫码一次后，朋友无需网盘登录。','muted'));
+        if(!list.length)card.append(node('p','后台账号未连接。请管理员连接并检测；朋友不用提交账号密码。','muted'));
         for(const a of list) {
           const row=node('div','','row'),info=document.createElement('div');info.append(node('strong',a.label));
           const state=a.auth_ok===true?'账号验证通过':a.auth_ok===false?'授权失效，请重新扫码':'授权已保存，等待检测';

@@ -7,6 +7,111 @@ import file_download as files,xhs_images
 from common import Cancelled
 DATA=bytes(range(256))*40000
 class Ranges(unittest.TestCase):
+ def test_server_overload_reduces_concurrency_before_resuming(self):
+  workers=[]
+  def chunks(url,headers,partial,total,validator,progress,cancelled,chunk_size,count,renew,checkpoint):
+   workers.append(count)
+   if len(workers)<3:raise files.TransferHTTPError(503)
+   partial.write_bytes(DATA);progress(total)
+  with patch.object(files,'_chunked_original',side_effect=chunks),patch('time.sleep'):
+   target=files.fetch_original('https://cdn.example/file',self.out,'overload.apk',len(DATA),lambda n:None,lambda:False,
+    checksums={'sha1':hashlib.sha1(DATA).hexdigest()},prefer_chunks=True,workers=16)
+  self.assertEqual(workers,[16,8,4]);self.assertEqual(target.read_bytes(),DATA)
+ def test_xunlei_official_gcid_validates_bytes_with_object_id_md5_header(self):
+  source=self.out/'fixture.bin';source.write_bytes(DATA);gcid=files.xunlei_gcid(source);source.unlink()
+  self.mode='baidu-bad-md5'
+  p=files.fetch_original('https://cdn.example/file',self.out,'original.apk',len(DATA),lambda n:None,lambda:False,
+   checksums={'gcid':gcid},range_size=4*1024**2,workers=4)
+  self.assertEqual(p.read_bytes(),DATA);p.unlink();self.mode='corrupt'
+  with self.assertRaisesRegex(ValueError,'GCID'):
+   files.fetch_original('https://cdn.example/file',self.out,'bad.apk',len(DATA),lambda n:None,lambda:False,
+    checksums={'gcid':gcid},range_size=4*1024**2,workers=4)
+  self.assertFalse(list(self.out.glob('*.part*')));self.assertFalse((self.out/'bad.apk').exists())
+ def test_exhausted_chunk_retry_keeps_verified_ranges_in_same_transfer(self):
+  original=files.open_public;failures=[0];zero=[0];progress=[]
+  def interrupted(url,headers=None,offset=0,end=None):
+   if offset==0:zero[0]+=1
+   if offset==4*1024**2 and failures[0]<6:
+    failures[0]+=1;raise files.TransferHTTPError(503)
+   return original(url,headers,offset,end)
+  with patch.object(files,'open_public',side_effect=interrupted),patch('time.sleep'):
+   p=files.fetch_original('https://cdn.example/file',self.out,'resume.apk',len(DATA),progress.append,lambda:False,
+      checksums={'sha1':hashlib.sha1(DATA).hexdigest()},prefer_chunks=True,workers=1)
+  self.assertEqual(p.read_bytes(),DATA);self.assertEqual(failures[0],6)
+  self.assertEqual(zero[0],3) # two probes; the first completed range is not downloaded again
+  self.assertEqual(progress,sorted(progress));self.assertFalse(list(self.out.glob('*.part*')))
+ def test_checkpoint_cannot_resume_a_changed_object(self):
+  original=files.open_public;failures=[0]
+  def interrupted(url,headers=None,offset=0,end=None):
+   if offset==4*1024**2 and failures[0]<6:
+    failures[0]+=1;raise files.TransferHTTPError(503)
+   if failures[0]==6:self.mode='changed'
+   return original(url,headers,offset,end)
+  with patch.object(files,'open_public',side_effect=interrupted),patch('time.sleep'):
+   with self.assertRaisesRegex(ValueError,'版本'):
+    files.fetch_original('https://cdn.example/file',self.out,'changed.apk',len(DATA),lambda n:None,lambda:False,
+     checksums={'sha1':hashlib.sha1(DATA).hexdigest()},prefer_chunks=True,workers=1)
+  self.assertFalse(list(self.out.glob('*.part*')));self.assertFalse((self.out/'changed.apk').exists())
+ def test_failed_renewal_preserves_first_login_error_and_cleans_parts(self):
+  import cloud_backend
+  original=files.open_public;calls=[0];guard=threading.Lock()
+  def expired(url,*args,**kwargs):
+   with guard:calls[0]+=1;first=calls[0]==1
+   if not first:raise files.TransferHTTPError(403)
+   return original(url,*args,**kwargs)
+  def renew():raise cloud_backend.LoginRequired('bound-account authorization expired')
+  with patch.object(files,'open_public',side_effect=expired):
+   with self.assertRaisesRegex(cloud_backend.LoginRequired,'bound-account'):
+    files.fetch_original('https://cdn.example/file',self.out,'renew.apk',len(DATA),lambda n:None,lambda:False,
+      checksums={'sha1':hashlib.sha1(DATA).hexdigest()},prefer_chunks=True,workers=4,renew_url=renew)
+  self.assertFalse((self.out/'renew.apk').exists());self.assertFalse(list(self.out.glob('*.part*')))
+ def test_cloud_retry_temporary_http_failure_keeps_original(self):
+  original=files.open_public;calls=[0]
+  def transient(*args,**kwargs):
+   calls[0]+=1
+   if calls[0]<=2:raise files.TransferHTTPError(503)
+   return original(*args,**kwargs)
+  with patch.object(files,'open_public',side_effect=transient),patch('time.sleep'):
+   p=files.fetch_original('https://cdn.example/file',self.out,'retry.apk',len(DATA),lambda n:None,lambda:False,
+                          checksums={'sha1':hashlib.sha1(DATA).hexdigest()},prefer_chunks=True)
+  self.assertEqual(p.read_bytes(),DATA)
+ def test_expired_original_link_renews_without_changing_source_bytes(self):
+  original=files.open_public;urls=[]
+  def expiration(url,*args,**kwargs):
+   urls.append(url)
+   if url.endswith('/expired'):raise files.TransferHTTPError(403)
+   return original(url,*args,**kwargs)
+  with patch.object(files,'open_public',side_effect=expiration):
+   p=files.fetch_original('https://cdn.example/expired',self.out,'renew.apk',len(DATA),lambda n:None,lambda:False,
+                          checksums={'sha1':hashlib.sha1(DATA).hexdigest()},prefer_chunks=True,
+                          renew_url=lambda:('https://cdn.example/refreshed',{}))
+  self.assertEqual(p.read_bytes(),DATA);self.assertIn('https://cdn.example/refreshed',urls)
+ def test_chunked_expired_url_refresh_is_shared_and_verified(self):
+  original=files.open_public;calls=[0];renewed=[];lock=threading.Lock()
+  def expiration(url,*args,**kwargs):
+   with lock:calls[0]+=1;first=calls[0]==1
+   if not first and url.endswith('/file'):raise files.TransferHTTPError(403)
+   return original(url,*args,**kwargs)
+  def renew():renewed.append(True);return 'https://cdn.example/refreshed',{}
+  with patch.object(files,'open_public',side_effect=expiration):
+   p=files.fetch_original('https://cdn.example/file',self.out,'renew.apk',len(DATA),lambda n:None,lambda:False,
+                          checksums={'sha1':hashlib.sha1(DATA).hexdigest()},prefer_chunks=True,workers=4,renew_url=renew)
+  self.assertEqual(p.read_bytes(),DATA);self.assertEqual(len(renewed),1)
+ def test_cloud_optional_small_ranges_validate_complete_original(self):
+  p=files.fetch_original('https://cdn.example/file',self.out,'cloud.apk',len(DATA),lambda n:None,lambda:False,
+                         checksums={'sha1':hashlib.sha1(DATA).hexdigest()},workers=4,prefer_chunks=True)
+  self.assertEqual(p.read_bytes(),DATA)
+  self.assertTrue(all(r and int(r.split('-')[1])-int(r.split('=')[1].split('-')[0])+1<=4*1024**2 for r in self.calls))
+  self.assertFalse(list(self.out.glob('*.part*')))
+ def test_cloud_optional_ranges_ignored_keep_complete_full_fallback(self):
+  self.mode='ignored'
+  p=files.fetch_original('https://cdn.example/file',self.out,'cloud.apk',len(DATA),lambda n:None,lambda:False,
+                         checksums={'sha1':hashlib.sha1(DATA).hexdigest()},prefer_chunks=True)
+  self.assertEqual(p.read_bytes(),DATA)
+ def test_cloud_optional_ranges_without_version_or_source_hash_use_full_stream(self):
+  self.mode='sequential-no-validator'
+  p=files.fetch_original('https://cdn.example/file',self.out,'cloud.apk',len(DATA),lambda n:None,lambda:False,prefer_chunks=True)
+  self.assertEqual(p.read_bytes(),DATA);self.assertIn(None,self.calls)
  def setUp(self):
   self.tmp=tempfile.TemporaryDirectory();self.out=Path(self.tmp.name);self.mode='normal';self.calls=[];test=self
   class Handler(BaseHTTPRequestHandler):

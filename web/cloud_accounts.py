@@ -4,7 +4,7 @@ from ctypes import wintypes
 from pathlib import Path
 ROOT=Path(__file__).resolve().parent
 DIRECTORY=ROOT/'data'/'cloud-accounts'
-PROVIDERS={'baidu':'百度网盘','ali':'阿里云盘','quark':'夸克网盘'}
+from cloud_providers import PROVIDERS
 
 class ProfileLock:
     def __init__(self): self.thread=threading.RLock();self.local=threading.local()
@@ -109,7 +109,7 @@ def public_status():
 
 def activate(identity,validate=True):
     provider,content=payload(identity)
-    if validate and provider in ('ali','quark'):
+    if validate and provider!='baidu':
         import cloud_backend
         cloud_backend.validate(provider,json.loads(content),identity)
     import baidu_backend

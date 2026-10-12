@@ -1,4 +1,4 @@
-﻿# 安装： .venv\Scripts\python.exe -m pip install -r requirements.txt
+# 安装： .venv\Scripts\python.exe -m pip install -r requirements.txt
 # 之后还要下载浏览器内核（抖音解析用）：
 #   .venv\Scripts\python.exe -m playwright install chromium
 
@@ -21,3 +21,6 @@ requests[socks]>=2.32,<3
 
 # Public picture decoding and integrity checks
 Pillow>=11.3,<13
+
+# Official Mobile Cloud share request encryption
+pycryptodome>=3.23,<4

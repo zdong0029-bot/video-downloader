@@ -188,12 +188,12 @@
 
   <nav class="category-tabs" aria-label="下载分类"><button id="videoTab" type="button" onclick="setCategory('video')">视频 / 图片</button><button id="cloudTab" type="button" onclick="setCategory('cloud')">网盘 / 文件</button></nav>
   <div class="card" id="downloadForm">
-    <label class="note" id="sourceModeRow">下载类型：<select id="sourceMode"><option value="auto">自动识别</option><option value="cloud">网盘分享（百度 / 阿里 / 夸克）</option><option value="file">原文件直链（安装包、视频等）</option><option value="profile">主页 / 合集（先选择视频）</option></select></label>
+    <label class="note" id="sourceModeRow">下载类型：<select id="sourceMode"><option value="auto">自动识别</option><option value="cloud">网盘分享（8 个网盘）</option><option value="file">原文件直链（安装包、视频等）</option><option value="profile">主页 / 合集（先选择视频）</option></select></label>
     <p class="note" id="categoryDescription">支持视频、图片和主页合集，自动选择当前授权可取得的最高画质。</p>
     <p class="note" id="adminCloudNote" hidden>后台账号供访客下载原文件。必要的临时转存仅在主机文件全部下载并校验完成后清理。</p>
     <div class="cloud-status-row" id="cloudStatusRow" hidden><div id="cloudStatus" aria-live="polite"></div><button id="cloudStatusRefresh" class="ghost" type="button">刷新状态</button></div>
     <textarea id="url" rows="3" spellcheck="false" autocapitalize="off"
-      placeholder="粘贴视频、平台主页、百度/阿里/夸克分享、原文件直链或 Symphony 分享码&#10;多个单视频会合并成一组，多视频链接独立展示"></textarea>
+      placeholder="粘贴视频、平台主页、网盘分享、原文件直链或 Symphony 分享码&#10;多个单视频会合并成一组，多视频链接独立展示"></textarea>
     <div class="row" style="margin-top:10px;align-items:center">
       <button id="go">下载</button><button id="scanProfile" class="ghost" type="button">识别主页 / 合集</button>
       <span class="count" id="linkCount"></span>
@@ -699,7 +699,7 @@ function updateCategoryUI(){
   $('#adminCloudNote').hidden=!cloud || !ME;
   $('#scanProfile').hidden=cloud;
   $('#transferModeRow').hidden=cloud || !ME;
-  $('#categoryDescription').textContent=cloud?'粘贴百度、阿里、夸克分享链接或文件直链。视频、安装包和文档保持原文件，无需访客登录网盘。':'粘贴视频、图片、主页或合集链接。自动选择当前授权可取得的最高画质，主页先识别再勾选。';
+  $('#categoryDescription').textContent=cloud?'粘贴网盘分享链接或文件直链。视频、安装包和文档保持原文件；管理员连接后台账号后，朋友不用登录网盘。新增网盘需要完成账号与文件测试。':'粘贴视频、图片、主页或合集链接。自动选择当前授权可取得的最高画质，主页先识别再勾选。';
   urlEl.placeholder=cloud?'粘贴网盘分享链接和提取码，或原文件直链\n可以连续粘贴，自动换行':'粘贴视频、图片、平台主页或 Symphony 分享码\n多个单视频合并成一组，多视频链接独立展示';
   $('#catalogs').hidden=cloud;
 }
@@ -964,7 +964,7 @@ async function delUser(name){
 
 boot();
 </script>
-<script src="/cloud-ui.js?v=20261011"></script><script src="/catalog-ui.js?v=20261011"></script>
+<script src="/cloud-ui.js?v=20261012"></script><script src="/catalog-ui.js?v=20261011"></script>
 <script src="/video-account-ui.js"></script>
 </body>
 </html>
