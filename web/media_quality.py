@@ -29,6 +29,20 @@ def verify(path, expected=None):
     if source_res and actual_res < source_res: raise ValueError('\u6210\u54c1\u5206\u8fa8\u7387\u4f4e\u4e8e\u9009\u4e2d\u539f\u6d41\uff0c\u672a\u6807\u4e3a\u5b8c\u6210')
     wants_audio = expected.get('acodec') not in (None, 'none') or any(f.get('vcodec') == 'none' for f in expected.get('requested_formats') or [])
     if wants_audio and not audio: raise ValueError('\u9ad8\u6e05\u753b\u9762\u7684\u914d\u5957\u97f3\u8f68\u7f3a\u5931\uff0c\u672a\u6807\u4e3a\u5b8c\u6210')
+    if actual_duration >= 600:
+        decoder = shutil.which('ffmpeg')
+        if not decoder:
+            raise ValueError('缺少长视频完整性校验组件 ffmpeg，未标为完成')
+        for location in (0, actual_duration / 2, max(0, actual_duration - 5)):
+            try:
+                check = subprocess.run([decoder, '-v', 'error', '-xerror', '-ss', str(location),
+                                        '-i', str(path), '-t', '2', '-f', 'null', '-'],
+                                       capture_output=True, timeout=60,
+                                       creationflags=subprocess.CREATE_NO_WINDOW)
+            except subprocess.TimeoutExpired:
+                raise ValueError('长视频解码校验超时，未标为完成') from None
+            if check.returncode:
+                raise ValueError('长视频开头、中段或结尾解码失败，未标为完成')
     text = f"{video['width']}\u00d7{video['height']}\uff1b\u539f\u7f16\u7801\uff0c\u672a\u91cd\u65b0\u538b\u7f29"
     if actual_res < 720: text += '\uff1b\u5f53\u524d\u6e90\u6d41\u4f4e\u4e8e720p\uff0c\u672a\u653e\u5927'
     if not audio: text += '\uff1b\u6e90\u6d41\u65e0\u97f3\u8f68'

@@ -23,10 +23,12 @@ class Ranges(unittest.TestCase):
     self.send_response(206 if ranged else 200);self.send_header('Content-Type','application/octet-stream');
     if test.mode!='no-length':self.send_header('Content-Length',str(len(data)))
     if test.mode in ('baidu-md5','baidu-bad-md5'):self.send_header('Content-MD5',hashlib.md5(DATA).hexdigest() if test.mode=='baidu-md5' else '0'*32)
-    self.send_header('Connection','close');self.send_header('ETag','"changed-version"' if test.mode=='changed' and start else '"same-version"')
+    self.send_header('Connection','close')
+    if test.mode!='sequential-no-validator':self.send_header('ETag','"changed-version"' if test.mode in ('changed','sequential-change') and start else '"same-version"')
     if ranged:self.send_header('Content-Range',f'bytes {start+1 if test.mode=="invalid" else start}-{end}/{len(DATA)}')
     self.end_headers()
     if test.mode=='baidu-break' and start==0 and len([h for h in test.calls if h and h.startswith('bytes=0-')])==2:data=data[:512*1024]
+    if test.mode.startswith('sequential-') and len(test.calls)==1:data=data[:512*1024]
     try:self.wfile.write(data)
     except (ConnectionError,OSError):pass
   self.server=ThreadingHTTPServer(('127.0.0.1',0),Handler);self.thread=threading.Thread(target=self.server.serve_forever,daemon=True);self.thread.start()
@@ -76,6 +78,20 @@ class Ranges(unittest.TestCase):
    self.mode=mode
    with self.assertRaises(ValueError):self.fetch_chunked()
    self.assertFalse((self.out/'large.apk').exists());self.assertFalse(list(self.out.glob('*.part*')))
+ def fetch_sequential(self):
+  from types import SimpleNamespace
+  with patch.object(files.shutil,'disk_usage',return_value=SimpleNamespace(free=512*1024**2+len(DATA)*1.5)):
+   return files.fetch_original('https://cdn.example/original',self.out,'sequential.mp4',len(DATA),lambda n:None,lambda:False)
+ def test_single_stream_interruption_resumes_same_object(self):
+  self.mode='sequential-break';self.assertEqual(self.fetch_sequential().read_bytes(),DATA)
+  self.assertIn('bytes=524288-',self.calls);self.assertFalse(list(self.out.glob('*.part*')))
+ def test_single_stream_changed_version_cannot_complete(self):
+  self.mode='sequential-change'
+  with self.assertRaisesRegex(ValueError,'版本'):self.fetch_sequential()
+  self.assertFalse(list(self.out.iterdir()))
+ def test_single_stream_without_validator_restarts_from_zero(self):
+  self.mode='sequential-no-validator';self.assertEqual(self.fetch_sequential().read_bytes(),DATA)
+  self.assertEqual(self.calls,[None,None]);self.assertFalse(list(self.out.glob('*.part*')))
 class PublicImages(unittest.TestCase):
  def test_best_exposed_image_variant(self):
   state={'note':{'noteDetailMap':{'id':{'note':{'type':'normal','title':'图文','imageList':[{'urlPre':'https://cdn.xhscdn.com/tiny','urlDefault':'http://cdn.xhscdn.com/full'}]}}}}}

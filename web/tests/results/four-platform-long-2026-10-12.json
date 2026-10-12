@@ -1,0 +1,939 @@
+{
+  "checked_at": "2026-10-12 12:48:04",
+  "regression_tests": {
+    "passed": 43,
+    "failed": 0
+  },
+  "final": [
+    {
+      "id": "channels-ai-physics-after",
+      "platform": "wechat_channels",
+      "phase": "修复部署后",
+      "raw_status": "passed",
+      "outcome": "完整下载通过",
+      "scope": "1–2 小时",
+      "bytes": 219458870,
+      "ready_seconds": 8.032,
+      "average_MiB_s": 26.057,
+      "duration_seconds": 3799.808,
+      "files": [
+        {
+          "bytes": 219458870,
+          "sha256": "e13294e88e75f768a830ce0fd5f570cdba9d02735f46a419f1bcc18cbca25ffc",
+          "duration_seconds": 3799.808,
+          "width": 720,
+          "height": 1280,
+          "codec": "h264",
+          "has_audio": true,
+          "decoded_positions": [
+            0,
+            1899.904,
+            3794.808
+          ],
+          "full_local_visitor_seconds": 0.703,
+          "other_guest_status": 404
+        }
+      ],
+      "stages": {
+        "submit": "passed",
+        "server_download": "passed",
+        "full_visitor_transfer": "passed",
+        "sha256": "passed",
+        "guest_isolation": "passed",
+        "long_duration": "passed"
+      },
+      "error": null,
+      "health_before": {
+        "status": 200,
+        "seconds": 0.016
+      },
+      "health_after": {
+        "status": 200,
+        "seconds": 0.0
+      },
+      "health_samples": [
+        {
+          "status": 200,
+          "seconds": 0.0
+        }
+      ]
+    },
+    {
+      "id": "douyin-near-hour-after",
+      "platform": "douyin",
+      "phase": "修复部署后",
+      "raw_status": "passed",
+      "outcome": "完整下载通过",
+      "scope": "近 1 小时，未达到严格 3600 秒",
+      "bytes": 1039529242,
+      "ready_seconds": 40.079,
+      "average_MiB_s": 24.735,
+      "duration_seconds": 3592.946009,
+      "files": [
+        {
+          "bytes": 1039529242,
+          "sha256": "8e618007232991b6b1c9aa0035c1ed2eabbedb4e57b22ba09b61d25265508013",
+          "duration_seconds": 3592.946009,
+          "width": 1080,
+          "height": 1920,
+          "codec": "h264",
+          "has_audio": true,
+          "decoded_positions": [
+            0,
+            1796.473,
+            3587.946
+          ],
+          "full_local_visitor_seconds": 3.078,
+          "other_guest_status": 404
+        }
+      ],
+      "stages": {
+        "submit": "passed",
+        "server_download": "passed",
+        "full_visitor_transfer": "passed",
+        "sha256": "passed",
+        "guest_isolation": "passed"
+      },
+      "error": null,
+      "health_before": {
+        "status": 200,
+        "seconds": 0.0
+      },
+      "health_after": {
+        "status": 200,
+        "seconds": 0.0
+      },
+      "health_samples": [
+        {
+          "status": 200,
+          "seconds": 0.016
+        },
+        {
+          "status": 200,
+          "seconds": 0.016
+        }
+      ]
+    },
+    {
+      "id": "kuaishou-near-hour-after",
+      "platform": "kuaishou",
+      "phase": "修复部署后",
+      "raw_status": "passed",
+      "outcome": "完整下载通过",
+      "scope": "近 1 小时，未达到严格 3600 秒",
+      "bytes": 431855415,
+      "ready_seconds": 262.469,
+      "average_MiB_s": 1.569,
+      "duration_seconds": 3599.55737,
+      "files": [
+        {
+          "bytes": 431855415,
+          "sha256": "e1c62b8c995d69167591d4784241e777e647a0183befad3d2d3f1364989ae3ef",
+          "duration_seconds": 3599.55737,
+          "width": 720,
+          "height": 1280,
+          "codec": "h264",
+          "has_audio": true,
+          "decoded_positions": [
+            0,
+            1799.779,
+            3594.557
+          ],
+          "full_local_visitor_seconds": 1.375,
+          "other_guest_status": 404
+        }
+      ],
+      "stages": {
+        "submit": "passed",
+        "server_download": "passed",
+        "full_visitor_transfer": "passed",
+        "sha256": "passed",
+        "guest_isolation": "passed"
+      },
+      "error": null,
+      "health_before": {
+        "status": 200,
+        "seconds": 0.016
+      },
+      "health_after": {
+        "status": 200,
+        "seconds": 0.016
+      },
+      "health_samples": [
+        {
+          "status": 200,
+          "seconds": 0.016
+        },
+        {
+          "status": 200,
+          "seconds": 0.031
+        },
+        {
+          "status": 200,
+          "seconds": 0.0
+        },
+        {
+          "status": 200,
+          "seconds": 0.015
+        },
+        {
+          "status": 200,
+          "seconds": 0.0
+        },
+        {
+          "status": 200,
+          "seconds": 0.0
+        },
+        {
+          "status": 200,
+          "seconds": 0.015
+        },
+        {
+          "status": 200,
+          "seconds": 0.0
+        },
+        {
+          "status": 200,
+          "seconds": 0.032
+        }
+      ]
+    },
+    {
+      "id": "xiaohongshu-hour-after",
+      "platform": "xiaohongshu",
+      "phase": "修复部署后",
+      "raw_status": "passed",
+      "outcome": "完整下载通过",
+      "scope": "1–2 小时",
+      "bytes": 453304201,
+      "ready_seconds": 44.109,
+      "average_MiB_s": 9.801,
+      "duration_seconds": 3952.5,
+      "files": [
+        {
+          "bytes": 453304201,
+          "sha256": "5720282d7c8ebc1d2a971d5f20bd6d1d8eb01a5743cf49c41a11015a101b0b1a",
+          "duration_seconds": 3952.5,
+          "width": 1920,
+          "height": 1080,
+          "codec": "hevc",
+          "has_audio": true,
+          "decoded_positions": [
+            0,
+            1976.25,
+            3947.5
+          ],
+          "full_local_visitor_seconds": 1.453,
+          "other_guest_status": 404
+        }
+      ],
+      "stages": {
+        "submit": "passed",
+        "server_download": "passed",
+        "full_visitor_transfer": "passed",
+        "sha256": "passed",
+        "guest_isolation": "passed",
+        "long_duration": "passed"
+      },
+      "error": null,
+      "health_before": {
+        "status": 200,
+        "seconds": 0.0
+      },
+      "health_after": {
+        "status": 200,
+        "seconds": 0.0
+      },
+      "health_samples": [
+        {
+          "status": 200,
+          "seconds": 0.0
+        },
+        {
+          "status": 200,
+          "seconds": 0.0
+        }
+      ]
+    }
+  ],
+  "before": [
+    {
+      "id": "channels-ai-physics-before",
+      "platform": "wechat_channels",
+      "phase": "修复部署前",
+      "raw_status": "passed",
+      "outcome": "完整下载通过",
+      "scope": "1–2 小时",
+      "bytes": 219458870,
+      "ready_seconds": 38.078,
+      "average_MiB_s": 5.496,
+      "duration_seconds": 3799.808,
+      "files": [
+        {
+          "bytes": 219458870,
+          "sha256": "e13294e88e75f768a830ce0fd5f570cdba9d02735f46a419f1bcc18cbca25ffc",
+          "duration_seconds": 3799.808,
+          "width": 720,
+          "height": 1280,
+          "codec": "h264",
+          "has_audio": true,
+          "decoded_positions": [
+            0,
+            1899.904,
+            3794.808
+          ],
+          "full_local_visitor_seconds": 0.703,
+          "other_guest_status": 404
+        }
+      ],
+      "stages": {
+        "submit": "passed",
+        "server_download": "passed",
+        "full_visitor_transfer": "passed",
+        "sha256": "passed",
+        "guest_isolation": "passed",
+        "long_duration": "passed"
+      },
+      "error": null,
+      "health_before": {
+        "status": 200,
+        "seconds": 0.0
+      },
+      "health_after": {
+        "status": 200,
+        "seconds": 0.0
+      },
+      "health_samples": [
+        {
+          "status": 200,
+          "seconds": 0.016
+        },
+        {
+          "status": 200,
+          "seconds": 0.0
+        }
+      ]
+    },
+    {
+      "id": "channels-leadership-before",
+      "platform": "wechat_channels",
+      "phase": "修复部署前",
+      "raw_status": "failed",
+      "outcome": "完整下载通过",
+      "scope": "不足 1 小时",
+      "bytes": 174517221,
+      "ready_seconds": 48.078,
+      "average_MiB_s": 3.462,
+      "duration_seconds": 3200.551451,
+      "files": [
+        {
+          "bytes": 174517221,
+          "sha256": "a41aef5b7925d38f010c56e40a1615cecae923eae2472603f02e4c188415b313",
+          "duration_seconds": 3200.551451,
+          "width": 1024,
+          "height": 576,
+          "codec": "h264",
+          "has_audio": true,
+          "decoded_positions": [
+            0,
+            1600.276,
+            3195.551
+          ],
+          "full_local_visitor_seconds": 0.593,
+          "other_guest_status": 404
+        }
+      ],
+      "stages": {
+        "submit": "passed",
+        "server_download": "passed",
+        "full_visitor_transfer": "passed",
+        "sha256": "passed",
+        "guest_isolation": "passed"
+      },
+      "error": "ValueError: Actual source is not a single 1–2 hour video; full file downloaded but long-duration criterion not met",
+      "health_before": {
+        "status": 200,
+        "seconds": 0.0
+      },
+      "health_after": {
+        "status": 200,
+        "seconds": 0.0
+      },
+      "health_samples": [
+        {
+          "status": 200,
+          "seconds": 0.015
+        },
+        {
+          "status": 200,
+          "seconds": 0.0
+        }
+      ]
+    },
+    {
+      "id": "douyin-near-hour-before",
+      "platform": "douyin",
+      "phase": "修复部署前",
+      "raw_status": "passed",
+      "outcome": "完整下载通过",
+      "scope": "近 1 小时，未达到严格 3600 秒",
+      "bytes": 1039529242,
+      "ready_seconds": 198.344,
+      "average_MiB_s": 4.998,
+      "duration_seconds": 3592.946009,
+      "files": [
+        {
+          "bytes": 1039529242,
+          "sha256": "8e618007232991b6b1c9aa0035c1ed2eabbedb4e57b22ba09b61d25265508013",
+          "duration_seconds": 3592.946009,
+          "width": 1080,
+          "height": 1920,
+          "codec": "h264",
+          "has_audio": true,
+          "decoded_positions": [
+            0,
+            1796.473,
+            3587.946
+          ],
+          "full_local_visitor_seconds": 3.156,
+          "other_guest_status": 404
+        }
+      ],
+      "stages": {
+        "submit": "passed",
+        "server_download": "passed",
+        "full_visitor_transfer": "passed",
+        "sha256": "passed",
+        "guest_isolation": "passed"
+      },
+      "error": null,
+      "health_before": {
+        "status": 200,
+        "seconds": 0.0
+      },
+      "health_after": {
+        "status": 200,
+        "seconds": 0.0
+      },
+      "health_samples": [
+        {
+          "status": 200,
+          "seconds": 0.0
+        },
+        {
+          "status": 200,
+          "seconds": 0.0
+        },
+        {
+          "status": 200,
+          "seconds": 0.0
+        },
+        {
+          "status": 200,
+          "seconds": 0.0
+        },
+        {
+          "status": 200,
+          "seconds": 0.0
+        },
+        {
+          "status": 200,
+          "seconds": 0.015
+        },
+        {
+          "status": 200,
+          "seconds": 0.0
+        }
+      ]
+    },
+    {
+      "id": "kuaishou-half-hour-before",
+      "platform": "kuaishou",
+      "phase": "修复部署前",
+      "raw_status": "passed",
+      "outcome": "完整下载通过",
+      "scope": "不足 1 小时",
+      "bytes": 86787212,
+      "ready_seconds": 28.11,
+      "average_MiB_s": 2.944,
+      "duration_seconds": 1800.114689,
+      "files": [
+        {
+          "bytes": 86787212,
+          "sha256": "7c950d98ec28216bcdccb3fdc8179bcd737ef8a8ccd9611eabc3fcb27d20e793",
+          "duration_seconds": 1800.114689,
+          "width": 1280,
+          "height": 720,
+          "codec": "h264",
+          "has_audio": true,
+          "decoded_positions": [
+            0,
+            900.057,
+            1795.115
+          ],
+          "full_local_visitor_seconds": 0.25,
+          "other_guest_status": 404
+        }
+      ],
+      "stages": {
+        "submit": "passed",
+        "server_download": "passed",
+        "full_visitor_transfer": "passed",
+        "sha256": "passed",
+        "guest_isolation": "passed"
+      },
+      "error": null,
+      "health_before": {
+        "status": 200,
+        "seconds": 0.032
+      },
+      "health_after": {
+        "status": 200,
+        "seconds": 0.016
+      },
+      "health_samples": [
+        {
+          "status": 200,
+          "seconds": 0.0
+        }
+      ]
+    },
+    {
+      "id": "kuaishou-near-hour-before",
+      "platform": "kuaishou",
+      "phase": "修复部署前",
+      "raw_status": "passed",
+      "outcome": "完整下载通过",
+      "scope": "近 1 小时，未达到严格 3600 秒",
+      "bytes": 431855415,
+      "ready_seconds": 162.328,
+      "average_MiB_s": 2.537,
+      "duration_seconds": 3599.55737,
+      "files": [
+        {
+          "bytes": 431855415,
+          "sha256": "e1c62b8c995d69167591d4784241e777e647a0183befad3d2d3f1364989ae3ef",
+          "duration_seconds": 3599.55737,
+          "width": 720,
+          "height": 1280,
+          "codec": "h264",
+          "has_audio": true,
+          "decoded_positions": [
+            0,
+            1799.779,
+            3594.557
+          ],
+          "full_local_visitor_seconds": 1.453,
+          "other_guest_status": 404
+        }
+      ],
+      "stages": {
+        "submit": "passed",
+        "server_download": "passed",
+        "full_visitor_transfer": "passed",
+        "sha256": "passed",
+        "guest_isolation": "passed"
+      },
+      "error": null,
+      "health_before": {
+        "status": 200,
+        "seconds": 0.031
+      },
+      "health_after": {
+        "status": 200,
+        "seconds": 0.0
+      },
+      "health_samples": [
+        {
+          "status": 200,
+          "seconds": 0.0
+        },
+        {
+          "status": 200,
+          "seconds": 0.016
+        },
+        {
+          "status": 200,
+          "seconds": 0.015
+        },
+        {
+          "status": 200,
+          "seconds": 0.0
+        },
+        {
+          "status": 200,
+          "seconds": 0.0
+        },
+        {
+          "status": 200,
+          "seconds": 0.0
+        }
+      ]
+    }
+  ],
+  "authorization_retest": [
+    {
+      "id": "douyin-near-hour-after",
+      "platform": "douyin",
+      "phase": "更新小红书官方授权后、服务代码部署前",
+      "raw_status": "passed",
+      "outcome": "完整下载通过",
+      "scope": "近 1 小时，未达到严格 3600 秒",
+      "bytes": 1039529242,
+      "ready_seconds": 258.469,
+      "average_MiB_s": 3.836,
+      "duration_seconds": 3592.946009,
+      "files": [
+        {
+          "bytes": 1039529242,
+          "sha256": "8e618007232991b6b1c9aa0035c1ed2eabbedb4e57b22ba09b61d25265508013",
+          "duration_seconds": 3592.946009,
+          "width": 1080,
+          "height": 1920,
+          "codec": "h264",
+          "has_audio": true,
+          "decoded_positions": [
+            0,
+            1796.473,
+            3587.946
+          ],
+          "full_local_visitor_seconds": 3.203,
+          "other_guest_status": 404
+        }
+      ],
+      "stages": {
+        "submit": "passed",
+        "server_download": "passed",
+        "full_visitor_transfer": "passed",
+        "sha256": "passed",
+        "guest_isolation": "passed"
+      },
+      "error": null,
+      "health_before": {
+        "status": 200,
+        "seconds": 0.0
+      },
+      "health_after": {
+        "status": 200,
+        "seconds": 0.0
+      },
+      "health_samples": [
+        {
+          "status": 200,
+          "seconds": 0.031
+        },
+        {
+          "status": 200,
+          "seconds": 0.031
+        },
+        {
+          "status": 200,
+          "seconds": 0.015
+        },
+        {
+          "status": 200,
+          "seconds": 0.0
+        },
+        {
+          "status": 200,
+          "seconds": 0.0
+        },
+        {
+          "status": 200,
+          "seconds": 0.015
+        },
+        {
+          "status": 200,
+          "seconds": 0.0
+        },
+        {
+          "status": 200,
+          "seconds": 0.016
+        },
+        {
+          "status": 200,
+          "seconds": 0.031
+        }
+      ]
+    },
+    {
+      "id": "xiaohongshu-hour-after",
+      "platform": "xiaohongshu",
+      "phase": "更新小红书官方授权后、服务代码部署前",
+      "raw_status": "passed",
+      "outcome": "完整下载通过",
+      "scope": "1–2 小时",
+      "bytes": 453304201,
+      "ready_seconds": 108.172,
+      "average_MiB_s": 3.996,
+      "duration_seconds": 3952.5,
+      "files": [
+        {
+          "bytes": 453304201,
+          "sha256": "5720282d7c8ebc1d2a971d5f20bd6d1d8eb01a5743cf49c41a11015a101b0b1a",
+          "duration_seconds": 3952.5,
+          "width": 1920,
+          "height": 1080,
+          "codec": "hevc",
+          "has_audio": true,
+          "decoded_positions": [
+            0,
+            1976.25,
+            3947.5
+          ],
+          "full_local_visitor_seconds": 1.406,
+          "other_guest_status": 404
+        }
+      ],
+      "stages": {
+        "submit": "passed",
+        "server_download": "passed",
+        "full_visitor_transfer": "passed",
+        "sha256": "passed",
+        "guest_isolation": "passed",
+        "long_duration": "passed"
+      },
+      "error": null,
+      "health_before": {
+        "status": 200,
+        "seconds": 0.0
+      },
+      "health_after": {
+        "status": 200,
+        "seconds": 0.0
+      },
+      "health_samples": [
+        {
+          "status": 200,
+          "seconds": 0.0
+        },
+        {
+          "status": 200,
+          "seconds": 0.0
+        },
+        {
+          "status": 200,
+          "seconds": 0.0
+        },
+        {
+          "status": 200,
+          "seconds": 0.016
+        }
+      ]
+    }
+  ],
+  "parse_diagnostics": [
+    {
+      "platform": "xiaohongshu",
+      "id": "5e8935730000000001006767",
+      "stage": "仅解析，未下载完整文件",
+      "outcome": "解析未通过",
+      "seconds": 16.38,
+      "reason": "ERROR: [XiaoHongShu] 5e8935730000000001006767: 官方网页未提供该视频的播放数据；可能需要登录、验证或链接已失效"
+    },
+    {
+      "platform": "xiaohongshu",
+      "id": "5e2fb5b00000000001002c29",
+      "stage": "仅解析，未下载完整文件",
+      "outcome": "解析未通过",
+      "seconds": 15.38,
+      "reason": "ERROR: [XiaoHongShu] 5e2fb5b00000000001002c29: 官方网页未提供该视频的播放数据；可能需要登录、验证或链接已失效"
+    },
+    {
+      "platform": "xiaohongshu",
+      "id": "5e76a61000000000010056d5",
+      "stage": "仅解析，未下载完整文件",
+      "outcome": "解析未通过",
+      "seconds": 15.05,
+      "reason": "ERROR: [XiaoHongShu] 5e76a61000000000010056d5: 官方网页未提供该视频的播放数据；可能需要登录、验证或链接已失效"
+    },
+    {
+      "platform": "xiaohongshu",
+      "id": "5e7b8f5a0000000001008bd1",
+      "stage": "仅解析，未下载完整文件",
+      "outcome": "解析未通过",
+      "seconds": 15.3,
+      "reason": "ERROR: [XiaoHongShu] 5e7b8f5a0000000001008bd1: 官方网页未提供该视频的播放数据；可能需要登录、验证或链接已失效"
+    },
+    {
+      "platform": "xiaohongshu",
+      "id": "6a0e67a2000000003502d062",
+      "stage": "仅解析，未下载完整文件",
+      "outcome": "解析未通过",
+      "seconds": 15.86,
+      "reason": "ERROR: [XiaoHongShu] 6a0e67a2000000003502d062: 官方网页未提供该视频的播放数据；可能需要登录、验证或链接已失效"
+    },
+    {
+      "platform": "xiaohongshu",
+      "id": "69f4dbcb000000001a035b21",
+      "stage": "仅解析，未下载完整文件",
+      "outcome": "解析未通过",
+      "seconds": 15.36,
+      "reason": "ERROR: [XiaoHongShu] 69f4dbcb000000001a035b21: 官方网页未提供该视频的播放数据；可能需要登录、验证或链接已失效"
+    },
+    {
+      "platform": "xiaohongshu",
+      "id": "69fc2a3b0000000023014fec",
+      "stage": "仅解析，未下载完整文件",
+      "outcome": "解析未通过",
+      "seconds": 15.49,
+      "reason": "ERROR: [XiaoHongShu] 69fc2a3b0000000023014fec: 官方网页未提供该视频的播放数据；可能需要登录、验证或链接已失效"
+    },
+    {
+      "platform": "xiaohongshu",
+      "id": "6a3a5983000000001702bd32",
+      "stage": "仅解析，未下载完整文件",
+      "outcome": "解析未通过",
+      "seconds": 15.3,
+      "reason": "ERROR: [XiaoHongShu] 6a3a5983000000001702bd32: 官方网页未提供该视频的播放数据；可能需要登录、验证或链接已失效"
+    },
+    {
+      "platform": "xiaohongshu",
+      "id": "6a21331b0000000007029db8",
+      "stage": "仅解析，未下载完整文件",
+      "outcome": "解析未通过",
+      "seconds": 14.92,
+      "reason": "ERROR: [XiaoHongShu] 6a21331b0000000007029db8: 官方网页未提供该视频的播放数据；可能需要登录、验证或链接已失效"
+    },
+    {
+      "platform": "xiaohongshu",
+      "id": "69a199f5000000002202ecc5",
+      "stage": "仅解析，未下载完整文件",
+      "outcome": "解析未通过",
+      "seconds": 15.19,
+      "reason": "ERROR: [XiaoHongShu] 69a199f5000000002202ecc5: 官方网页未提供该视频的播放数据；可能需要登录、验证或链接已失效"
+    },
+    {
+      "platform": "xiaohongshu",
+      "id": "6a50bb11000000001700a991",
+      "stage": "仅解析，未下载完整文件",
+      "outcome": "解析未通过",
+      "seconds": 15.14,
+      "reason": "ERROR: [XiaoHongShu] 6a50bb11000000001700a991: 官方网页未提供该视频的播放数据；可能需要登录、验证或链接已失效"
+    },
+    {
+      "platform": "wechat_channels",
+      "id": "channels-fire-service",
+      "stage": "仅解析，未下载完整文件",
+      "outcome": "解析未通过",
+      "seconds": 1.19,
+      "reason": "元宝没有返回视频号官方播放地址"
+    },
+    {
+      "platform": "wechat_channels",
+      "id": "channels-fire-service-2",
+      "stage": "仅解析，未下载完整文件",
+      "outcome": "解析未通过",
+      "seconds": 1.17,
+      "reason": "元宝没有返回视频号官方播放地址"
+    }
+  ],
+  "repairs": [
+    {
+      "issue": "小红书 Cookie 存在但官网实际未登录",
+      "change": "连接程序和自动会话更新检查官网 loggedIn 的真实布尔值；不再保存访客 Cookie 作为账号授权。此次扫码后官网确认 true。",
+      "verification": "官方搜索恢复；65分52秒、1920×1080完整下载通过。"
+    },
+    {
+      "issue": "小红书隐藏索引链接缺少官方作品播放参数",
+      "change": "测试改用官方可见作品链接正常打开后提供的完整地址，保留平台原始参数；旧裸链接解析失败记录保留。没有伪造签名或绕过验证。",
+      "verification": "相同65分钟作品：裸索引地址解析失败，官网实际作品完整地址解析及完整下载通过。"
+    },
+    {
+      "issue": "小红书 mediaV2 只有各音画轨道的时长，主任务未传入时长",
+      "change": "保留视频轨道的官方时长，拒绝只有音轨的结果，供下载成品完整性校验。",
+      "verification": "3952.5秒的官方时长被保留；1080p HEVC + AAC 原音轨合并，无重新编码。"
+    },
+    {
+      "issue": "抖音原下载分支可能把有MP4头的截断响应当成完成",
+      "change": "接入已有原文件传输器，核对长度，支持有条件的并行范围传输和断线续传；完成后检查时长与源分辨率。先校验独立暂存文件，通过后才替换成品，失败保留已有同名文件。",
+      "verification": "故障注入：旧实现接受28字节的伪完整MP4；新实现拒绝，已有成品保留测试通过。真实约1.04GB近一小时视频部署后完整复测通过。"
+    },
+    {
+      "issue": "顺序续传可能拼接不同版本的文件",
+      "change": "续传需要相同强ETag或整文件哈希；版本变化立即停止，无校验依据时从头重下。",
+      "verification": "本地真实HTTP故障服务器验证：中途断线按偏移续传、版本变化拒绝、无ETag从零重下均通过。"
+    },
+    {
+      "issue": "只检查媒体开头，不能发现中间或结尾损坏",
+      "change": "10分钟及以上成品额外解码开头、中间、结尾各2秒，失败不标完成；视频号也接入此检查。",
+      "verification": "中段解码失败的故障注入被拒绝；四个平台的完整成品均通过三位置解码。"
+    }
+  ],
+  "channels_alternate_format": {
+    "bytes": 224231067,
+    "seconds": 25.031,
+    "status": "probed",
+    "media": {
+      "programs": [],
+      "stream_groups": [],
+      "streams": [
+        {
+          "codec_name": "hevc",
+          "codec_type": "video",
+          "width": 720,
+          "height": 1280
+        },
+        {
+          "codec_name": "aac",
+          "codec_type": "audio"
+        }
+      ],
+      "format": {
+        "duration": "3799.808000"
+      }
+    }
+  },
+  "deployment": {
+    "status": 200,
+    "checked_at": "2026-10-12 12:45:27",
+    "regression_tests_passed": 43
+  },
+  "final_health": {
+    "views": [
+      {
+        "width": 1280,
+        "status": 200,
+        "no_overflow": true,
+        "tables": 2,
+        "passed_rows": 4
+      },
+      {
+        "width": 390,
+        "status": 200,
+        "no_overflow": true,
+        "tables": 2,
+        "passed_rows": 4
+      }
+    ],
+    "browser_errors": [],
+    "health": [
+      {
+        "target": "local_home",
+        "status": 200,
+        "seconds": 0.016,
+        "new_report_link": null
+      },
+      {
+        "target": "public_home",
+        "status": 200,
+        "seconds": 2.063,
+        "new_report_link": null
+      },
+      {
+        "target": "public_report",
+        "status": 200,
+        "seconds": 0.484,
+        "new_report_link": null
+      },
+      {
+        "target": "previous_report",
+        "status": 200,
+        "seconds": 0.016,
+        "new_report_link": true
+      }
+    ],
+    "disk_free_GiB": 251.79,
+    "status": "passed"
+  }
+}

@@ -104,8 +104,8 @@ def browser_snapshot(url, platform, cookiejar=None):
                 if any(marker in body for marker in ('安全验证', '完成验证', 'IP存在风险', 'IP 存在风险')):
                     raise ExtractorError('平台要求在官方网页完成人工安全验证，未获取视频授权', expected=True)
                 if data:
-                    if saved:
-                        # Reuse the existing official browser login flow. No fabricated expiry.
+                    if saved and accounts.page_authorized(platform, page):
+                        # Only renew an official logged-in session, never a visitor cookie.
                         updated = context.storage_state(); updated['ua'] = page.evaluate('navigator.userAgent')
                         accounts.refresh(platform, updated, saved['_revision'])
                     return data
@@ -317,7 +317,10 @@ class XiaoHongShuIE(OriginalXiaoHongShuIE):
             note = ((state.get('note') or {}).get('noteDetailMap', {}).get(result['id']) or {}).get('note') or {}
             formats = xhs_media_formats(note)
             if formats:
+                if not any(f.get('vcodec') != 'none' for f in formats):
+                    raise ExtractorError('小红书未提供完整视频画面，未将音轨当作视频下载', expected=True)
                 originals = [f for f in result.get('formats', []) if f.get('format_id') == 'direct']
                 result['formats'] = formats + originals
+                result['duration'] = result.get('duration') or max((f.get('duration') or 0) for f in formats if f.get('vcodec') != 'none')
         result['http_headers'] = {'Referer': 'https://www.xiaohongshu.com/'}
         return result

@@ -73,6 +73,20 @@ def load(provider):
     state['_revision'] = revision(data)
     return state
 
+def page_authorized(provider, page):
+    """A visitor ID or web_session cookie alone is not a logged-in XHS user."""
+    if provider != 'xiaohongshu':
+        return True
+    if not allowed_host(urlsplit(page.url).hostname, provider):
+        return False
+    try:
+        return page.evaluate("""() => {
+            const value = window.__INITIAL_STATE__?.user?.loggedIn;
+            return (typeof value === 'boolean' ? value : (value?.value ?? value?._value)) === true;
+        }""") is True
+    except Exception:
+        return False
+
 def save(provider, state):
     state = sanitize(provider, state)
     if not has_authorization(provider, state): raise ValueError('\u6b64\u7a97\u53e3\u8fd8\u6ca1\u6709\u767b\u5f55\u6388\u6743\uff0c\u8bf7\u5b8c\u6210\u5b98\u65b9\u626b\u7801\u6216\u9a8c\u8bc1\u7801\u540e\u518d\u4fdd\u5b58')

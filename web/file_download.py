@@ -125,11 +125,19 @@ def fetch_original(url, directory, name, expected, progress, cancelled, headers=
         raise ValueError('原文件分段与合并所需的主机空间不足')
     size = 0
     transport_md5 = None
+    resume_validator = None
+    has_source_hash = any(re.fullmatch(pattern, str((checksums or {}).get(k, '')))
+                          for k, pattern in (('md5', r'[0-9a-fA-F]{32}'), ('sha1', r'[0-9a-fA-F]{40}')))
     last_report = 0.0
     try:
         for attempt in range(3):
             if cancelled(): raise Cancelled()
             conn = None; response = None
+            # Appending bytes needs either the same strong object validator or
+            # a whole-file hash. Otherwise restart to avoid mixing revisions.
+            if size and not (resume_validator or transport_md5 or has_source_hash):
+                partial.unlink(missing_ok=True)
+                size = 0
             try:
                 end = min(size + range_size, expected)-1 if range_size and expected else None
                 conn, response, final = open_public(url, headers, size, end) if end is not None else open_public(url, headers, size)
@@ -137,6 +145,11 @@ def fetch_original(url, directory, name, expected, progress, cancelled, headers=
                 if content_type in ('text/html','application/xhtml+xml') or (content_type == 'application/json' and not name.lower().endswith('.json')):
                     raise ValueError('平台返回登录或错误页面，没有提供原文件')
                 length = int(response.getheader('Content-Length') or 0)
+                current_validator = response.getheader('ETag') or ''
+                if size and response.status == 206 and resume_validator and current_validator != resume_validator:
+                    raise ValueError('续传时原文件版本发生变化，未标记完成')
+                if response.status == 200 and current_validator.startswith('"'):
+                    resume_validator = current_validator
                 if (response.status == 200 or (range_size and response.status == 206 and not size)) and response.getheader('Content-MD5'):
                     import base64
                     value=response.getheader('Content-MD5')

@@ -104,6 +104,8 @@ def download(url,out,progress,cancelled):
         if not stream:raise ValueError('视频号没有有效视频轨道')
         test=subprocess.run(['ffmpeg','-v','error','-i',str(temporary),'-t','1','-f','null','-'],capture_output=True,timeout=30,creationflags=subprocess.CREATE_NO_WINDOW)
         if test.returncode:raise ValueError('视频号文件解码校验失败，不能标记完成')
+        import media_quality
+        media_quality.verify(temporary, {'width': stream['width'], 'height': stream['height']})
         if cancelled():raise Cancelled()
         temporary.replace(target)
         return info['title'],target,stream

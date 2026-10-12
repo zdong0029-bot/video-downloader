@@ -28,6 +28,11 @@ with sync_playwright() as p:
                 for tab in context.pages:
                     if not tab.is_closed():
                         tab.evaluate('location.href')  # Flush navigation events while Tk owns the loop.
+                if provider == 'xiaohongshu' and not any(
+                    accounts.page_authorized(provider, tab)
+                    for tab in context.pages if not tab.is_closed()
+                ):
+                    raise ValueError('小红书官网尚未确认登录成功；访客 Cookie 不会保存为账号授权。请扫码并在手机确认。')
                 state = context.storage_state()
                 state['ua'] = next(tab.evaluate('navigator.userAgent') for tab in context.pages if not tab.is_closed())
                 if saved['done'] and quiet:

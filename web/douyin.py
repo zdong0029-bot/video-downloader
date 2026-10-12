@@ -174,58 +174,51 @@ def safe_filename(video: DouyinVideo) -> str:
 
 def download(video: DouyinVideo, dest, on_progress=None, retries: int = 5,
              should_stop=None):
-    """下载无水印视频。CDN 校验 Referer，少了会 403。"""
-    import urllib.request
+    """Keep the selected original; interrupted long transfers resume safely."""
     from pathlib import Path
-
+    import file_download
+    import media_quality
     from common import Cancelled
 
     dest = Path(dest)
     dest.parent.mkdir(parents=True, exist_ok=True)
-    if dest.exists() and dest.stat().st_size > 0:
-        return dest
-
+    cancelled = should_stop or (lambda: False)
+    if cancelled():
+        raise Cancelled()
     headers = {"User-Agent": UA, "Referer": "https://www.douyin.com/"}
-    tmp = dest.with_suffix(".mp4.part")
-    last = None
+    conn, response, _ = file_download.open_public(video.url, headers)
+    try:
+        total = int(response.getheader("Content-Length") or 0)
+        if (response.getheader("Content-Type") or "").split(";")[0] in ("text/html", "application/json"):
+            raise DouyinError("平台未提供完整原视频")
+    finally:
+        response.close()
+        conn.close()
 
-    for attempt in range(1, retries + 1):
-        try:
-            if should_stop and should_stop():
-                raise Cancelled()
-            req = urllib.request.Request(video.url, headers=headers)
-            with urllib.request.urlopen(req, timeout=300) as resp:
-                total = int(resp.headers.get("Content-Length") or 0)
-                got = 0
-                with open(tmp, "wb") as f:
-                    while True:
-                        if should_stop and should_stop():
-                            raise Cancelled()
-                        chunk = resp.read(256 * 1024)
-                        if not chunk:
-                            break
-                        f.write(chunk)
-                        got += len(chunk)
-                        if on_progress and total:
-                            on_progress(got / total)
+    def progress(size):
+        if on_progress and total:
+            on_progress(min(size / total, 1.0))
 
-            with open(tmp, "rb") as f:
-                head = f.read(12)
-            if len(head) < 12 or head[4:8] != b"ftyp":
-                raise DouyinError("下载的不是有效 MP4（可能被 CDN 拒绝）")
-
-            tmp.replace(dest)
-            return dest
-        except Cancelled:
-            tmp.unlink(missing_ok=True)
-            raise                      # 取消要立刻生效，不能走重试
-        except Exception as e:  # noqa: BLE001
-            last = e
-            tmp.unlink(missing_ok=True)
-            if attempt < retries:
-                time.sleep(min(2 * attempt, 10))
-
-    raise DouyinError(f"下载失败：{last}")
+    # Do not replace an existing completed file until the new original passes.
+    import tempfile
+    with tempfile.NamedTemporaryFile(prefix="douyin-", suffix=".mp4",
+                                     dir=dest.parent, delete=False) as placeholder:
+        candidate = Path(placeholder.name)
+    try:
+        file_download.fetch_original(video.url, dest.parent, candidate.name, total,
+                                     progress, cancelled, headers)
+        with candidate.open("rb") as stream:
+            head = stream.read(12)
+        if len(head) < 12 or head[4:8] != b"ftyp":
+            raise DouyinError("下载的不是有效 MP4")
+        media_quality.verify(candidate, {"width": video.width, "height": video.height,
+                                        "duration": video.duration})
+        if cancelled():
+            raise Cancelled()
+        candidate.replace(dest)
+        return dest
+    finally:
+        candidate.unlink(missing_ok=True)
 
 
 if __name__ == "__main__":
