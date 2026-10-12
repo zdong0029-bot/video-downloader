@@ -15,8 +15,11 @@ ROOT = Path(__file__).resolve().parent / 'data' / 'video-accounts'
 PROVIDERS = {
     'kuaishou': ('\u5feb\u624b', 'https://www.kuaishou.com/brilliant', ('kuaishou.com',)),
     'xiaohongshu': ('\u5c0f\u7ea2\u4e66', 'https://www.xiaohongshu.com/explore', ('xiaohongshu.com',)),
+    'tiktok': ('TikTok', 'https://www.tiktok.com/login', ('tiktok.com',)),
+    'douyin': ('抖音', 'https://www.douyin.com/', ('douyin.com','iesdouyin.com')),
 }
 AUTH_NAMES = {'kuaishou': {'kuaishou.server.web_st', 'kuaishou.server.web_ph', 'kuaishou.server.webday7_st', 'kuaishou.server.webday7_ph'}, 'xiaohongshu': {'web_session'}}
+AUTH_NAMES.update(tiktok={'sessionid','sessionid_ss'},douyin={'sessionid','sessionid_ss'})
 LOCK = threading.RLock()
 
 def allowed_host(host, provider):
@@ -75,6 +78,17 @@ def load(provider):
 
 def page_authorized(provider, page):
     """A visitor ID or web_session cookie alone is not a logged-in XHS user."""
+    if provider=='tiktok':
+        if not allowed_host(urlsplit(page.url).hostname,provider):return False
+        try:
+            return page.evaluate("""async () => {
+                const r=await fetch('/passport/web/account/info/?aid=1988&app_language=en&app_name=tiktok_web',{credentials:'include'});
+                if(!r.ok)return false;const d=await r.json();return d.message==='success' && !!d.data?.user_id_str;
+            }""") is True
+        except Exception:return False
+    if provider=='douyin':
+        if not allowed_host(urlsplit(page.url).hostname,provider):return False
+        return has_authorization(provider,{'cookies':page.context.cookies()}) and page.locator('[data-e2e="user-avatar"]').count()>0
     if provider != 'xiaohongshu':
         return True
     if not allowed_host(urlsplit(page.url).hostname, provider):

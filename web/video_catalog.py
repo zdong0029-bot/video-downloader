@@ -4,8 +4,19 @@ import re
 import hashlib
 import http.cookiejar
 import time
-from urllib.parse import urlsplit
+from urllib.parse import urlsplit,parse_qs
 import yt_dlp
+from common import Cancelled
+
+class CatalogLogger:
+    """Do not call a failed pagination request a complete native playlist."""
+    def __init__(self): self.pagination_failed=False
+    def debug(self, message): pass
+    def error(self, message): self.pagination_failed=True
+    def warning(self, message):
+        text=str(message).lower()
+        if any(word in text for word in ('giving up', 'unable to download', 'failed to download', 'incomplete', 'same page')):
+            self.pagination_failed=True
 
 HOSTS = ('youtube.com', 'youtu.be', 'bilibili.com', 'b23.tv', 'douyin.com',
          'iesdouyin.com', 'tiktok.com', 'vimeo.com', 'dailymotion.com',
@@ -36,6 +47,7 @@ def is_profile(url):
     except ValueError:
         return False
     host, path = (p.hostname or '').lower(), p.path.rstrip('/')
+    if host=='channels.weixin.qq.com':return path=='/web/pages/home'
     if _host(host, 'douyin.com'):
         return path.startswith('/user/')
     if _host(host, 'tiktok.com'):
@@ -97,21 +109,26 @@ def normalize_entry(entry, index, source_url=''):
             'title': str(entry.get('title') or entry.get('id') or '视频 ' + str(index))[:500],
             'thumbnail': thumb, 'duration': entry.get('duration') or 0}
 
-def resolve(url, limit=0, cookie_options=None, on_update=None):
+def resolve(url, limit=0, cookie_options=None, on_update=None, cancelled=None):
     if not platform_url(url):
         raise ValueError('请提供视频平台的主页或合集链接')
     parts = urlsplit(url)
     host=parts.hostname or ''
+    if host=='channels.weixin.qq.com' and parts.path.rstrip('/')=='/web/pages/home':
+        if not parse_qs(parts.query).get('username'):
+            raise ValueError('这是视频号总入口，请提供具体作者主页；推荐流不能代表某位作者的全部作品')
+        raise ValueError('视频号单条下载与作者主页是不同接口；现有元宝授权未提供作者分页。需要接通微信官方作者列表会话，当前还未完成，不能把部分链接标为全部')
     if _host(host,'xiaohongshu.com') or _host(host,'kuaishou.com') or _host(host,'acfun.cn'):
         from profile_browser import resolve as browser_resolve
         platform='xiaohongshu' if _host(host,'xiaohongshu.com') else 'kuaishou' if _host(host,'kuaishou.com') else 'acfun'
-        return browser_resolve(url,platform,limit,cookie_options,on_update)
+        return browser_resolve(url,platform,limit,cookie_options,on_update,cancelled)
     special = 'haokan' if host=='haokan.baidu.com' else 'mgtv' if _host(host,'mgtv.com') else 'cctv' if _host(host,'cctv.com') else 'iqiyi' if _host(host,'iqiyi.com') and parts.path.startswith('/a_') else 'sohu' if host=='my.tv.sohu.com' and parts.path.startswith(('/us/','/pl/')) else None
     if special:
+        if special=='cctv':return _cctv(url,limit,on_update,cancelled)
         from profile_browser import resolve as browser_resolve
-        return browser_resolve(url,special,limit,cookie_options,on_update)
+        return browser_resolve(url,special,limit,cookie_options,on_update,cancelled)
     if _host(host,'douyin.com'):
-        return _douyin(url, limit, cookie_options, on_update)
+        return _douyin(url, limit, cookie_options, on_update, cancelled)
     if _host(host,'instagram.com'):
         url=re.sub(r'/reels/?$', '/', url.split('?')[0]);parts=urlsplit(url)
     sources = [url]
@@ -119,16 +136,18 @@ def resolve(url, limit=0, cookie_options=None, on_update=None):
         # A channel homepage includes uploads, Shorts and recorded public live streams.
         base = re.sub(r'/(videos|shorts|streams)/?$', '', url.split('?')[0]).rstrip('/')
         sources = [base + '/' + tab for tab in ('videos', 'shorts', 'streams')]
+    logger=CatalogLogger();sources_read=[]
     opts = {'extract_flat': 'in_playlist', 'skip_download': True, 'noplaylist': False,
             'playlistend': limit or None, 'quiet': True, 'no_warnings': True,
             'socket_timeout': 15, 'retries': 2, 'extractor_retries': 2,
-            'lazy_playlist': True}
+            'lazy_playlist': True,'logger':logger}
     opts.update(cookie_options or {})
     entries, seen, incomplete, title = [], set(), False, '主页视频'
     with yt_dlp.YoutubeDL(opts) as ydl:
         import platform_extractors
         platform_extractors.install(ydl)
         for source in sources:
+            failed_before=logger.pagination_failed
             if limit and len(entries) >= limit:
                 break
             try:
@@ -140,8 +159,11 @@ def resolve(url, limit=0, cookie_options=None, on_update=None):
                 raw = info.get('entries')
                 if raw is None:
                     raise ValueError('该网址未返回作者作品列表；不能把主页本身或推荐视频当作该作者作品')
+                before=len(entries);exhausted=True
                 for item in raw:
+                    if cancelled and cancelled():raise Cancelled()
                     if limit and len(entries) >= limit:
+                        exhausted=False
                         break
                     entry = normalize_entry(item, len(entries) + 1, source)
                     if entry and entry['url'] not in seen:
@@ -149,34 +171,86 @@ def resolve(url, limit=0, cookie_options=None, on_update=None):
                         entries.append(entry)
                         if on_update and (len(entries) <= 3 or len(entries) % 20 == 0):
                             on_update(entries, title)
+                sources_read.append({'source':source,'new_entries':len(entries)-before,'finished':exhausted})
+            except Cancelled:
+                raise
             except Exception as error:
                 text = str(error).lower()
                 empty_tab = 'tab' in text and any(t in text for t in ('does not have', 'has no', 'not found', 'no uploads'))
                 if len(sources) > 1 and empty_tab:
+                    logger.pagination_failed=failed_before
                     continue
                 if not entries:
                     if _host(host,'tiktok.com'):
                         from profile_browser import resolve as browser_resolve
-                        return browser_resolve(url,'tiktok',limit,cookie_options,on_update)
+                        return browser_resolve(url,'tiktok',limit,cookie_options,on_update,cancelled)
                     if host=='space.bilibili.com':
                         from profile_browser import resolve as browser_resolve
-                        return browser_resolve(url,'bilibili',limit,cookie_options,on_update)
+                        return browser_resolve(url,'bilibili',limit,cookie_options,on_update,cancelled)
                     raise
                 incomplete = True
     if not entries:
         if host=='v.qq.com' or host=='space.bilibili.com':
             from profile_browser import resolve as browser_resolve
-            return browser_resolve(url,'tencent' if host=='v.qq.com' else 'bilibili',limit,cookie_options,on_update)
+            return browser_resolve(url,'tencent' if host=='v.qq.com' else 'bilibili',limit,cookie_options,on_update,cancelled)
         raise ValueError('没有识别到可下载视频；此平台可能需要登录或暂不支持主页列表')
-    return {'title': title, 'entries': entries,
-            'limited': bool((limit and len(entries) >= limit) or incomplete)}
+    limited=bool((limit and len(entries)>=limit) or incomplete or logger.pagination_failed)
+    return {'title':title,'entries':entries,'limited':limited,'complete':not limited,
+            'sources':sources_read,'completion_reason':'native-pagination-end' if not limited else 'unfinished-pagination',
+            'note':'已遍历所有公开作品分页及频道视频、Shorts、直播回放入口' if not limited and len(sources)>1 else '分页尚未完整结束，可继续读取' if limited else ''}
 
-def _douyin(url, limit, cookie_options=None, on_update=None):
+def _cctv(url,limit,on_update=None,cancelled=None):
+    """Use the actual column's public pagination and declared row count."""
+    import json,time,file_download
+    from urllib.parse import urlencode
+    def read(source):
+        conn,response,_=file_download.open_public(source,{'User-Agent':'Mozilla/5.0'})
+        try:
+            raw=response.read(4*1024*1024+1)
+            if len(raw)>4*1024*1024:raise ValueError('栏目列表响应过大')
+            return raw.decode('utf-8','replace')
+        finally:response.close();conn.close()
+    page_html=read(url)
+    match=re.search(r'\bvar\s+topicID\s*=\s*[\'\"](TOPC\d+)[\'\"]',page_html)
+    if not match:raise ValueError('央视官方栏目未提供栏目编号，不能把推荐视频作为该栏目作品')
+    title_match=re.search(r'<title>(.*?)</title>',page_html,re.S)
+    title=re.sub('<[^>]+>','',title_match[1]).strip() if title_match else '央视栏目'
+    entries=[];seen=set();page=1;rows_read=0;total=None;finished=False
+    while True:
+        if cancelled and cancelled():raise Cancelled()
+        payload=read('https://api.cntv.cn/NewVideo/getVideoListByColumn?'+urlencode({'id':match[1],'n':20,'p':page,'serviceId':'tvcctv'}))
+        json_match=re.search(r'\{.*\}',payload,re.S)
+        if not json_match:raise ValueError('央视官方栏目分页未返回数据')
+        data=json.loads(json_match[0]).get('data') or {}
+        rows=data.get('list')
+        if not isinstance(rows,list):raise ValueError('央视官方栏目分页结构变更')
+        if data.get('total') is not None:total=int(data['total'])
+        rows_read+=len(rows)
+        for item in rows:
+            link=item.get('url') or ''
+            if urlsplit(link).hostname!='tv.cctv.com' or not re.fullmatch(r'/\d{4}/\d{2}/\d{2}/VIDE\w+\.shtml',urlsplit(link).path):continue
+            if link in seen:continue
+            seen.add(link);entry=normalize_entry({'url':link,'title':item.get('title'),'thumbnail':item.get('image')},len(entries)+1)
+            if entry:entries.append(entry)
+            if limit and len(entries)>=limit:break
+        if on_update:on_update(entries,title)
+        if not rows:
+            finished=total is None or rows_read>=total
+            break
+        if total is not None and rows_read>=total:finished=True;break
+        if limit and len(entries)>=limit:break
+        page+=1;time.sleep(.4)
+    return {'title':title,'entries':entries,'complete':finished,'limited':not finished,'pages':page,
+            'official_rows':total,'rows_read':rows_read,'completion_reason':'official-end' if finished else 'sample-limit',
+            'note':'已读取官方栏目全部公开分页并去重' if finished else '当前为抽样列表，可继续读取全部','method':'official-column-api'}
+
+def _douyin(url, limit, cookie_options=None, on_update=None, cancelled=None):
     """Use the page's own signed post requests and public video links."""
     import douyin
     from playwright.sync_api import sync_playwright
     entries, seen = [], set()
-    state = {'more': None, 'responses': 0}
+    state = {'more':None,'responses':0,'cursor':None,'blocked':False}
+    target=urlsplit(url).path.rstrip('/').split('/')[-1]
     def add(a):
         if not isinstance(a, dict) or not a.get('video') or (limit and len(entries) >= limit):
             return
@@ -195,9 +269,12 @@ def _douyin(url, limit, cookie_options=None, on_update=None):
         if '/aweme/v1/web/aweme/post/' not in resp.url:
             return
         try:
+            if parse_qs(urlsplit(resp.url).query).get('sec_user_id',[''])[0]!=target:return
             data = resp.json()
+            if data.get('status_code') not in (None,0):state['blocked']=True;return
             state['responses'] += 1
-            state['more'] = bool(data.get('has_more'))
+            if 'has_more' in data:state['more']=bool(data['has_more'])
+            state['cursor']=data.get('max_cursor')
             for a in data.get('aweme_list') or []:
                 add(a)
             if on_update:
@@ -205,9 +282,13 @@ def _douyin(url, limit, cookie_options=None, on_update=None):
         except Exception:
             pass
     with sync_playwright() as p:
-        browser = p.chromium.launch(headless=True, args=['--disable-blink-features=AutomationControlled', '--mute-audio'])
+        browser = p.chromium.launch(headless=True, args=['--mute-audio'])
         try:
-            ctx = browser.new_context(user_agent=douyin.UA, locale='zh-CN', viewport={'width': 1440, 'height': 900})
+            import video_platform_accounts as accounts
+            saved=accounts.load('douyin') if 'douyin' in accounts.PROVIDERS else None
+            opts={'locale':'zh-CN','viewport':{'width':1440,'height':900}}
+            if saved:opts.update(storage_state={'cookies':accounts.live_cookies(saved),'origins':saved['origins']},user_agent=saved.get('ua') or douyin.UA)
+            ctx = browser.new_context(**opts)
             cookie_path = (cookie_options or {}).get('cookiefile')
             if cookie_path:
                 jar = http.cookiejar.MozillaCookieJar(cookie_path)
@@ -215,7 +296,7 @@ def _douyin(url, limit, cookie_options=None, on_update=None):
                     jar.load(ignore_discard=True, ignore_expires=False)
                     cookies = [{'name': c.name, 'value': c.value, 'domain': c.domain, 'path': c.path or '/',
                                 'secure': bool(c.secure), 'expires': c.expires or -1}
-                               for c in jar if 'douyin.com' in c.domain or 'iesdouyin.com' in c.domain]
+                               for c in jar if any(c.domain.lstrip('.')==h or c.domain.lstrip('.').endswith('.'+h) for h in ('douyin.com','iesdouyin.com'))]
                     if cookies:
                         ctx.add_cookies(cookies)
                 except (OSError, http.cookiejar.LoadError):
@@ -223,10 +304,11 @@ def _douyin(url, limit, cookie_options=None, on_update=None):
             page = ctx.new_page()
             page.on('response', response)
             page.goto(url, wait_until='domcontentloaded', timeout=30000)
-            deadline, stale, old = time.monotonic() + 60, 0, 0
+            started=time.monotonic();deadline=started+3600;stale,old=0,0
             while time.monotonic() < deadline and (not limit or len(entries) < limit):
+                if cancelled and cancelled():raise Cancelled()
                 page.wait_for_timeout(1000)
-                for a in page.locator('a[href*="/video/"]').evaluate_all(
+                for a in page.locator('[data-e2e="user-post-list"] a[href*="/video/"]').evaluate_all(
                     "els=>els.map(e=>({href:e.href,title:e.innerText,img:e.querySelector('img')?.src}))"
                 ):
                     m = re.search(r'/video/(\d{15,25})', a.get('href', ''))
@@ -237,15 +319,21 @@ def _douyin(url, limit, cookie_options=None, on_update=None):
                     stale += 1
                 else:
                     stale, old = 0, len(entries)
-                    deadline = time.monotonic() + 60
                     if on_update:
                         on_update(entries, '抖音主页')
-                if entries and (stale >= 12 or (state['responses'] and state['more'] is False)):
+                if state['responses'] and state['more'] is False:
                     break
-                page.mouse.wheel(0, 2200)
+                if stale >= (60 if limit==0 else 15) and time.monotonic()-started>=40:break
+                from profile_browser import advance_page
+                advance_page(page)
             title = re.sub(r'\s*[-–]\s*抖音.*$', '', page.title()) or '抖音主页'
+            if saved and accounts.page_authorized('douyin',page):
+                fresh=ctx.storage_state();fresh['ua']=page.evaluate('navigator.userAgent');accounts.refresh('douyin',fresh,saved['_revision'])
         finally:
             browser.close()
     if not entries:
         raise ValueError('抖音主页未返回公开视频，可能需要登录或平台验证；单条视频下载仍可使用')
-    return {'title': title, 'entries': entries, 'limited': bool((limit and len(entries) >= limit) or state['more'] is not False)}
+    limited=bool((limit and len(entries)>=limit) or state['more'] is not False)
+    return {'title':title,'entries':entries,'limited':limited,'complete':not limited,'pages':state['responses'],
+            'completion_reason':'official-end' if not limited else 'unfinished-pagination',
+            'note':'平台分页未确认结束，保留已识别作品，可继续读取' if limited else ''}

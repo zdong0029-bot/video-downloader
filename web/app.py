@@ -819,9 +819,40 @@ def _kind_of(url: str) -> Literal["symphony", "douyin", "web", "file", "cloud"] 
 _catalogs: dict[str, dict] = {}
 _catalog_lock = threading.RLock()
 _catalog_slots = threading.Semaphore(2)
+_catalog_store = ROOT / 'data' / 'catalogs.dpapi'
+_catalog_saved_at = 0.0
+
+def _catalog_checkpoint():
+    """Keep signed work links and visitor ownership private on this host."""
+    import cloud_accounts
+    global _catalog_saved_at
+    _catalog_saved_at=time.monotonic()
+    try:
+        _catalog_store.parent.mkdir(parents=True, exist_ok=True)
+        rows=[c for c in _catalogs.values() if c['created']>time.time()-7*86400]
+        payload=cloud_accounts.crypt(json.dumps(rows,ensure_ascii=False).encode('utf-8'))
+        temp=_catalog_store.with_suffix('.tmp');temp.write_bytes(payload);temp.replace(_catalog_store)
+    except Exception:
+        import logging
+        logging.getLogger(__name__).warning('Could not checkpoint private creator lists')
+
+def _catalog_restore():
+    if not _catalog_store.is_file():return
+    import cloud_accounts
+    try:
+        for c in json.loads(cloud_accounts.crypt(_catalog_store.read_bytes(),True)):
+            if c['created']<time.time()-7*86400:continue
+            if c['status']=='loading':
+                c.update(status='done',limited=True,complete=False,message='上次读取中断，已保留作品；可继续读取全部')
+            _catalogs[c['id']]=c
+    except Exception:
+        import logging
+        logging.getLogger(__name__).warning('Could not restore private creator lists')
+
+_catalog_restore()
 
 def _catalog_public(c):
-    return {k: v for k, v in c.items() if k not in ("owner", "batch_id")}
+    return {k: v for k, v in c.items() if k not in ("owner", "batch_id", "_version")}
 
 def _catalog_worker(cid):
     with _catalog_slots:
@@ -837,28 +868,44 @@ def _catalog_worker(cid):
                 options["cookiesfrombrowser"] = ("firefox", None, None, None)
             def update(entries, title):
                 with _catalog_lock:
-                    c.update(entries=[dict(e) for e in entries], title=title,
-                             message=f"已识别 {len(entries)} 个，继续读取主页…可先勾选下载")
+                    if _catalogs.get(cid) is not c:raise Cancelled()
+                    known={e['id']:dict(e) for e in c['entries']}
+                    known.update((e['id'],dict(e)) for e in entries)
+                    c.update(entries=list(known.values()),title=title,_version=c.get('_version',0)+1,
+                             message=f"已识别 {len(known)} 个，继续读取主页…可先勾选下载")
+                    if time.monotonic()-_catalog_saved_at>=30:_catalog_checkpoint()
+            def cancelled():
+                with _catalog_lock:return _catalogs.get(cid) is not c
             last_error = None
             for attempt in range(2):
                 try:
-                    result = video_catalog.resolve(c["url"], c["limit"], options, update)
+                    result = video_catalog.resolve(c["url"], c["limit"], options, update,cancelled)
                     break
+                except Cancelled:
+                    return
                 except Exception as error:
                     last_error = error
                     if attempt:
                         raise
                     with _catalog_lock:
+                        c['_version']=c.get('_version',0)+1
                         c["message"] = f"已识别 {len(c['entries'])} 个，正在自动重试解析…"
                     time.sleep(2)
             with _catalog_lock:
+                if _catalogs.get(cid) is not c:return
+                known={e['id']:e for e in c['entries']};known.update((e['id'],e) for e in result['entries'])
+                if result['limited']:result['entries']=list(known.values())
                 note = "（平台未确认列表结束，可能仍有未返回作品）" if result["limited"] else "（平台列表已读取结束）"
                 detail = result.get('note') or ''
                 c.update(result, status="done", message=f"识别到 {len(result['entries'])} 个作品{note}，请勾选下载" + (f"；{detail}" if detail else ''))
+                c['_version']=c.get('_version',0)+1
+                _catalog_checkpoint()
         except Exception as error:
             with _catalog_lock:
+                if _catalogs.get(cid) is not c:return
                 c.update(status="error", title=c["title"] if c["entries"] else "主页识别失败",
-                         message=str(error)[:1500])
+                         message=str(error)[:1500],limited=True,complete=False,_version=c.get('_version',0)+1)
+                _catalog_checkpoint()
 
 def _start_catalog(url, me, batch_id="", limit=0):
     if not video_catalog.platform_url(url):
@@ -866,7 +913,7 @@ def _start_catalog(url, me, batch_id="", limit=0):
     with _catalog_lock:
         now = time.time()
         for cid in list(_catalogs):
-            if now - _catalogs[cid]["created"] > 3600 and _catalogs[cid]["status"] != "loading":
+            if now - _catalogs[cid]["created"] > 7*86400 and _catalogs[cid]["status"] != "loading":
                 _catalogs.pop(cid, None)
         if sum(c["owner"] == me.device and c["status"] == "loading" for c in _catalogs.values()) >= 2:
             raise HTTPException(429, "已有两个主页正在识别，请稍候")
@@ -900,16 +947,33 @@ def _get_catalog(cid, me):
     return c
 
 @app.get("/api/catalogs")
-def list_catalogs(me: Identity = Depends(current_identity)):
+def list_catalogs(request:Request,response:Response,me: Identity = Depends(current_identity)):
     with _catalog_lock:
-        return [_catalog_public(c) for c in sorted(_catalogs.values(), key=lambda c: c["created"], reverse=True)
-                if c["owner"] == me.device]
+        rows=[c for c in sorted(_catalogs.values(),key=lambda c:c['created'],reverse=True) if c['owner']==me.device]
+        version=[(c['id'],c.get('_version',0),c['status'],len(c['entries'])) for c in rows]
+        etag='"'+hashlib.sha256(json.dumps(version).encode()).hexdigest()+'"'
+        headers={'ETag':etag,'Cache-Control':'private, no-cache','Vary':'Cookie'}
+        if request.headers.get('if-none-match')==etag:return Response(status_code=304,headers=headers)
+        response.headers.update(headers)
+        return [_catalog_public(c) for c in rows]
+
+@app.post('/api/catalogs/{cid}/continue')
+def continue_catalog(cid:str,me:Identity=Depends(current_identity)):
+    with _catalog_lock:
+        c=_get_catalog(cid,me)
+        if c['status']=='loading':raise HTTPException(409,'该主页已在读取中')
+        if sum(x['owner']==me.device and x['status']=='loading' for x in _catalogs.values())>=2:
+            raise HTTPException(429,'已有两个主页正在读取，请稍候')
+        c.update(limit=0,status='loading',complete=False,message='继续读取全部公开作品，已有勾选和作品保留',_version=c.get('_version',0)+1)
+    threading.Thread(target=_catalog_worker,args=(cid,),daemon=True).start()
+    return {'ok':True}
 
 @app.delete("/api/catalogs/{cid}")
 def remove_catalog(cid: str, me: Identity = Depends(current_identity)):
     with _catalog_lock:
         _get_catalog(cid, me)
         _catalogs.pop(cid)
+        _catalog_checkpoint()
     return {"ok": True}
 
 class CatalogSelection(BaseModel):

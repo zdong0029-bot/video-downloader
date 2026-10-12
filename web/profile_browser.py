@@ -4,12 +4,13 @@ import hashlib, http.cookiejar, ipaddress, re, socket, time, logging, base64
 from urllib.parse import urlsplit, urlencode, parse_qs
 from playwright.sync_api import sync_playwright
 import video_platform_accounts as accounts
+from common import Cancelled
 
 FAMILIES={
  'tiktok':('tiktok.com','tiktokcdn.com','tiktokcdn-us.com','tiktokcdn-eu.com','tiktokv.com','byteoversea.com','ibytedtos.com','ibyteimg.com','ttwstatic.com','muscdn.com'),
  'xiaohongshu':('xiaohongshu.com','xhscdn.com'),
  'kuaishou':('kuaishou.com','kwimgs.com','yximgs.com','yximg.com','kwaicdn.com','ksyuncdn.com','ndcimgs.com','wskwai.com','wsbkwai.com'),
- 'acfun':('acfun.cn','aixifan.com','acfun.com','ksyun.com','kuaishou.com'),
+ 'acfun':('acfun.cn','aixifan.com','acfun.com','ksyun.com','kuaishou.com','yximgs.com','kwimgs.com'),
  'haokan':('baidu.com','bdstatic.com','baidubce.com'),
  'mgtv':('mgtv.com','hitv.com','imgo.tv','hunantv.com'),
  'tencent':('qq.com','gtimg.cn','gtimg.com','qpic.cn'),
@@ -49,13 +50,25 @@ def kuaishou_profile_posts(request,data,target,rest=True):
   if re.fullmatch(r'[A-Za-z0-9]{8,32}',vid):posts.append(photo)
  return posts
 
-def resolve(url, platform, limit=0, cookie_options=None, on_update=None):
+def advance_page(page):
+ """Scroll the actual page/content pane, including virtualized author lists."""
+ page.evaluate("""() => {
+  const pane = Array.from(document.querySelectorAll('*')).filter(e => {
+   const r=e.getBoundingClientRect();
+   return r.width>innerWidth*.45 && r.height>150 && e.scrollHeight>e.clientHeight+40
+    && /auto|scroll/.test(getComputedStyle(e).overflowY) && !e.closest('aside,nav,header');
+  });
+  for(const e of pane)e.scrollTop=Math.min(e.scrollHeight,e.scrollTop+e.clientHeight*2);
+  window.scrollBy(0,Math.max(2400,innerHeight*2));
+ }""")
+
+def resolve(url, platform, limit=0, cookie_options=None, on_update=None, cancelled=None):
  target=urlsplit(url).path.rstrip('/').split('/')[-1].lstrip('@')
  if platform=='mgtv':target=re.search(r'/h/(\d+)',url)[1]
  if platform=='tencent':target=re.search(r'/cover/(\w+)',url)[1]
  if platform=='bilibili':target=urlsplit(url).path.strip('/').split('/')[0]
  if platform=='sohu':target=urlsplit(url).path.strip('/').split('/')[1]
- entries,seen=[],set();pagination={'end':False,'blocked':False,'embed':False}
+ entries,seen=[],set();pagination={'end':False,'blocked':False,'embed':False,'pages':0,'cursor':None}
  def add(link,title='',thumbnail='',duration=0,media_type='video'):
   identity=work_identity(link,platform)
   if not identity:return # SSR placeholders wait for official signed cards.
@@ -77,6 +90,8 @@ def resolve(url, platform, limit=0, cookie_options=None, on_update=None):
    if resp.status!=200:pagination['blocked']=True;return
    try:
     d=resp.json()
+    if d.get('statusCode') not in (None,0):pagination['blocked']=True;return
+    pagination['pages']+=1;pagination['cursor']=d.get('cursor')
     for item in d.get('itemList') or []:
      author=(item.get('author') or {}).get('uniqueId','')
      if author.casefold()!=target.casefold():continue
@@ -86,7 +101,10 @@ def resolve(url, platform, limit=0, cookie_options=None, on_update=None):
    except Exception:pagination['blocked']=True
   elif platform=='xiaohongshu' and ('/user_posted' in path or '/user/posted' in path):
    try:
-    d=resp.json().get('data') or {}
+    if parse_qs(urlsplit(resp.url).query).get('user_id',[''])[0]!=target:return
+    payload=resp.json()
+    if payload.get('code')!=0 or payload.get('success') is False:pagination['blocked']=True;return
+    d=payload.get('data') or {};pagination['pages']+=1;pagination['cursor']=d.get('cursor')
     for note in d.get('notes') or []:
      card=note.get('note_card') or note;uid=(card.get('user') or {}).get('user_id')
      if uid and uid!=target:continue
@@ -109,6 +127,7 @@ def resolve(url, platform, limit=0, cookie_options=None, on_update=None):
      if (req.get('variables') or {}).get('userId')!=target:return
      data=(resp.json().get('data') or {}).get('visionProfilePhotoList') or {}
     payload=resp.json()
+    pagination['pages']+=1;pagination['cursor']=data.get('pcursor')
     for photo in kuaishou_profile_posts(req,payload,target,path=='/rest/v/profile/feed'):
      vid=str(photo.get('id') or '')
      if re.fullmatch(r'[A-Za-z0-9]{8,32}',vid):add('https://www.kuaishou.com/short-video/'+vid,photo.get('caption'),photo.get('coverUrl'),float(photo.get('duration') or 0)/1000)
@@ -118,6 +137,7 @@ def resolve(url, platform, limit=0, cookie_options=None, on_update=None):
    try:
     if parse_qs(urlsplit(resp.url).query).get('app_id',[''])[0]!=target:return
     data=resp.json().get('data') or {}
+    pagination['pages']+=1;pagination['cursor']=data.get('page')
     for feed in data.get('results') or []:
      item=feed.get('content') or {};vid=str(item.get('vid',''))
      if not re.fullmatch(r'\d{10,25}',vid):continue
@@ -191,9 +211,10 @@ def resolve(url, platform, limit=0, cookie_options=None, on_update=None):
    ctx.route('**/*',route);page=ctx.new_page();page.on('response',respond)
    # Profile discovery needs links and metadata, not thumbnail/font transfers.
    # Commit first; the bounded loop below waits for the actual work list.
-   page.goto(url,wait_until='commit',timeout=25000)
-   started=time.monotonic();wall=started+900;stale=0;old=0
+   page.goto(url,wait_until='domcontentloaded' if platform=='acfun' else 'commit',timeout=30000)
+   started=time.monotonic();wall=started+3600;stale=0;old=0;next_from=None;next_at=0;visited_pages=set()
    while time.monotonic()<wall and (not limit or len(entries)<limit):
+    if cancelled and cancelled():raise Cancelled()
     page.wait_for_timeout(800)
     if platform=='tiktok':selector='a[href*="/@'+target+'/video/"]'
     elif platform=='xiaohongshu':selector='section.note-item a.cover[href]'
@@ -234,12 +255,26 @@ def resolve(url, platform, limit=0, cookie_options=None, on_update=None):
      # the current episode controls; never related/recommended covers.
      for item in page.locator('[data-vid]').evaluate_all("els=>els.filter(a=>/episode|选集/.test(a.className+' '+a.parentElement?.className)).map(a=>({vid:a.dataset.vid,title:a.innerText}))"):
       if re.fullmatch(r'\w{11}',str(item['vid'])):add('https://v.qq.com/x/cover/'+target+'/'+item['vid']+'.html',item['title'])
+    if platform=='acfun' and entries:
+     # This official author page uses numbered pages, not infinite scroll.
+     controls=page.locator('.pager__btn__next:visible')
+     if controls.count():
+      button=controls.first
+      disabled=button.get_attribute('disabled') is not None or button.get_attribute('aria-disabled')=='true' or re.search(r'disabl',button.get_attribute('class') or '')
+      links=page.locator('.ac-space-contribute-list a.ac-space-video[href*="/v/ac"]').evaluate_all('els=>els.map(e=>e.href)')
+      fingerprint=hashlib.sha256('\n'.join(links).encode()).hexdigest() if links else None
+      if fingerprint:visited_pages.add(fingerprint);pagination['pages']=len(visited_pages)
+      if disabled and fingerprint and fingerprint!=next_from:pagination['end']=True
+      elif not disabled and fingerprint and (fingerprint!=next_from or time.monotonic()-next_at>=8):
+       next_from=fingerprint;next_at=time.monotonic()
+       button.click(timeout=4000);page.wait_for_timeout(1000)
     if len(entries)==old:stale+=1
     else:stale=0;old=len(entries)
     # Slow initial hydration must not be mistaken for an empty creator.
     # Once a real list exists, retain the short pagination idle deadline.
-    if pagination['end'] or stale>=10 and (entries or time.monotonic()-started>=25):break
-    page.mouse.wheel(0,2400)
+    idle_limit=45 if limit==0 else 10
+    if pagination['end'] or stale>=idle_limit and (entries or time.monotonic()-started>=40):break
+    advance_page(page)
    body=page.locator('body').inner_text(timeout=5000)
    if platform=='tiktok' and not entries:
     if "Couldn't find this account" in body or '找不到此账号' in body:raise ValueError('TikTok 官网找不到此账号，可能已改名、删除或主页用户名拼写有误；请使用官网仍能打开的作者主页')
@@ -256,5 +291,5 @@ def resolve(url, platform, limit=0, cookie_options=None, on_update=None):
     fresh=ctx.storage_state();fresh['ua']=page.evaluate('navigator.userAgent');accounts.refresh(platform,fresh,saved['_revision'])
   finally:browser.close()
  limited=bool(pagination['embed'] or not pagination['end'] or limit and len(entries)>=limit)
- note='TikTok 官方嵌入入口仅返回最近最多 10 条作品，这不是完整主页列表' if pagination['embed'] else ''
- return {'title':title,'entries':entries,'limited':limited,'note':note,'method':'official-creator-embed' if pagination['embed'] else 'official-profile-browser'}
+ note='TikTok 官方嵌入入口仅返回最近最多 10 条作品，这不是完整主页列表' if pagination['embed'] else ('平台分页未确认结束，保留已识别作品，可继续读取' if limited else '')
+ return {'title':title,'entries':entries,'limited':limited,'complete':not limited,'pages':pagination['pages'],'completion_reason':'official-end' if not limited else 'recent-embed' if pagination['embed'] else 'unfinished-pagination','note':note,'method':'official-creator-embed' if pagination['embed'] else 'official-profile-browser'}

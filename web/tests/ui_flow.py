@@ -35,12 +35,12 @@ a.symphony.list_assets=lambda u:[a.symphony.Asset('multi '+str(i),'video-'+str(i
 def asset_download(asset,out,**kw):
     dest=out/asset.filename;shutil.copyfile(FIXTURE,dest);return dest
 a.symphony.download_asset=asset_download
-def catalog_resolve(url,limit=0,cookie_options=None,on_update=None):
+def catalog_resolve(url,limit=0,cookie_options=None,on_update=None,cancelled=None):
     rows=[{'id':str(i),'url':'https://www.youtube.com/watch?v=catalog-'+str(i),'title':'主页视频 '+str(i),'thumbnail':'','duration':1} for i in range(245)]
     if limit:rows=rows[:limit]
     if on_update:on_update(rows[:20],'测试主页')
     time.sleep(.08)
-    return {'title':'测试主页','entries':rows,'limited':bool(limit)}
+    return {'title':'测试主页','entries':rows,'limited':bool(limit),'complete':not limit}
 a.video_catalog.resolve=catalog_resolve
 server=uvicorn.Server(uvicorn.Config(a.app,host='127.0.0.1',port=18004,log_level='error'))
 thread=threading.Thread(target=server.run,daemon=True);thread.start()
@@ -113,6 +113,11 @@ try:
         cid=page.evaluate('catalogCache[0].id')
         assert page.evaluate('catalogCache[0].entries.length')==245
         assert page.evaluate('catalogCache[0].limit')==0
+        response=ctx.request.get(BASE+'/api/catalogs');etag=response.headers['etag']
+        cached=ctx.request.get(BASE+'/api/catalogs',headers={'If-None-Match':etag})
+        assert cached.status==304 and cached.body()==b''
+        assert 'private' in cached.headers['cache-control']
+        results['unchanged_full_catalog_304_no_repeated_payload']=True
         cat=page.locator('#catalogs>.job')
         cat.locator('.toolbar input[type=checkbox]').check()
         assert '已选 245 / 245' in cat.inner_text()
@@ -125,6 +130,17 @@ try:
         expect(cat.locator('.file')).to_have_count(160)
         cat.locator('.toolbar input[type=checkbox]').uncheck()
         page.evaluate("catalogToggle(catalogCache[0].id,'0',true);catalogToggle(catalogCache[0].id,'244',true)")
+        page.reload();expect(page.locator('#main')).to_be_visible()
+        page.wait_for_function("catalogCache.length===1 && catalogCache[0].status==='done'")
+        assert page.evaluate("[...catalogSet(catalogCache[0].id)].sort().join(',')")=='0,244'
+        results['full_catalog_selection_survives_page_reload']=True
+        assert ctx.request.post(BASE+'/api/catalogs/'+cid+'/continue').status==200
+        page.wait_for_timeout(200)
+        page.evaluate('refreshCatalogs(true)')
+        page.wait_for_function("catalogCache[0].status==='done'")
+        assert page.evaluate('catalogCache.length')==1
+        assert page.evaluate("[...catalogSet(catalogCache[0].id)].sort().join(',')")=='0,244'
+        results['continue_full_catalog_keeps_stable_selection']=True
         cat.get_by_role('button',name='下载选中',exact=True).click()
         page.wait_for_function("cache.some(j=>j.kind==='collection' && j.status==='done' && j.files.length===2)")
         collection=page.locator('#jobs>.job').filter(has_text='测试主页')
@@ -151,10 +167,13 @@ try:
         # Another browser cannot see or download this browser's catalog or files.
         other=browser.new_context();resp=other.request.get(BASE+'/api/catalogs');assert resp.json()==[]
         assert other.request.post(BASE+'/api/catalogs/'+cid+'/download',data={'ids':['0']}).status==404
+        assert other.request.post(BASE+'/api/catalogs/'+cid+'/continue').status==404
+        assert other.request.get(BASE+'/api/catalogs',headers={'If-None-Match':etag}).status==200
         assert other.request.post(BASE+'/api/jobs/'+page.evaluate('cache[0].id')+'/remove-files',data={'names':['catalog-0.mp4']}).status==404
         results['browser_isolation']=True
         # Remove grouped display entries, keeping every original file on disk.
         underlying=page.evaluate("viewJobs(cache).find(j=>j.is_group).members.map(j=>({id:j.id,name:j.files[0].name}))")
+        group.locator('.toolbar input[type=checkbox]').check()
         group.get_by_role('button',name='移出列表',exact=True).click()
         page.locator('#dlgYes').click()
         page.wait_for_function('!viewJobs(cache).some(j=>j.is_group)')
@@ -183,6 +202,13 @@ try:
     assert any(j.kind=='collection' and len(j.files)==2 for j in a.JOBS.values())
     assert all(not j.batch_id or isinstance(j.batch_id,str) for j in a.JOBS.values())
     results['restart_metadata_restore']=True
+    with a._catalog_lock:
+        before={k:a._catalog_public(v) for k,v in a._catalogs.items()}
+        a._catalog_checkpoint()
+        assert a._catalog_store.read_bytes()[:1]!=b'['
+        a._catalogs.clear();a._catalog_restore()
+        assert before=={k:a._catalog_public(v) for k,v in a._catalogs.items()}
+    results['private_full_catalog_encrypted_restart_restore']=True
 finally:
     server.should_exit=True;thread.join(5)
 (ROOT/'integration-results.json').write_text(json.dumps(results,ensure_ascii=False,indent=2),encoding='utf-8')

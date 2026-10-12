@@ -24,7 +24,7 @@ def run(case):
    if cat and cat['status'] in ('done','error'):break
    time.sleep(1)
   if not cat or cat['status']!='done':raise ValueError(clean((cat or {}).get('message','Catalog did not finish')))
-  entries=cat['entries'];result.update(catalog_seconds=round(time.monotonic()-start,3),count=len(entries),limited=cat['limited'],note=cat.get('note',''),method=cat.get('method','native-extractor'))
+  entries=cat['entries'];result.update(catalog_seconds=round(time.monotonic()-start,3),count=len(entries),complete=cat.get('complete',False),pages=cat.get('pages'),sources=cat.get('sources'),completion_reason=cat.get('completion_reason'),limited=cat['limited'],note=cat.get('note',''),method=cat.get('method','native-extractor'))
   result['stages']['official_profile_list']='passed'
   # Prefer a short video from the actual profile; never substitute another URL.
   if not entries:raise ValueError('No selectable works')

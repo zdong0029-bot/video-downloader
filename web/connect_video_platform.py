@@ -9,13 +9,23 @@ if any(p not in accounts.PROVIDERS for p in providers):
     raise SystemExit(2)
 
 with sync_playwright() as p:
-    browser = p.chromium.launch(headless=False)
+    launch={'headless':False}
+    if 'tiktok' in providers:
+        import socket
+        try:
+            with socket.create_connection(('127.0.0.1',10808),timeout=.3):pass
+            launch['proxy']={'server':'socks5://127.0.0.1:10808'}
+        except OSError:pass
+    browser = p.chromium.launch(**launch)
     window = tk.Tk(); window.title('连接视频平台官方账号'); window.geometry('600x360')
     tk.Label(window, text='请在官方网页登录，并亲自完成页面要求的验证。\n检测到登录授权后自动加密保存，也可点击下面的保存按钮。', pady=14).pack()
     contexts = []
     for provider in providers:
         name, url, _ = accounts.PROVIDERS[provider]
-        context = browser.new_context(); page = context.new_page(); contexts.append(context)
+        previous=accounts.load(provider)
+        opts={'storage_state':{'cookies':accounts.live_cookies(previous),'origins':previous['origins']}} if previous else {}
+        if previous and previous.get('ua'):opts['user_agent']=previous['ua']
+        context = browser.new_context(**opts); page = context.new_page(); contexts.append(context)
         try:
             page.goto(url, wait_until='domcontentloaded', timeout=45000)
         except Exception:
@@ -28,11 +38,11 @@ with sync_playwright() as p:
                 for tab in context.pages:
                     if not tab.is_closed():
                         tab.evaluate('location.href')  # Flush navigation events while Tk owns the loop.
-                if provider == 'xiaohongshu' and not any(
+                if provider in ('xiaohongshu','tiktok','douyin') and not any(
                     accounts.page_authorized(provider, tab)
                     for tab in context.pages if not tab.is_closed()
                 ):
-                    raise ValueError('小红书官网尚未确认登录成功；访客 Cookie 不会保存为账号授权。请扫码并在手机确认。')
+                    raise ValueError('官网尚未确认登录成功；请在本窗口完成官方登录及验证后再保存。')
                 state = context.storage_state()
                 state['ua'] = next(tab.evaluate('navigator.userAgent') for tab in context.pages if not tab.is_closed())
                 if saved['done'] and quiet:
