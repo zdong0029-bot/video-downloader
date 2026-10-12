@@ -131,6 +131,23 @@ try:
         expect(collection.locator('.file')).to_have_count(2)
         assert page.evaluate("cache.find(j=>j.kind==='collection').files.map(f=>f.name).sort().join(',')")=='catalog-0.mp4,catalog-244.mp4'
         results['full_profile_245_links_and_only_chosen_downloaded']=True
+        # Advertise a large original, while the fixture response remains small.
+        # The native manager must receive the file without invoking the Blob path.
+        page.evaluate("""()=>{
+          const j=cache.find(j=>j.kind==='collection');j.files[0].size=300*1048576;
+          window.originalFetchVideo=fetchVideo;
+          fetchVideo=()=>{throw new Error('large originals must not use Blob fetch')};
+          downloadSelected(j.id,j.files[0].name);
+        }""")
+        page.wait_for_function("[...downloadTransfers.values()].some(t=>t.nativeCount===1 && !t.active)")
+        assert len(downloads)==14
+        assert hashlib.sha256(downloads[-1].read_bytes()).hexdigest()==want
+        assert page.evaluate("[...downloadTransfers.values()].find(t=>t.nativeCount===1).receivedBytes")==0
+        assert page.evaluate("[...downloadTransfers.values()].find(t=>t.nativeCount===1).completed")==0
+        assert '实际进度' in page.locator('#hint').inner_text()
+        page.evaluate('fetchVideo=window.originalFetchVideo')
+        results['large_original_native_download_no_blob_no_false_completion']=True
+
         # Another browser cannot see or download this browser's catalog or files.
         other=browser.new_context();resp=other.request.get(BASE+'/api/catalogs');assert resp.json()==[]
         assert other.request.post(BASE+'/api/catalogs/'+cid+'/download',data={'ids':['0']}).status==404

@@ -490,10 +490,12 @@ function updateTransfer(jobId){
   const pct=t.totalBytes ? Math.min(t.active || t.error ? 99 : 100, Math.floor(t.receivedBytes/t.totalBytes*100)) : 0;
   const speed=t.receivedBytes/Math.max(.001,((t.ended||performance.now())-(t.started||performance.now()))/1000);
   const rate=t.receivedBytes ? ' · '+(speed/1048576).toFixed(2)+' MB/s' : '';
-  const label=t.error ? `已停止：${t.error}` : t.active ? `正在接收第 ${Math.min(t.completed+1,t.count)} 个` : '接收完成，已发起浏览器保存';
-  panel.innerHTML=`<div>${esc(t.route || "准备传输")} · ${esc(label)} · 已接收完整文件 <strong>${t.completed} / ${t.count}</strong></div>
-    <div>${fmtSize(t.receivedBytes)} / ${fmtSize(t.totalBytes)} · <strong>${pct}%</strong>${rate}</div>
-    <progress style="width:100%;height:12px;accent-color:var(--accent)" max="100" value="${pct}" aria-label="文件传输进度"></progress>
+  const nativeNote=t.nativeCount ? `已交浏览器下载 ${t.nativeCount} 个大文件；请在浏览器下载列表查看实际进度、取消或打开文件夹。` : '';
+  const label=t.error ? `已停止：${t.error}` : t.active ? `正在接收第 ${Math.min(t.completed+1,t.count)} 个` : (t.nativeCount && !t.totalBytes ? '已交浏览器下载' : '接收完成，已发起浏览器保存');
+  panel.innerHTML=`<div>${esc(t.route || "准备传输")} · ${esc(label)}${t.count-(t.nativeCount||0)>0 ? ` · 已接收完整文件 <strong>${t.completed} / ${t.count-(t.nativeCount||0)}</strong>` : ''}</div>
+    ${nativeNote ? `<div class="note">${esc(nativeNote)}</div>` : ''}
+    ${t.totalBytes ? `<div>${fmtSize(t.receivedBytes)} / ${fmtSize(t.totalBytes)} · <strong>${pct}%</strong>${rate}</div>
+    <progress style="width:100%;height:12px;accent-color:var(--accent)" max="100" value="${pct}" aria-label="文件传输进度"></progress>` : ''}
     ${t.active ? `<button class="ghost small" onclick="cancelTransfer('${jobId}')">停止接收</button>` : '<div class="note">最终保存结果请查看浏览器下载列表；浏览器可能要求允许下载多个文件。</div>'}`;
   const button=document.querySelector(`[data-download-job="${jobId}"]`);
   if(button && t.active) button.textContent=`已接收 ${t.completed}/${t.count} · ${pct}%`;
@@ -519,6 +521,18 @@ async function downloadSelected(jobId, singleName=null, sourceId=null){
   let lastPaint=0;
   try{
     for(const f of files){
+      if(t.controller.signal.aborted) throw new DOMException('Stopped','AbortError');
+      // Large originals go directly to the browser download manager. Collecting
+      // gigabytes into JS arrays/Blob can exhaust memory before saving anything.
+      if(f.size>=256*1048576){
+        const a=document.createElement('a');
+        a.href=`/api/files/${originId(job,f)}/${encodeURIComponent(f.name)}`;a.download=f.name;
+        document.body.appendChild(a);a.click();a.remove();
+        t.nativeCount=(t.nativeCount||0)+1;t.totalBytes-=f.size;t.route='浏览器直接下载';
+        updateTransfer(jobId);
+        await new Promise(resolve=>setTimeout(resolve,700));
+        continue;
+      }
       const r=await fetchVideo(originId(job,f),f.name,t.controller.signal,route=>{t.route=route;updateTransfer(jobId);});
       if(!r.ok) throw new Error(`读取 ${f.name} 失败（HTTP ${r.status}）`);
       const size=Number(r.headers.get('content-length')) || f.size || 0;
@@ -550,9 +564,11 @@ async function downloadSelected(jobId, singleName=null, sourceId=null){
       await new Promise(resolve=>setTimeout(resolve,700));
       if(t.controller.signal.aborted && t.completed<t.count) throw new DOMException('Stopped','AbortError');
     }
-    hintEl.textContent=`已完整接收 ${t.completed}/${t.count} 个文件并发起保存，请查看浏览器下载列表。`;
+    hintEl.textContent=t.nativeCount
+      ? `已交浏览器下载 ${t.nativeCount} 个大文件${t.completed ? `，另已完整接收 ${t.completed} 个文件` : ''}；实际进度和完成结果请查看浏览器下载列表。`
+      : `已完整接收 ${t.completed}/${t.count} 个文件并发起保存，请查看浏览器下载列表。`;
   }catch(e){
-    t.error=e.name==='AbortError' ? '已取消，之前发起保存的视频不受影响' : e.message;
+    t.error=e.name==='AbortError' ? '已取消网页接收；已交浏览器的下载请在浏览器下载列表停止' : e.message;
     hintEl.textContent=`已接收 ${t.completed}/${t.count} 个。${t.error}`;
   }finally{
     t.active=false;t.ended=performance.now();repaint();

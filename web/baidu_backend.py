@@ -67,10 +67,10 @@ def run(url,password,out,progress,cancelled):
             headers={'User-Agent':state.get('pan_ua') or 'Mozilla/5.0','Referer':share.url,'Cookie':'; '.join(c.name+'='+c.value for c in share.session.cookies),'_cookie_domains':('baidu.com','baidupcs.com')}
             for item,link in zip(files,links):
                 name=str(item['fs_id'])+'_'+file_download.safe_name(item['server_filename'])
-                def report(size):progress(files,results+[out/(name+'.part')])
-                p=file_download.fetch_original(link,out,name,int(item['size']),report,cancelled,headers,item)
+                def report(size):progress(files,results,received=sum(p.stat().st_size for p in results)+size)
+                p=file_download.fetch_original(link,out,name,int(item['size']),report,cancelled,headers,item,range_size=4*1024**2,workers=3)
                 results.append(p);progress(files,results)
-            return file_download.CloudResult(results,'百度原文件直下载；未转存')
+            return file_download.CloudResult(results,'百度原文件直下载；4MB分段、3连接；未转存')
         executable=cli();config.mkdir(parents=True,exist_ok=False)
         (config/'pcs_config.json').write_bytes(content)
         env=os.environ.copy();env['BAIDUPCS_GO_CONFIG_DIR']=str(config)

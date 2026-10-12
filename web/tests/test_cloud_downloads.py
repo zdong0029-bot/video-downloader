@@ -49,6 +49,13 @@ class CloudTests(unittest.TestCase):
         with patch.object(files,'open_public',return_value=(Connection(),Stream(headers={'Content-Type':'text/html'}), 'https://cdn.example/file')):
             with self.assertRaises(ValueError):files.fetch_original('https://cdn.example/file',self.root,'html.apk',len(DATA),lambda n:None,lambda:False)
         self.assertFalse(list(self.root.glob('*.part')))
+    def test_baidu_small_file_can_return_full_body_for_bounded_request(self):
+        calls=[]
+        def full(url,headers=None,offset=0,end=None):
+            calls.append((offset,end));return Connection(),Stream(),'https://cdn.example/file'
+        with patch.object(files,'open_public',side_effect=full):
+            p=files.fetch_original('https://cdn.example/file',self.root,'small.apk',len(DATA),lambda n:None,lambda:False,checksums={'md5':hashlib.md5(DATA).hexdigest()},range_size=4*1024**2)
+        self.assertEqual(p.read_bytes(),DATA);self.assertEqual(calls,[(0,len(DATA)-1)])
     def test_cookie_not_leaked_on_redirect(self):
         h={'Cookie':'SECRET','Authorization':'SECRET','Referer':'https://pan.quark.cn/'}
         self.assertNotIn('Cookie',files._download_headers('evil.example',h,0));self.assertNotIn('Authorization',files._download_headers('drive.quark.cn',h,0))

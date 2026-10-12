@@ -461,9 +461,10 @@ def _worker(job: Job) -> None:
                     raise ValueError("此网盘暂不支持，请使用百度、阿里或夸克分享链接")
                 job.message = "正在解析网盘文件，等待下载通道…"
                 cloud_rate=[time.monotonic(),0,0.0]
-                def cloud_progress(items, paths):
+                def cloud_progress(items, paths, received=None):
                     total = sum(int(item.get("size", 0)) for item in items)
                     current = sum(p.stat().st_size for p in paths if p.is_file() and p.name not in (META, ".cloud-incomplete") and not p.name.endswith(".BaiduPCS-Go-downloading"))
+                    if received is not None: current=max(0,int(received))
                     now=time.monotonic();elapsed=now-cloud_rate[0]
                     if elapsed>=.5 and current>=cloud_rate[1]:
                         instant=(current-cloud_rate[1])/elapsed

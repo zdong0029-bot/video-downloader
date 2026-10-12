@@ -113,13 +113,16 @@ def _download_headers(host, extra, offset, end=None):
     return headers
 
 
-def fetch_original(url, directory, name, expected, progress, cancelled, headers=None, checksums=None):
+def fetch_original(url, directory, name, expected, progress, cancelled, headers=None, checksums=None, range_size=0, workers=3):
     """Bounded original transfer, with safe redirects, resume and hash validation."""
     import hashlib, time
     name = safe_name(name); expected = int(expected or 0)
+    range_size = min(max(int(range_size or 0), 0), 4*1024**2)
     partial = directory / (name + '.part'); target = directory / name
     budget = min(LIMIT, max(0, shutil.disk_usage(directory).free - 512*1024**2))
     if expected > budget: raise ValueError('原文件超过可用空间或单文件10GB上限')
+    if range_size and expected*2 > max(0,shutil.disk_usage(directory).free-512*1024**2):
+        raise ValueError('原文件分段与合并所需的主机空间不足')
     size = 0
     transport_md5 = None
     last_report = 0.0
@@ -128,15 +131,21 @@ def fetch_original(url, directory, name, expected, progress, cancelled, headers=
             if cancelled(): raise Cancelled()
             conn = None; response = None
             try:
-                conn, response, final = open_public(url, headers, size)
+                end = min(size + range_size, expected)-1 if range_size and expected else None
+                conn, response, final = open_public(url, headers, size, end) if end is not None else open_public(url, headers, size)
                 content_type = (response.getheader('Content-Type') or '').split(';')[0].lower()
                 if content_type in ('text/html','application/xhtml+xml') or (content_type == 'application/json' and not name.lower().endswith('.json')):
                     raise ValueError('平台返回登录或错误页面，没有提供原文件')
                 length = int(response.getheader('Content-Length') or 0)
-                if response.status == 200 and response.getheader('Content-MD5'):
+                if (response.status == 200 or (range_size and response.status == 206 and not size)) and response.getheader('Content-MD5'):
                     import base64
-                    try: transport_md5 = base64.b64decode(response.getheader('Content-MD5'),validate=True).hex()
-                    except ValueError: raise ValueError('原文件服务器校验头格式无效') from None
+                    value=response.getheader('Content-MD5')
+                    # Baidu's bounded original response uses whole-object hex MD5;
+                    # other original servers commonly use RFC base64 Content-MD5.
+                    if re.fullmatch(r'[0-9a-fA-F]{32}',value):transport_md5=value.lower()
+                    else:
+                        try: transport_md5 = base64.b64decode(value,validate=True).hex()
+                        except ValueError: raise ValueError('原文件服务器校验头格式无效') from None
                     if len(transport_md5)!=32: raise ValueError('原文件服务器校验头格式无效')
                 if response.status == 206:
                     match = re.fullmatch(r'bytes (\d+)-(\d+)/(\d+)',response.getheader('Content-Range') or '')
@@ -147,6 +156,17 @@ def fetch_original(url, directory, name, expected, progress, cancelled, headers=
                 if expected and total and total != expected: raise ValueError('原文件大小与分享列表不一致，未标记完成')
                 if total > budget: raise ValueError('原文件超过可用空间')
                 if not expected: expected = total
+                if range_size and expected and not (response.status==200 and expected<=range_size):
+                    # Baidu original URLs require bounded requests; a full GET can
+                    # return 403 even when the same authorized URL accepts ranges.
+                    if response.status != 206 or response.getheader('Content-Range') != f'bytes {size}-{end}/{expected}':
+                        raise ValueError('原文件服务器未确认小块分段范围，未标记完成')
+                    validator = response.getheader('ETag')
+                    getattr(response,'close',lambda:None)(); conn.close(); conn = None
+                    _chunked_original(final, headers, partial, expected, validator,
+                                      progress, cancelled, range_size, workers)
+                    size = expected
+                    break
                 # Four bounded ranges for large immutable originals. A server that
                 # ignores ranges or changes validators falls back to one full stream.
                 if not size and total >= 8*1024**2 and total*2 <= max(0,shutil.disk_usage(directory).free-512*1024**2) and (transport_md5 or (response.getheader('ETag') or '').startswith('"') or any(re.fullmatch(pattern,str((checksums or {}).get(k,''))) for k,pattern in (('md5',r'[0-9a-fA-F]{32}'),('sha1',r'[0-9a-fA-F]{40}')))):
@@ -268,6 +288,83 @@ def _parallel_original(url, headers, partial, total, validator, progress, cancel
                         merged.write(block)
                 piece.unlink()
         if partial.stat().st_size!=total:raise ValueError('分段合并后大小异常')
+        progress(total)
+    finally:
+        stop.set()
+        for piece in pieces:piece.unlink(missing_ok=True)
+
+
+def _chunked_original(url, headers, partial, total, validator, progress, cancelled,
+                      chunk_size=4*1024**2, workers=3):
+    """Bounded 4 MiB ranges with three connections and in-chunk resume.
+
+    Each range must identify the same object and exact requested byte offsets.
+    Authorization errors stop the transfer; only network interruptions retry.
+    """
+    import threading, time
+    from concurrent.futures import ThreadPoolExecutor
+    count=(total+chunk_size-1)//chunk_size
+    pieces=[partial.with_name(partial.name+'.chunk-'+str(i)) for i in range(count)]
+    received=[0]*count;lock=threading.Lock();stop=threading.Event();cursor=[0];last=[0.0]
+    def report():
+        now=time.monotonic()
+        if now-last[0]>=.25:
+            progress(sum(received));last[0]=now
+    def worker():
+        while True:
+            with lock:
+                if cursor[0]>=count:return
+                index=cursor[0];cursor[0]+=1
+            start=index*chunk_size;end=min(start+chunk_size,total)-1;wanted=end-start+1
+            size=0
+            for attempt in range(3):
+                if cancelled():raise Cancelled()
+                if stop.is_set():raise ValueError('原文件分段下载已停止')
+                conn=None;r=None
+                try:
+                    conn,r,_=open_public(url,headers,start+size,end)
+                    if r.status!=206 or r.getheader('Content-Range')!=f'bytes {start+size}-{end}/{total}':
+                        raise ValueError('原文件分段范围不一致，未标记完成')
+                    if int(r.getheader('Content-Length') or 0) not in (0,wanted-size):
+                        raise ValueError('原文件分段长度不一致，未标记完成')
+                    if validator and r.getheader('ETag')!=validator:
+                        raise ValueError('原文件版本发生变化，未标记完成')
+                    if (r.getheader('Content-Type') or '').split(';')[0] in ('text/html','application/json'):
+                        raise ValueError('平台未提供原文件分段')
+                    with pieces[index].open('ab' if size else 'wb',buffering=1024*1024) as f:
+                        while size<wanted:
+                            if cancelled():raise Cancelled()
+                            if stop.is_set():raise ValueError('原文件分段下载已停止')
+                            data=r.read(min(256*1024,wanted-size))
+                            if not data:raise ConnectionError('原文件分段传输中断')
+                            f.write(data);size+=len(data)
+                            with lock:received[index]=size;report()
+                        if r.read(1):raise ValueError('原文件分段超出请求长度')
+                    break
+                except (OSError,http.client.HTTPException):
+                    size=pieces[index].stat().st_size if pieces[index].exists() else 0
+                    with lock:received[index]=size
+                    if size==wanted:break
+                    if attempt==2:stop.set();raise
+                except BaseException:
+                    stop.set();raise
+                finally:
+                    if r is not None:r.close()
+                    if conn:conn.close()
+    try:
+        with ThreadPoolExecutor(max_workers=min(max(int(workers),1),4)) as pool:
+            tasks=[pool.submit(worker) for _ in range(min(max(int(workers),1),4))]
+            for task in tasks:task.result()
+        with partial.open('wb',buffering=1024*1024) as merged:
+            for index,piece in enumerate(pieces):
+                if piece.stat().st_size!=min(chunk_size,total-index*chunk_size):
+                    raise ValueError('原文件分段未完整接收')
+                with piece.open('rb') as f:
+                    for block in iter(lambda:f.read(1024*1024),b''):
+                        if cancelled():raise Cancelled()
+                        merged.write(block)
+                piece.unlink()
+        if partial.stat().st_size!=total:raise ValueError('原文件分段合并后大小不一致')
         progress(total)
     finally:
         stop.set()
