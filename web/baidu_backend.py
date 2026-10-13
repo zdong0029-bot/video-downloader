@@ -3,6 +3,7 @@ import json, hashlib, re, os, shutil, subprocess, threading, time, tempfile
 from pathlib import Path
 from http.cookies import SimpleCookie
 from common import Cancelled
+import download_tuning
 from baidu_share import Share, AuthorizationRequired
 import file_download
 ROOT=Path(__file__).resolve().parent
@@ -68,9 +69,9 @@ def run(url,password,out,progress,cancelled):
             for item,link in zip(files,links):
                 name=str(item['fs_id'])+'_'+file_download.safe_name(item['server_filename'])
                 def report(size):progress(files,results,received=sum(p.stat().st_size for p in results)+size)
-                p=file_download.fetch_original(link,out,name,int(item['size']),report,cancelled,headers,item,range_size=4*1024**2,workers=3)
+                p=file_download.fetch_original(link,out,name,int(item['size']),report,cancelled,headers,item,range_size=download_tuning.profile('baidu')['range_size'],workers=download_tuning.profile('baidu')['workers'])
                 results.append(p);progress(files,results)
-            return file_download.CloudResult(results,'百度原文件直下载；4MB分段、3连接；未转存')
+            return file_download.CloudResult(results,'百度原文件直下载；'+download_tuning.describe('baidu')+'；未转存')
         executable=cli();config.mkdir(parents=True,exist_ok=False)
         (config/'pcs_config.json').write_bytes(content)
         env=os.environ.copy();env['BAIDUPCS_GO_CONFIG_DIR']=str(config)
@@ -118,10 +119,10 @@ def run(url,password,out,progress,cancelled):
         for item,link in zip(owned,links):
             name=str(item['fs_id'])+'_'+file_download.safe_name(item['server_filename'])
             def report(size):progress(files,results,received=sum(p.stat().st_size for p in results)+size)
-            target=file_download.fetch_original(link,out,name,int(item['size']),report,cancelled,headers,item,range_size=4*1024**2,workers=3)
+            target=file_download.fetch_original(link,out,name,int(item['size']),report,cancelled,headers,item,range_size=download_tuning.profile('baidu')['range_size'],workers=download_tuning.profile('baidu')['workers'])
             results.append(target);progress(files,results)
         note=cloud_cleanup.complete(out,identity,'baidu',remote,results,delete=lambda remote:remove_command(executable,env,remote))
-        return file_download.CloudResult(results,'百度官方网页授权原文件；4MB分段、3连接；'+note)
+        return file_download.CloudResult(results,'百度官方网页授权原文件；'+download_tuning.describe('baidu')+'；'+note)
     finally:
         if share: share.close()
         if config.parent.resolve()==(ROOT/'private-baidu').resolve() and config.name=='task-'+out.name: shutil.rmtree(config,ignore_errors=True)

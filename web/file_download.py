@@ -141,11 +141,15 @@ def xunlei_gcid(path,cancelled=lambda:False):
     return result.hexdigest()
 
 
+MAX_RANGE = 16*1024**2
+MAX_WORKERS = 32
+
+
 def fetch_original(url, directory, name, expected, progress, cancelled, headers=None, checksums=None, range_size=0, workers=3, prefer_chunks=False, renew_url=None):
     """Bounded original transfer, with safe redirects, resume and hash validation."""
     import hashlib, time
     name = safe_name(name); expected = int(expected or 0)
-    range_size = min(max(int(range_size or 0), 0), 4*1024**2)
+    range_size = min(max(int(range_size or 0), 0), MAX_RANGE)
     if prefer_chunks and expected >= 8*1024**2 and not range_size:
         range_size = 4*1024**2
     partial = directory / (name + '.part'); target = directory / name
@@ -391,6 +395,7 @@ def _chunked_original(url, headers, partial, total, validator, progress, cancell
     if not resumed:
         for piece in pieces:piece.unlink(missing_ok=True)
     received=[0]*count;lock=threading.Lock();stop=threading.Event();cursor=[0];last=[0.0]
+    ceiling=min(max(int(workers),1),MAX_WORKERS);limit=[ceiling];calm=[0]
     if resumed:
         for index,piece in enumerate(pieces):
             if piece.exists():
@@ -418,8 +423,22 @@ def _chunked_original(url, headers, partial, total, validator, progress, cancell
         now=time.monotonic()
         if now-last[0]>=.25:
             progress(sum(received));last[0]=now
-    def worker():
+    def throttled():
+        # Halve active connections on 429/503; grow back one at a time later.
+        with lock:
+            limit[0]=max(1,limit[0]//2);calm[0]=0
+    def settled():
+        with lock:
+            calm[0]+=1
+            if calm[0]>=8 and limit[0]<ceiling:limit[0]+=1;calm[0]=0
+    def worker(slot):
         while True:
+            if slot>=limit[0]:
+                with lock:
+                    if cursor[0]>=count:return
+                if cancelled():raise Cancelled()
+                if stop.is_set():raise stopped()
+                time.sleep(.25);continue
             with lock:
                 if cursor[0]>=count:return
                 index=cursor[0];cursor[0]+=1
@@ -450,11 +469,13 @@ def _chunked_original(url, headers, partial, total, validator, progress, cancell
                             f.write(data);size+=len(data)
                             with lock:received[index]=size;report()
                         if r.read(1):raise ValueError('原文件分段超出请求长度')
+                    settled()
                     break
                 except TransferHTTPError as error:
                     if attempt==5:abort(error);raise
                     if error.status==403 and renew_url:renew(active_url)
                     elif error.status in (429,500,502,503,504):
+                        if error.status in (429,503):throttled()
                         # Respect server backoff and retain already checked bytes.
                         for _ in range(int(max(error.retry_after,1+attempt*2)*4)):
                             if cancelled():raise Cancelled()
@@ -473,9 +494,8 @@ def _chunked_original(url, headers, partial, total, validator, progress, cancell
                     if r is not None:r.close()
                     if conn:conn.close()
     try:
-        concurrency=min(max(int(workers),1),16)
-        with ThreadPoolExecutor(max_workers=concurrency) as pool:
-            tasks=[pool.submit(worker) for _ in range(concurrency)]
+        with ThreadPoolExecutor(max_workers=ceiling) as pool:
+            tasks=[pool.submit(worker,slot) for slot in range(ceiling)]
             for task in tasks:task.result()
         with partial.open('wb',buffering=1024*1024) as merged:
             for index,piece in enumerate(pieces):

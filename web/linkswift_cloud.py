@@ -6,6 +6,7 @@ The visitor supplies a share, never a bearer token or an API endpoint.
 import base64,hashlib,json,re,secrets,time,zlib,datetime
 from urllib.parse import urlsplit,parse_qs,unquote,quote,urljoin
 import requests
+import download_tuning
 import cloud_accounts as accounts
 import cloud_providers as providers
 import file_download
@@ -369,13 +370,13 @@ def run(url,password,out,progress,cancelled):
    name=hashlib.sha256(item['relative'].encode()).hexdigest()[:10]+'_'+file_download.safe_name(item['name'])
    def update(n):progress(items,paths+[p for p in out.iterdir() if p.name==name+'.part' or p.name.startswith(name+'.part.')])
    try:
-    path=file_download.fetch_original(link,out,name,item['size'],update,cancelled,headers,item,prefer_chunks=True,workers=4,
-     range_size=4*1024**2 if key=='uc' else 512*1024 if key=='xunlei' and item['size']<8*1024**2 else 0,renew_url=lambda:c.link(item))
+    path=file_download.fetch_original(link,out,name,item['size'],update,cancelled,headers,item,prefer_chunks=True,workers=download_tuning.profile(key)['workers'],
+     range_size=512*1024 if key=='xunlei' and item['size']<8*1024**2 else download_tuning.profile(key)['range_size'],renew_url=lambda:c.link(item))
    except file_download.TransferHTTPError as error:
     if key!='uc' or error.status!=403 or item.get('_owned'):raise
     item=c.uc_transfer(item,out.name);link,headers=c.link(item)
-    path=file_download.fetch_original(link,out,name,item['size'],update,cancelled,headers,item,prefer_chunks=True,workers=4,
-     range_size=4*1024**2,renew_url=lambda:c.link(item))
+    path=file_download.fetch_original(link,out,name,item['size'],update,cancelled,headers,item,prefer_chunks=True,workers=download_tuning.profile(key)['workers'],
+     range_size=download_tuning.profile(key)['range_size'],renew_url=lambda:c.link(item))
    paths.append(path);progress(items,paths)
   if identity:accounts.health(identity,True,'原文件完整下载及校验通过')
   note='官方网盘原文件直下载；未转存'

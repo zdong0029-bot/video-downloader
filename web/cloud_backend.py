@@ -3,6 +3,7 @@ import base64, hashlib, html, json, re, shutil, threading, time
 from pathlib import Path
 from urllib.parse import parse_qs, urlsplit
 import requests
+import download_tuning
 from common import Cancelled
 import cloud_accounts as accounts
 import file_download
@@ -383,7 +384,7 @@ def run(url, password, out, progress, cancelled):
             def report(size):
                 progress(items, paths + [p for p in out.iterdir() if p.name==name+'.part' or p.name.startswith(name+'.part.')])
             target = file_download.fetch_original(link, out, name, item['size'], report, cancelled, headers, item,
-                                                  workers=16 if key=='ali' else 4, prefer_chunks=True,
+                                                  workers=download_tuning.profile(key)['workers'], range_size=download_tuning.profile(key)['range_size'], prefer_chunks=True,
                                                   renew_url=lambda:c.link(item,share_id))
             paths.append(target);progress(items, paths)
         note = '网盘原文件直下载；未转存'
