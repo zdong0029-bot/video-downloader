@@ -360,14 +360,15 @@ def run(url,password,out,progress,cancelled):
   identity,payload=accounts.active_payload(key);state=json.loads(payload) if payload else {}
   c=Client(key,state,identity,cancelled)
   password=parse_qs(urlsplit(url).query).get('pwd',parse_qs(urlsplit(url).query).get('password',[password]))[0]
-  items=c.prepare(url,password);budget(items,out);paths=[];progress(items,paths)
+  items=c.prepare(url,password);budget(items,out);paths=[];folders={};progress(items,paths)
   for item in items:
    if cancelled():raise Cancelled()
+   relative,original=item['relative'],item['name']
    try:link,headers=c.link(item)
    except PlatformError as error:
     if key!='xunlei' or error.code!='未取得原文件地址':raise
     item=c.xunlei_transfer(item,out.name);link,headers=c.link(item)
-   name=hashlib.sha256(item['relative'].encode()).hexdigest()[:10]+'_'+file_download.safe_name(item['name'])
+   name=hashlib.sha256(relative.encode()).hexdigest()[:10]+'_'+file_download.safe_name(original)
    def update(n):progress(items,paths+[p for p in out.iterdir() if p.name==name+'.part' or p.name.startswith(name+'.part.')])
    try:
     path=file_download.fetch_original(link,out,name,item['size'],update,cancelled,headers,item,prefer_chunks=True,workers=download_tuning.profile(key)['workers'],
@@ -377,13 +378,13 @@ def run(url,password,out,progress,cancelled):
     item=c.uc_transfer(item,out.name);link,headers=c.link(item)
     path=file_download.fetch_original(link,out,name,item['size'],update,cancelled,headers,item,prefer_chunks=True,workers=download_tuning.profile(key)['workers'],
      range_size=download_tuning.profile(key)['range_size'],renew_url=lambda:c.link(item))
-   paths.append(path);progress(items,paths)
+   paths.append(path);folders[path.name]=(file_download.share_folder(relative),original);progress(items,paths)
   if identity:accounts.health(identity,True,'原文件完整下载及校验通过')
   note='官方网盘原文件直下载；未转存'
   if getattr(c,'temp_dest',None):
    import cloud_cleanup
    note=cloud_cleanup.complete(out,identity,key,c.temp_dest,paths,c)
-  return file_download.CloudResult(paths,note)
+  return file_download.CloudResult(paths,note,folders)
  finally:
   try:
    if c:c.close()

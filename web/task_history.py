@@ -17,7 +17,7 @@ def connection():
     finally:db.close()
 def remember(job):
     payload={k:getattr(job,k) for k in ("id","url","kind","status","title","message","progress","total","finished","failed","created","completed_at","owner","owner_label","batch_id","catalog_id","cloud_note","current_entry","failed_entries")}
-    payload["files"]=[{"name":f.name,"size":f.size,"done":f.done,"entry_id":f.entry_id} for f in job.files]
+    payload["files"]=[{"name":f.name,"size":f.size,"done":f.done,"entry_id":f.entry_id,"folder":getattr(f,"folder",""),"label":getattr(f,"label","")} for f in job.files]
     with connection() as db:
         db.execute("INSERT OR REPLACE INTO tasks VALUES (?,?,?)",(job.id,job.completed_at,json.dumps(payload,ensure_ascii=False)))
         db.execute("DELETE FROM tasks WHERE ended > 0 AND ended < ?",(time.time()-RETENTION,))

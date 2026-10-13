@@ -44,6 +44,12 @@ def authorize(share,state):
     for key,field in [('BDUSS','bduss'),('STOKEN','stoken'),('BAIDUID','baiduid')]:
         if user.get(field): share.session.cookies.set(key,user[field],domain='.baidu.com',path='/')
 
+def _relative(item,base):
+    """Path of a file inside the share, from its absolute Baidu path."""
+    path=str(item.get('path',''))
+    return path[len(base)+1:] if base and path.startswith(base+'/') else str(item.get('server_filename',''))
+
+
 def run(url,password,out,progress,cancelled):
     if not configured(): raise ValueError('百度后台账号尚未连接，请在首页网盘账号区域扫码')
     while not LOCK.acquire(timeout=.5):
@@ -64,14 +70,14 @@ def run(url,password,out,progress,cancelled):
         try: links=[share.download_url(f) for f in files]
         except AuthorizationRequired: links=None
         if links:
-            results=[];progress(files,results)
+            results=[];folders={};progress(files,results)
             headers={'User-Agent':state.get('pan_ua') or 'Mozilla/5.0','Referer':share.url,'Cookie':'; '.join(c.name+'='+c.value for c in share.session.cookies),'_cookie_domains':('baidu.com','baidupcs.com')}
             for item,link in zip(files,links):
                 name=str(item['fs_id'])+'_'+file_download.safe_name(item['server_filename'])
                 def report(size):progress(files,results,received=sum(p.stat().st_size for p in results)+size)
                 p=file_download.fetch_original(link,out,name,int(item['size']),report,cancelled,headers,item,range_size=download_tuning.profile('baidu')['range_size'],workers=download_tuning.profile('baidu')['workers'])
-                results.append(p);progress(files,results)
-            return file_download.CloudResult(results,'百度原文件直下载；'+download_tuning.describe('baidu')+'；未转存')
+                results.append(p);folders[p.name]=(file_download.share_folder(_relative(item,getattr(share,'root_parent',''))),item['server_filename']);progress(files,results)
+            return file_download.CloudResult(results,'百度原文件直下载；'+download_tuning.describe('baidu')+'；未转存',folders)
         executable=cli();config.mkdir(parents=True,exist_ok=False)
         (config/'pcs_config.json').write_bytes(content)
         env=os.environ.copy();env['BAIDUPCS_GO_CONFIG_DIR']=str(config)
@@ -114,15 +120,15 @@ def run(url,password,out,progress,cancelled):
         if expected!=Counter((f['server_filename'],int(f['size'])) for f in owned):
             raise ValueError('临时转存文件与原分享大小或数量不符，转存保留')
         links=[share.owned_download_url(f) for f in owned]
-        results=[];progress(files,results)
+        results=[];folders={};progress(files,results)
         headers={'User-Agent':state.get('pan_ua') or 'Mozilla/5.0','Referer':'https://pan.baidu.com/disk/main','Cookie':'; '.join(c.name+'='+c.value for c in share.session.cookies),'_cookie_domains':('baidu.com','baidupcs.com')}
         for item,link in zip(owned,links):
             name=str(item['fs_id'])+'_'+file_download.safe_name(item['server_filename'])
             def report(size):progress(files,results,received=sum(p.stat().st_size for p in results)+size)
             target=file_download.fetch_original(link,out,name,int(item['size']),report,cancelled,headers,item,range_size=download_tuning.profile('baidu')['range_size'],workers=download_tuning.profile('baidu')['workers'])
-            results.append(target);progress(files,results)
+            results.append(target);folders[target.name]=(file_download.share_folder(_relative(item,remote)),item['server_filename']);progress(files,results)
         note=cloud_cleanup.complete(out,identity,'baidu',remote,results,delete=lambda remote:remove_command(executable,env,remote))
-        return file_download.CloudResult(results,'百度官方网页授权原文件；'+download_tuning.describe('baidu')+'；'+note)
+        return file_download.CloudResult(results,'百度官方网页授权原文件；'+download_tuning.describe('baidu')+'；'+note,folders)
     finally:
         if share: share.close()
         if config.parent.resolve()==(ROOT/'private-baidu').resolve() and config.name=='task-'+out.name: shutil.rmtree(config,ignore_errors=True)

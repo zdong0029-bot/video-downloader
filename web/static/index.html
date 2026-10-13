@@ -252,7 +252,7 @@ let VIEW='workspace';
 const workspaceJobs=new Set(),workspaceCatalogs=new Set(),workspaceJobPages=new Map();
 const selected = new Set();
 function acceptSubmission(data,page=CATEGORY){
-  for(const j of data.created||[]){workspaceJobs.add(j.id);workspaceJobPages.set(j.id,page);}
+  for(const j of [...(data.created||[]),...(data.existing||[])]){workspaceJobs.add(j.id);workspaceJobPages.set(j.id,page);}
   for(const c of data.catalogs||[])workspaceCatalogs.add(c.id);
 }
 function matchStatus(status){
@@ -261,7 +261,8 @@ function matchStatus(status){
 }
 function searchValue(){return $('#taskSearch').value.trim().toLowerCase();}
 function visibleJob(j){
-  return (VIEW==='history'||workspaceJobs.has(j.id)) && (VIEW==='history'||(workspaceJobPages.get(j.id)||categoryOf(j))===CATEGORY) && matchStatus(j.status)
+  // 排队/下载中的任务刷新后也留在工作台，避免后台占着通道却看不到
+  return (VIEW==='history'||workspaceJobs.has(j.id)||['queued','running'].includes(j.status)) && (VIEW==='history'||(workspaceJobPages.get(j.id)||categoryOf(j))===CATEGORY) && matchStatus(j.status)
     && (!searchValue()||[j.title,j.url,...(j.files||[]).map(f=>f.name)].join(' ').toLowerCase().includes(searchValue()));
 }
 async function clearCompletedHistory(){
@@ -389,6 +390,7 @@ function render(jobs){
           <button class="${MOBILE&&files.some(f=>isAlbumMedia(f.name))?'ghost':'small'}" ${nSel && !jobBusy(j.id) ? '' : 'disabled'}
                   data-download-job="${j.id}" onclick="downloadSelected('${j.id}',null,null,true)">${downloadTransfers.get(j.id)?.active ? '接收中…' : MOBILE?'保存到文件':'下载选中'}</button>` : ''}
           ${!MOBILE && window.OriginalFileTransfer?.supported() && files.some(f=>f.size>=32*1048576) ? `<button class="ghost" data-stream-job="${j.id}" ${nSel===1 && selectedIn(j)[0].size>=32*1048576 && !jobBusy(j.id)?'':'disabled'} title="保存到你选择的文件夹，网页显示实际进度；请保持页面打开" onclick="downloadSelected('${j.id}',null,null,true,true)">分段保存</button>` : ''}
+          ${!MOBILE && window.showDirectoryPicker && window.OriginalFileTransfer?.supported() && files.some(f=>f.folder) ? `<button class="ghost" ${nSel && !jobBusy(j.id)?'':'disabled'} title="选一个本机文件夹，按网盘原来的目录结构保存选中文件；请保持页面打开" onclick="downloadSelected('${j.id}',null,null,true,false,true)">保存到文件夹（保留目录）</button>` : ''}
           ${active ? `
           <button class="ghost warn" onclick="cancelJob('${j.id}')"
                   title="停止下载，已下好的保留">取消下载</button>` : ''}
@@ -411,7 +413,7 @@ function render(jobs){
       return `<div class="file ${on ? 'sel' : ''}">
         <label><input aria-label="选择文件" type="checkbox" ${jobBusy(j.id) ? 'disabled' : ''} ${on ? 'checked' : ''} onchange="toggleOne('${sourceId}', ${arg}, this.checked)"></label>
         ${video ? `<button class="preview-link" title="预览视频" onclick="previewFile('${sourceId}', ${arg})"><img class="thumb" alt="视频首帧" loading="lazy" src="/api/thumb/${sourceId}/${encodeURIComponent(f.name)}" onerror="this.style.visibility='hidden'"></button>` : image ? `<a href="${base}" target="_blank" rel="noopener"><img class="thumb" loading="lazy" alt="图片" src="${base}"></a>` : `<span class="thumb" style="display:grid;place-items:center" aria-label="文件">📦</span>`}
-        <button class="fname" onclick="${video || (MOBILE && image) ? 'previewFile' : 'saveFile'}('${sourceId}', ${arg})">${esc(f.name)}<br><span class="fsize">${video ? '视频原文件' : image ? '原始图片' : '文件'}</span>${j.is_group ? '<br><span class="fsize">来源：'+esc(f.source_url)+'</span>' : ''}</button>
+        <button class="fname" onclick="${video || (MOBILE && image) ? 'previewFile' : 'saveFile'}('${sourceId}', ${arg})">${esc(f.label||f.name)}${f.folder?'<br><span class="fsize">📁 '+esc(f.folder)+'</span>':''}<br><span class="fsize">${video ? '视频原文件' : image ? '原始图片' : '文件'}</span>${j.is_group ? '<br><span class="fsize">来源：'+esc(f.source_url)+'</span>' : ''}</button>
         <div class="file-detail">原文件<br><span class="fsize">${fmtSize(f.size)}</span></div><div class="file-state"><span class="status-done">✓ 已就绪</span>${window.relayBadge?.(f)||''}</div>
         <div class="file-actions">${MOBILE && (video || image) ? `<button class="ghost" onclick="previewFile('${sourceId}', ${arg})">保存到相册</button>` : `<button class="ghost" ${jobBusy(j.id) ? 'disabled' : ''} onclick="saveFile('${sourceId}', ${arg})">保存</button>`}
         ${!MOBILE ? LOCAL ? `<button class="ghost" title="定位主机保存的文件" onclick="revealFile('${sourceId}', ${arg})">📁 定位</button>` : `<button class="ghost" data-folder-file="${esc(f.name)}" title="定位当前浏览器已保存的文件（需安装定位扩展）" onclick="folderLocatorHelp()">📁 定位</button>` : ''}</div>
@@ -570,7 +572,12 @@ function saveFile(sourceId,name){
   const group=viewJobs(cache).find(j=>(j.files||[]).some(f=>originId(j,f)===sourceId && f.name===name));
   if(group) return downloadSelected(group.id,name,sourceId);
 }
-async function downloadSelected(jobId, singleName=null, sourceId=null, forceFile=false, streamToDisk=false){
+async function folderFileHandle(root,f){
+  let dir=root;
+  for(const part of String(f.folder||'').split('/').filter(p=>p&&p!=='.'&&p!=='..'))dir=await dir.getDirectoryHandle(part,{create:true});
+  return dir.getFileHandle(f.label||f.name,{create:true});
+}
+async function downloadSelected(jobId, singleName=null, sourceId=null, forceFile=false, streamToDisk=false, toFolder=false){
   if(jobBusy(jobId)) return;
   const job=viewJob(jobId);
   if(!job) return;
@@ -578,7 +585,9 @@ async function downloadSelected(jobId, singleName=null, sourceId=null, forceFile
   if(!files.length) return;
   if(MOBILE&&!forceFile&&files.some(f=>isAlbumMedia(f.name)))return saveAlbumItems(files.map(f=>({id:originId(job,f),name:f.name,size:f.size})));
   // Capture the picker during the click gesture, before any network await.
-  const destination=streamToDisk && files.length===1 && files[0].size>=32*1048576 && !MOBILE && window.OriginalFileTransfer?.supported()
+  const folderPick=toFolder && !MOBILE && window.showDirectoryPicker && window.OriginalFileTransfer?.supported()
+    ? window.showDirectoryPicker({id:'cloud-folder',mode:'readwrite'}) : null;
+  const destination=!folderPick && streamToDisk && files.length===1 && files[0].size>=32*1048576 && !MOBILE && window.OriginalFileTransfer?.supported()
     ? window.OriginalFileTransfer.pick(files[0].name) : null;
   const t={started:performance.now(),active:true,completed:0,count:files.length,receivedBytes:0,totalBytes:files.reduce((n,f)=>n+(f.size||0),0),controller:new AbortController(),error:''};
   t.jobIds=[...new Set(files.map(f=>originId(job,f)))];
@@ -587,10 +596,21 @@ async function downloadSelected(jobId, singleName=null, sourceId=null, forceFile
   hintEl.textContent='已开始本组下载；可以继续勾选其他任务并下载，各组进度独立显示。';
   let lastPaint=0;
   try{
-    const handle=destination ? await destination : null;
-    t.diskTransfer=!!handle;t.started=performance.now();
+    const root=folderPick ? await folderPick : null;
+    const single=destination ? await destination : null;
+    t.diskTransfer=!!(root||single);t.started=performance.now();
+    let doneBytes=0;
     for(const f of files){
       if(t.controller.signal.aborted) throw new DOMException('Stopped','AbortError');
+      const handle=root ? await folderFileHandle(root,f) : single;
+      if(handle&&root){
+        t.route='按原目录保存 · '+(f.folder?f.folder+'/':'')+(f.label||f.name);updateTransfer(jobId);
+        await window.OriginalFileTransfer.save(window.RelayLinks ? window.RelayLinks.source(originId(job,f),f.name) : `/api/files/${originId(job,f)}/${encodeURIComponent(f.name)}`,handle,f.size,t.controller.signal,(received)=>{
+          t.receivedBytes=doneBytes+received;
+          if(performance.now()-lastPaint>120){updateTransfer(jobId);lastPaint=performance.now();}
+        });
+        doneBytes+=f.size||0;t.receivedBytes=doneBytes;t.savedToDisk=true;t.completed++;updateTransfer(jobId);continue;
+      }
       if(handle){
         t.route='四路分段保存原文件';updateTransfer(jobId);
         await window.OriginalFileTransfer.save(window.RelayLinks ? window.RelayLinks.source(originId(job,f),f.name) : `/api/files/${originId(job,f)}/${encodeURIComponent(f.name)}`,handle,f.size,t.controller.signal,(received,total,route)=>{
@@ -842,9 +862,11 @@ async function submit(){
       const n = (data.created || []).length;
       const bad = (data.rejected || []).length;
       const scans=(data.catalogs||[]).length;
-      hintEl.textContent = bad
+      const dup=(data.existing||[]).length;
+      if(dup&&!n&&!scans){hintEl.textContent=`这个链接已经在后台下载中，没有重复提交；进度见下方原任务。`;}
+      else hintEl.textContent = (dup?`${dup} 个链接已在下载中，未重复提交；`:'')+(bad
         ? `已加入 ${n} 个任务，${bad} 个无法识别已跳过。`
-        : `已加入 ${n} 个下载任务。`+(scans?`正在识别 ${scans} 个主页，完成后勾选下载。`:n>1?'单视频链接将自动合并，多视频链接独立展示。':'');
+        : `已加入 ${n} 个下载任务。`+(scans?`正在识别 ${scans} 个主页，完成后勾选下载。`:n>1?'单视频链接将自动合并，多视频链接独立展示。':''));
       void refreshCatalogs(true);
       hintEl.style.color = bad ? 'var(--warn)' : '';
       refresh(true);

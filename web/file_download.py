@@ -515,5 +515,12 @@ def _chunked_original(url, headers, partial, total, validator, progress, cancell
 
 
 class CloudResult(list):
-    def __init__(self,paths,note=''):
-        super().__init__(paths);self.note=note
+    # folders: saved file name -> (folder inside the share, original file name)
+    def __init__(self,paths,note='',folders=None):
+        super().__init__(paths);self.note=note;self.folders=dict(folders or {})
+
+
+def share_folder(relative):
+    """Directory part of a path inside a share, cleaned for safe re-creation."""
+    parts=[p for p in str(relative or '').replace('\\','/').split('/')[:-1] if p not in ('','.','..')]
+    return '/'.join(safe_name(p) for p in parts)[:900]

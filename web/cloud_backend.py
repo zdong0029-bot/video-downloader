@@ -373,7 +373,7 @@ def run(url, password, out, progress, cancelled):
             except PlatformError as error:
                 if error.code not in (403,410,'Forbidden','NotFound.File','InvalidParameter.ShareId'):raise
                 items=c.ali_transfer(items,share_id,out.name)
-        paths = []
+        paths = []; folders = {}
         progress(items, paths)
         for item in items:
             if cancelled(): raise Cancelled()
@@ -386,13 +386,13 @@ def run(url, password, out, progress, cancelled):
             target = file_download.fetch_original(link, out, name, item['size'], report, cancelled, headers, item,
                                                   workers=download_tuning.profile(key)['workers'], range_size=download_tuning.profile(key)['range_size'], prefer_chunks=True,
                                                   renew_url=lambda:c.link(item,share_id))
-            paths.append(target);progress(items, paths)
+            paths.append(target);folders[target.name]=(file_download.share_folder(item['relative']),item['name']);progress(items, paths)
         note = '网盘原文件直下载；未转存'
         if getattr(c,'temp_dest',None):
             import cloud_cleanup
             note = cloud_cleanup.complete(out, identity, key, c.temp_dest, paths, c)
         accounts.health(identity, True, '原文件下载完整性验证通过')
-        return file_download.CloudResult(paths, note)
+        return file_download.CloudResult(paths, note, folders)
     except LoginRequired:
         if c and c.identity: accounts.health(c.identity, False, '登录授权已失效，请重新扫码')
         raise

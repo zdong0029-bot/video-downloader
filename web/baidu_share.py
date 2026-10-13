@@ -62,6 +62,8 @@ class Share:
 
     def files(self):
         pending=list(self.open()); files=[]; seen=set(); directories=0
+        # Parent of the shared top-level items; paths below it keep the share's folders.
+        self.root_parent=str(pending[0].get('path','')).rsplit('/',1)[0] if pending and pending[0].get('path') else ''
         while pending:
             if self.cancelled(): raise Cancelled()
             item=pending.pop(0)

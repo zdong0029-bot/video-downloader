@@ -55,6 +55,17 @@ DOWNLOADS.mkdir(exist_ok=True)
 # 同时下载的任务数。家用场景不需要开太大，避免把上行带宽和代理打满。
 MAX_WORKERS = 2
 _slots = threading.Semaphore(MAX_WORKERS)
+# 同一个网盘账号一次只跑一个分享任务（并行不会更快，还会抢令牌、互相限速）。
+# 在占用总通道之前排队，排队的网盘任务不再挡住视频任务。
+_cloud_queues: dict[str, threading.Lock] = {}
+_cloud_running: dict[str, str] = {}
+
+
+def _cloud_queue_key(url: str) -> str:
+    try:
+        return cloud_backend.provider(url) or ""
+    except Exception:  # noqa: BLE001
+        return ""
 
 
 @dataclass
@@ -63,6 +74,8 @@ class FileItem:
     size: int = 0
     done: bool = False
     entry_id: str = ""
+    folder: str = ""   # 网盘分享里的原目录（相对路径），用于“保存到文件夹”还原结构
+    label: str = ""    # 网盘里的原文件名（磁盘文件名带防重名前缀）
 
 
 @dataclass
@@ -115,7 +128,7 @@ class Job:
             "failed_entries": self.failed_entries,
             "selected_entries": [e["id"] for e in self.entries],
             "owner": (self.owner_label + " · " + self.owner[:6]) if self.owner_label else self.owner[:8],
-            "files": [{"name": f.name, "size": f.size, "entry_id": f.entry_id, **({"relay": relay_sync.status(self.id, f.name)} if relay else {})} for f in self.files if f.done],
+            "files": [{"name": f.name, "size": f.size, "entry_id": f.entry_id, **({"folder": f.folder, "label": f.label} if f.folder or f.label else {}), **({"relay": relay_sync.status(self.id, f.name)} if relay else {})} for f in self.files if f.done],
         }
 
 
@@ -167,7 +180,8 @@ def _save_meta(job: Job) -> None:
             "title": job.title, "created": job.created, "owner": job.owner, "owner_label": job.owner_label,
             "batch_id": job.batch_id, "cloud_note": job.cloud_note,
             "completed_at": job.completed_at, "catalog_id": job.catalog_id,
-            **({"cloud_files": [f.name for f in job.files]} if job.kind == "cloud" else {}),
+            **({"cloud_files": [f.name for f in job.files],
+                "cloud_folders": {f.name: [f.folder, f.label] for f in job.files if f.folder or f.label}} if job.kind == "cloud" else {}),
         }, ensure_ascii=False), encoding="utf-8")
     except OSError:
         pass
@@ -226,7 +240,9 @@ def _restore_jobs() -> None:
             completed_at=meta.get("completed_at") or mp.stat().st_mtime if mp.exists() else d.stat().st_mtime,
             catalog_id=meta.get("catalog_id", ""),
         )
-        job.files = [FileItem(p.name, p.stat().st_size, True) for p in sorted(files)]
+        folders = meta.get("cloud_folders") or {}
+        job.files = [FileItem(p.name, p.stat().st_size, True, folder=str((folders.get(p.name) or ["", ""])[0]), label=str((folders.get(p.name) or ["", ""])[1]))
+                     for p in sorted(files, key=lambda p: (str((folders.get(p.name) or [""])[0]), p.name))]
         job.total = job.finished = len(job.files)
         job.progress = 1.0
         job.message = f"共 {len(job.files)} 个" + ("；" + job.cloud_note if job.cloud_note else "")
@@ -489,7 +505,30 @@ def _worker(job: Job) -> None:
     if job.cancelled():
         _drop_empty_cancelled(job)
         return
+    queue_key = _cloud_queue_key(job.url) if job.kind == "cloud" else ""
+    if not queue_key:
+        return _worker_slot(job)
+    with _lock:
+        queue = _cloud_queues.setdefault(queue_key, threading.Lock())
+    name = cloud_backend.NAMES.get(queue_key, "网盘") if hasattr(cloud_backend, "NAMES") else "网盘"
+    while not queue.acquire(timeout=.5):
+        if job.cancelled():
+            _drop_empty_cancelled(job)
+            return
+        other = JOBS.get(_cloud_running.get(queue_key, ""))
+        job.message = f"排队中：{name}账号正在下载另一个分享" + (f"（{other.title or other.url[:40]}）" if other else "") + "，完成后自动开始；可随时取消"
+    try:
+        _cloud_running[queue_key] = job.id
+        _worker_slot(job)
+    finally:
+        _cloud_running.pop(queue_key, None)
+        queue.release()
 
+
+def _worker_slot(job: Job) -> None:
+    if job.cancelled():
+        _drop_empty_cancelled(job)
+        return
     with _slots:
         if job.cancelled():
             _drop_empty_cancelled(job)
@@ -515,7 +554,7 @@ def _worker(job: Job) -> None:
                 job.title = file_download.provider(job.url) + "分享文件"
                 if not cloud_backend.provider(job.url):
                     raise ValueError("此网盘暂不支持，请使用页面列出的官方分享链接")
-                job.message = "正在解析网盘文件，等待下载通道…"
+                job.message = "正在读取分享目录并准备原文件（文件多时需要一两分钟）…"
                 cloud_rate=[time.monotonic(),0,0.0]
                 def cloud_progress(items, paths, received=None):
                     total = sum(int(item.get("size", 0)) for item in items)
@@ -538,7 +577,8 @@ def _worker(job: Job) -> None:
                 (cloud_dir / ".cloud-incomplete").touch()
                 paths = cloud_backend.run(job.url, "", cloud_dir, cloud_progress, job.cancelled)
                 job.cloud_note = getattr(paths, "note", "")
-                job.files = [FileItem(p.name, p.stat().st_size, True) for p in paths]
+                folders = getattr(paths, "folders", {}) or {}
+                job.files = [FileItem(p.name, p.stat().st_size, True, folder=(folders.get(p.name) or ("", ""))[0], label=(folders.get(p.name) or ("", ""))[1]) for p in paths]
                 job.total = job.finished = len(paths)
             else:
                 _run_web(job)
@@ -1104,6 +1144,7 @@ def create_job(body: NewJob, request: Request,
     created: list[dict] = []
     rejected: list[str] = []
     catalogs: list[dict] = []
+    existing: list[dict] = []
     batch_id = uuid.uuid4().hex[:16] if len(items) > 1 else ""
 
     for item in items:
@@ -1131,6 +1172,12 @@ def create_job(body: NewJob, request: Request,
             rejected.append(item)
             continue
 
+        with _lock:
+            # 同一个人重复提交还在排队/下载中的同一网盘/文件链接：直接返回原任务，不再占第二个通道
+            same = next((j for j in JOBS.values() if kind in ("cloud", "file") and j.owner == me.device and j.url == item and j.status in ("queued", "running") and not j.cancelled()), None)
+        if same:
+            existing.append(same.public())
+            continue
         job = Job(id=uuid.uuid4().hex[:12], url=item, kind=kind, owner=me.device, owner_label=_device_label(ua), batch_id=batch_id)
         with _lock:
             JOBS[job.id] = job
@@ -1138,6 +1185,8 @@ def create_job(body: NewJob, request: Request,
         threading.Thread(target=_worker, args=(job,), daemon=True).start()
         created.append(job.public())
 
+    if not created and not catalogs and existing:
+        return {"created": [], "existing": existing, "rejected": rejected, "catalogs": []}
     if not created and not catalogs:
         raise HTTPException(
             400,
@@ -1145,7 +1194,7 @@ def create_job(body: NewJob, request: Request,
             "或以 http(s):// 开头的视频链接，一行一个。",
         )
 
-    return {"created": created, "rejected": rejected, "catalogs": catalogs}
+    return {"created": created, "existing": existing, "rejected": rejected, "catalogs": catalogs}
 
 
 @app.get("/api/jobs")
