@@ -1,7 +1,7 @@
 // A display group preserves each file's real job ID for download and removal.
 const expandedCards = new Set();
-try{JSON.parse(sessionStorage.getItem('expandedCards')||'[]').forEach(id=>expandedCards.add(id));}catch(e){}
-function rememberExpanded(){sessionStorage.setItem('expandedCards',JSON.stringify([...expandedCards]));}
+
+function rememberExpanded(){}
 function originId(job,file){return file.job_id || job.id;}
 function viewJobs(jobs){
   const groups=new Map(),out=[];

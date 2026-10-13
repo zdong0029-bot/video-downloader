@@ -1,0 +1,49 @@
+/* Light workspace: scoped layout changes; download engines remain unchanged. */
+:root{--bg:#f7f9fd;--card:#fff;--text:#17233b;--muted:#7b879c;--line:#e4eaf4;--accent:#1465ff;--accent-soft:#edf4ff;--radius:12px;color-scheme:light}
+body{padding:0 28px 60px;font-size:14px;background:linear-gradient(#f7faff,#fff 470px);min-height:100vh}
+.wrap{max-width:1450px}.topbar{align-items:center;padding:17px 0;margin-bottom:22px;border-bottom:1px solid var(--line);gap:22px;background:#ffffffea}
+h1{font-size:23px;white-space:nowrap}.brand-icon{color:var(--accent);font-size:29px;vertical-align:middle}
+.category-tabs{margin:0;gap:20px;flex:1}.category-tabs button{flex:none;border:0;border-radius:0;padding:12px 4px;color:#59657a;background:transparent;font-weight:600;font-size:14px}
+.category-tabs button[aria-current=page]{color:var(--accent);background:transparent;border-bottom:3px solid var(--accent)}
+.who{justify-content:flex-end;max-width:590px;gap:6px}.who #whoName{font-size:11px;max-width:235px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}.who button.ghost{padding:5px 8px;font-size:12px}.who a{font-size:12px}
+#downloadForm{display:grid;grid-template-columns:200px minmax(240px,1fr) 320px;gap:10px 20px;padding:20px 24px;box-shadow:0 5px 20px #dce7fb22}
+.form-heading{grid-column:1;grid-row:1/4;font-size:17px;padding-top:24px}.quality-badge{grid-column:3;justify-self:end;padding:5px 11px;border-radius:7px;background:#eee9ff;color:#5645b7;font-size:12px}
+#sourceModeRow{grid-column:2;grid-row:1;font-size:12px;margin:0}
+#categoryDescription{grid-column:2;grid-row:2;font-size:12px;margin:0}
+#url{grid-column:2;grid-row:3;min-height:84px;max-height:240px;background:#fff;font-size:14px;border-radius:8px}
+.submission-actions{grid-column:3;grid-row:3;margin:0;align-items:center;justify-content:flex-end;gap:9px}
+.submission-actions #go{order:2;font-size:14px;padding:12px 19px;border-radius:7px}.submission-actions #scanProfile{order:1;font-size:13px;padding:12px}
+.submission-actions .spacer,.submission-actions>.note{display:none}
+.submission-actions #linkCount{order:3;flex-basis:100%;text-align:right;font-size:11px}
+.newline-option{grid-column:2;grid-row:4;justify-self:end;margin:0;font-size:12px}
+.form-retention{grid-column:1/-1;border-top:1px solid var(--line);padding-top:9px;margin-top:4px}
+#hint{grid-column:1/-1;margin:0;font-size:12px}#transferModeRow,#cloudStatusRow,#adminCloudNote{grid-column:2/-1;font-size:12px;margin:0}
+select{border:1px solid var(--line);border-radius:6px;padding:5px;background:#fff;color:var(--text)}
+.workspace-heading{display:flex;align-items:center;justify-content:space-between;gap:18px;margin:25px 0 16px}.workspace-heading h2{font-size:23px;margin:0}.workspace-heading p{font-size:12px;color:var(--muted);margin:4px 0 0}
+.workspace-filters{display:flex;gap:10px}.workspace-filters input{width:250px;background:#fff;border:1px solid var(--line);border-radius:8px;padding:10px 12px;color:var(--text)}
+.workspace-filters select{min-width:130px;border-radius:8px;font-size:13px}
+.jobs{gap:14px;margin:14px 0}.job{padding:0;overflow:hidden;border-radius:9px;box-shadow:0 2px 8px #dce5f51a}
+.job-top{padding:15px 18px;align-items:center;background:#f9fbff;min-height:68px}.job-title{font-size:15px}.job-url{font-size:11px;max-width:1050px}
+.job>.msg,.job>.note,.job>.bar,.job>.hint,.job>.load-sentinel,.job>.acts{margin:10px 18px}.job>.toolbar{border:0;border-radius:0;border-top:1px solid var(--line);border-bottom:1px solid var(--line);margin:0;background:#fbfcff;padding:9px 18px}
+.toolbar button{border-radius:7px}.toolbar button.small{font-size:13px;padding:9px 16px}.toolbar label{font-size:13px}.toolbar .count{font-size:12px}.btn-group button.ghost{font-size:12px;padding:7px 9px}
+.files{margin:0;gap:0}.file{border:0;border-bottom:1px solid #edf1f7;border-radius:0;background:#fff;display:grid;grid-template-columns:20px minmax(220px,1fr) 150px 180px 170px;gap:12px;min-height:56px;padding:8px 18px;font-size:13px}
+.file.sel{background:#f4f8ff;border-color:#e9effa}.file label{display:block}.thumb{width:68px;height:40px;border-radius:5px;object-fit:cover}.thumb-empty{display:block}
+.file .fname{font-size:13px;line-height:1.35}.file-detail{font-size:12px;color:#6f7c94}.file-detail .fsize{font-size:11px}
+.file-heading{display:grid;grid-template-columns:20px minmax(220px,1fr) 150px 180px 170px;gap:12px;padding:8px 18px;background:#f8faff;color:#7b879c;font-size:11px;border-bottom:1px solid var(--line)}
+/* Existing download rows have a separate preview element: combine it with title. */
+.file:not(.catalog-file){grid-template-columns:20px 68px minmax(140px,1fr) 150px 180px 170px}
+.catalog-file .catalog-name{display:flex;align-items:center;gap:12px;min-width:0}.catalog-name .fname{min-width:0;word-break:break-word}
+.file-state{font-size:12px;color:var(--muted)}.status-done{color:#13a269}.status-error{color:var(--err)}.row-progress{height:5px;max-width:140px;margin:5px 0;background:var(--line);border-radius:8px;overflow:hidden}.row-progress i{display:block;height:100%;background:var(--accent)}
+.file-actions{justify-content:flex-end;gap:5px;flex-wrap:nowrap}.file-actions button,.file-actions a{padding:4px 10px;border-radius:5px;font-size:11px;color:#566278;font-weight:500;border:1px solid var(--line)}
+.catalog-badge{color:var(--accent);font-size:11px;border:1px solid #dbe7ff;border-radius:5px;padding:3px 8px;display:inline-block;margin-right:8px;background:#fff}
+.load-sentinel{font-size:11px;color:var(--muted)}.load-sentinel button{padding:4px 8px;font-size:11px}.empty{padding:65px 10px}.empty strong{color:#687891;font-size:17px}.empty p{font-size:12px}
+.gate{padding-top:30px}.tag{font-size:11px}.hint progress{height:5px!important}input[type=checkbox]{width:17px;height:17px}
+.job .fold-note{margin:12px 18px;color:var(--muted);font-size:12px}
+@media(max-width:1100px){#downloadForm{grid-template-columns:150px 1fr 260px;gap:9px 12px;padding:16px}.file,.file-heading{grid-template-columns:20px minmax(180px,1fr) 105px 135px 130px;gap:8px}.file:not(.catalog-file){grid-template-columns:20px 60px minmax(120px,1fr) 105px 135px 130px}.thumb{width:60px;height:37px}.who{max-width:100%;flex-basis:100%}.topbar{gap:8px}.file-actions button{padding:4px 6px}}
+@media(max-width:720px){body{padding:0 12px 32px}.topbar{margin-bottom:12px}h1{font-size:20px}.category-tabs{gap:14px}.category-tabs button{font-size:12px}.who #whoName{display:none}.workspace-heading{align-items:flex-start;flex-direction:column;gap:10px}.workspace-filters{width:100%}.workspace-filters input{width:100%}.workspace-heading h2{font-size:20px}
+#downloadForm{display:flex;flex-direction:column;padding:15px;gap:9px}.form-heading{padding:0;font-size:16px}.quality-badge{align-self:flex-start}.submission-actions{justify-content:flex-start}.submission-actions #linkCount{flex-basis:auto}.newline-option{align-self:flex-end}.form-retention{font-size:11px}
+.file,.file:not(.catalog-file){grid-template-columns:18px minmax(0,1fr) auto;gap:8px;padding:9px 12px}.file:not(.catalog-file)>.preview-link,.file:not(.catalog-file)>a,.file:not(.catalog-file)>.thumb{grid-column:2;grid-row:1}.file:not(.catalog-file)>.fname{grid-column:2;grid-row:1;padding-left:68px;min-height:40px}
+.file-detail{grid-column:2;font-size:11px;padding-left:68px}.file-state{grid-column:2;padding-left:68px}.file-actions{grid-column:3;grid-row:1/4;flex-direction:column;gap:5px}.file-heading{display:none}.job-top{padding:12px}.job-title{font-size:13px}.job-url{font-size:10px}.job>.toolbar{padding:9px 12px;gap:8px}.toolbar .spacer{display:block}.btn-group{width:auto}.btn-group button{min-width:0;flex:none}.file .fname{font-size:12px}
+}
+
+.download-heading{grid-template-columns:20px minmax(288px,1fr) 150px 180px 170px}@media(max-width:1100px){.download-heading{grid-template-columns:20px minmax(248px,1fr) 105px 135px 130px}}@media(max-width:720px){.download-heading{display:none}}

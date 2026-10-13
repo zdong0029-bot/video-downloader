@@ -39,6 +39,7 @@ import file_download
 import baidu_backend
 import cloud_backend
 import cloud_cleanup
+import task_history
 import video_catalog
 import xhs_images
 import video_accounts, wechat_channels, platform_extractors
@@ -59,6 +60,7 @@ class FileItem:
     name: str
     size: int = 0
     done: bool = False
+    entry_id: str = ""
 
 
 @dataclass
@@ -76,6 +78,10 @@ class Job:
     files: list[FileItem] = field(default_factory=list)
     created: float = field(default_factory=time.time)
     owner: str = ""          # 提交这个任务的设备标识，用于隔离各设备的记录
+    completed_at: float = 0.0
+    catalog_id: str = ""
+    current_entry: str = ""
+    failed_entries: dict = field(default_factory=dict)
     owner_label: str = ""    # 人类可读的设备名，只给管理员看
     cloud_note: str = ""
     batch_id: str = ""
@@ -99,8 +105,14 @@ class Job:
             "finished": self.finished,
             "failed": self.failed,
             "created": self.created,
+            "completed_at": self.completed_at,
+            "expires_at": self.completed_at + task_history.RETENTION if self.completed_at else None,
+            "catalog_id": self.catalog_id,
+            "current_entry": self.current_entry,
+            "failed_entries": self.failed_entries,
+            "selected_entries": [e["id"] for e in self.entries],
             "owner": (self.owner_label + " · " + self.owner[:6]) if self.owner_label else self.owner[:8],
-            "files": [{"name": f.name, "size": f.size} for f in self.files if f.done],
+            "files": [{"name": f.name, "size": f.size, "entry_id": f.entry_id} for f in self.files if f.done],
         }
 
 
@@ -145,11 +157,13 @@ def _unhide_all(job_id: str) -> None:
 def _save_meta(job: Job) -> None:
     """把任务信息落盘。不存的话，服务一重启（开机自启那次也算）列表就空了，
     磁盘上的视频全变成看不见的孤儿文件，既占空间又找不回来。"""
+    task_history.remember(job)
     try:
         (DOWNLOADS / job.id / META).write_text(json.dumps({
             "id": job.id, "url": job.url, "kind": job.kind,
             "title": job.title, "created": job.created, "owner": job.owner, "owner_label": job.owner_label,
             "batch_id": job.batch_id, "cloud_note": job.cloud_note,
+            "completed_at": job.completed_at, "catalog_id": job.catalog_id,
             **({"cloud_files": [f.name for f in job.files]} if job.kind == "cloud" else {}),
         }, ensure_ascii=False), encoding="utf-8")
     except OSError:
@@ -178,7 +192,7 @@ def _restore_jobs() -> None:
         junk = {".part", ".ytdl", ".tmp", ".temp", ".json"}
         on_disk = [p for p in d.iterdir() if p.is_file() and (p.name in cloud_names if cloud_names is not None else p.suffix.lower() not in junk)]
         if not on_disk:
-            shutil.rmtree(d, ignore_errors=True)   # 空目录（多半是失败的任务）直接清掉
+            # History expiry and restoration never delete media or unfinished files.
             continue
 
         # 被移出列表的文件仍在磁盘上，只是不再显示。目录不能删。
@@ -206,6 +220,8 @@ def _restore_jobs() -> None:
             owner_label=meta.get("owner_label", ""),
             batch_id=meta.get("batch_id", ""),
             cloud_note=meta.get("cloud_note", ""),
+            completed_at=meta.get("completed_at") or mp.stat().st_mtime if mp.exists() else d.stat().st_mtime,
+            catalog_id=meta.get("catalog_id", ""),
         )
         job.files = [FileItem(p.name, p.stat().st_size, True) for p in sorted(files)]
         job.total = job.finished = len(job.files)
@@ -213,6 +229,29 @@ def _restore_jobs() -> None:
         job.message = f"共 {len(job.files)} 个" + ("；" + job.cloud_note if job.cloud_note else "")
         JOBS[job.id] = job
 
+
+def _restore_task_history():
+    for row in task_history.load():
+        if not task_history.retained(row["status"],row.get("completed_at",0),row["created"]): continue
+        persisted=row.pop("files",[])
+        job=Job(**row)
+        job.files=[FileItem(**f) for f in persisted if (_safe_restore_path(job.id,f["name"])) and f["name"] not in _load_hidden().get(job.id,[])]
+        if persisted and not job.files and job.status=="done":
+            task_history.forget(job.id)
+            continue
+        if job.id in JOBS:
+            present={f.name for f in JOBS[job.id].files}
+            job.files=[f for f in job.files if f.name in present]
+        if job.status in task_history.ACTIVE:
+            job.status="cancelled";job.completed_at=time.time()
+            job.message="服务重启中断了后台任务；已完成文件保留，请重新提交未完成部分"
+            task_history.remember(job)
+        JOBS[job.id]=job
+
+def _safe_restore_path(job_id,name):
+    base=(DOWNLOADS/job_id).resolve()
+    p=(base/name).resolve()
+    return p.parent==base and p.is_file() and not p.is_symlink()
 
 # ----------------------------------------------------------------- 下载逻辑
 
@@ -399,6 +438,7 @@ def _run_collection(job: Job) -> None:
         if job.cancelled():
             raise Cancelled()
         job.progress = 0.0
+        job.current_entry=entry["id"]
         job.message = f"({i}/{job.total}) {entry['title']}"
         child = Job(id=job.id, url=entry["url"], kind=_kind_of(entry["url"]) or "web",
                     owner=job.owner, stop=job.stop)
@@ -411,6 +451,7 @@ def _run_collection(job: Job) -> None:
             existing = {f.name for f in job.files}
             for f in child.files:
                 if f.name not in existing:
+                    f.entry_id=entry["id"]
                     job.files.append(f)
                     existing.add(f.name)
             job.finished += 1
@@ -421,7 +462,9 @@ def _run_collection(job: Job) -> None:
             if isinstance(error.__cause__, Cancelled):
                 raise Cancelled() from error
             job.failed += 1
+            job.failed_entries[entry["id"]]=str(error)[:1000]
             job.message = f"{entry['title']} 失败：{error}"
+    job.current_entry=""
     job.title = title
 
 
@@ -429,9 +472,8 @@ def _drop_empty_cancelled(job: Job) -> None:
     """取消且一个文件都没下到的任务，从列表和磁盘上一并清掉，不留空壳。"""
     job.status = "cancelled"
     job.message = "已取消"
-    with _lock:
-        JOBS.pop(job.id, None)
-    shutil.rmtree(DOWNLOADS / job.id, ignore_errors=True)
+    job.completed_at=time.time()
+    task_history.remember(job)
 
 
 def _worker(job: Job) -> None:
@@ -520,15 +562,12 @@ def _worker(job: Job) -> None:
                 job.status = "error"
                 job.message = str(e)
 
+        job.completed_at=time.time()
+        task_history.remember(job)
         if job.files:
             _save_meta(job)
             if job.kind == "cloud" and job.status == "done" and (DOWNLOADS / job.id / META).is_file():
                 (DOWNLOADS / job.id / ".cloud-incomplete").unlink(missing_ok=True)
-        elif job.status == "cancelled":
-            # 一个文件都没下到的取消任务，直接从列表里拿掉，不留空壳
-            with _lock:
-                JOBS.pop(job.id, None)
-            shutil.rmtree(DOWNLOADS / job.id, ignore_errors=True)
 
 
 # ----------------------------------------------------------------- API
@@ -536,6 +575,9 @@ def _worker(job: Job) -> None:
 app = FastAPI(title="局域网视频下载器")
 
 _restore_jobs()
+_restore_task_history()
+for _old_job in JOBS.values():
+    task_history.remember(_old_job)
 
 COOKIE = "sid"        # 管理员会话
 DEVICE = "did"        # 设备/浏览器标识
@@ -829,7 +871,7 @@ def _catalog_checkpoint():
     _catalog_saved_at=time.monotonic()
     try:
         _catalog_store.parent.mkdir(parents=True, exist_ok=True)
-        rows=[c for c in _catalogs.values() if c['created']>time.time()-7*86400]
+        rows=[c for c in _catalogs.values() if task_history.retained(c["status"] if c["status"]!="loading" else "running",c.get("completed_at",0),c["created"])]
         payload=cloud_accounts.crypt(json.dumps(rows,ensure_ascii=False).encode('utf-8'))
         temp=_catalog_store.with_suffix('.tmp');temp.write_bytes(payload);temp.replace(_catalog_store)
     except Exception:
@@ -841,9 +883,9 @@ def _catalog_restore():
     import cloud_accounts
     try:
         for c in json.loads(cloud_accounts.crypt(_catalog_store.read_bytes(),True)):
-            if c['created']<time.time()-7*86400:continue
-            if c['status']=='loading':
-                c.update(status='done',limited=True,complete=False,message='上次读取中断，已保留作品；可继续读取全部')
+            if not task_history.retained('running' if c['status']=='loading' else c['status'],c.get('completed_at',0),c['created']):continue
+            if c['status'] in ('loading','queued'):
+                c.update(status='error',completed_at=time.time(),limited=True,complete=False,message='上次读取中断，已保留作品；可继续读取全部')
             _catalogs[c['id']]=c
     except Exception:
         import logging
@@ -860,6 +902,8 @@ def _catalog_worker(cid):
             c = _catalogs.get(cid)
         if not c:
             return
+        with _catalog_lock:
+            c.update(status="loading",message="正在识别主页素材…",_version=c.get("_version",0)+1)
         try:
             options = {}
             if COOKIES.is_file():
@@ -897,13 +941,13 @@ def _catalog_worker(cid):
                 if result['limited']:result['entries']=list(known.values())
                 note = "（平台未确认列表结束，可能仍有未返回作品）" if result["limited"] else "（平台列表已读取结束）"
                 detail = result.get('note') or ''
-                c.update(result, status="done", message=f"识别到 {len(result['entries'])} 个作品{note}，请勾选下载" + (f"；{detail}" if detail else ''))
+                c.update(result, status="done", completed_at=time.time(), message=f"识别到 {len(result['entries'])} 个作品{note}，请勾选下载" + (f"；{detail}" if detail else ''))
                 c['_version']=c.get('_version',0)+1
                 _catalog_checkpoint()
         except Exception as error:
             with _catalog_lock:
                 if _catalogs.get(cid) is not c:return
-                c.update(status="error", title=c["title"] if c["entries"] else "主页识别失败",
+                c.update(status="error", completed_at=time.time(), title=c["title"] if c["entries"] else "主页识别失败",
                          message=str(error)[:1500],limited=True,complete=False,_version=c.get('_version',0)+1)
                 _catalog_checkpoint()
 
@@ -913,17 +957,17 @@ def _start_catalog(url, me, batch_id="", limit=0):
     with _catalog_lock:
         now = time.time()
         for cid in list(_catalogs):
-            if now - _catalogs[cid]["created"] > 7*86400 and _catalogs[cid]["status"] != "loading":
+            if not task_history.retained("running" if _catalogs[cid]["status"]=="loading" else _catalogs[cid]["status"],_catalogs[cid].get("completed_at",0),_catalogs[cid]["created"]):
                 _catalogs.pop(cid, None)
-        if sum(c["owner"] == me.device and c["status"] == "loading" for c in _catalogs.values()) >= 2:
-            raise HTTPException(429, "已有两个主页正在识别，请稍候")
+
         if len(_catalogs) >= 100:
             raise HTTPException(429, "主页列表暂时繁忙，请稍后再试")
         c = {"id": uuid.uuid4().hex[:12], "url": url, "owner": me.device,
              "batch_id": batch_id, "created": now, "limit": limit,
-             "title": "正在识别主页视频…", "status": "loading",
-             "message": "只读取列表，不下载视频，请稍候…", "entries": [], "limited": False}
+             "title": "主页素材", "status": "queued", "completed_at": 0,
+             "message": "排队识别主页，只读取列表，不自动下载", "entries": [], "limited": False}
         _catalogs[c["id"]] = c
+        _catalog_checkpoint()
     threading.Thread(target=_catalog_worker, args=(c["id"],), daemon=True).start()
     return _catalog_public(c)
 
@@ -934,11 +978,15 @@ class CatalogRequest(BaseModel):
 @app.post("/api/catalogs")
 def create_catalog(body: CatalogRequest, me: Identity = Depends(current_identity)):
     links = _extract_links(body.url)
-    if len(links) != 1:
-        raise HTTPException(400, "每次请提供一个主页或合集链接")
-    if body.limit not in (0, 100, 200):
-        raise HTTPException(400, "请选择完整主页或分段读取")
-    return _start_catalog(links[0], me, limit=body.limit)
+    if not links:raise HTTPException(400,"请输入主页或合集链接")
+    if len(links)>100:raise HTTPException(400,"一次最多提交100个主页")
+    if body.limit not in (0,100,200):raise HTTPException(400,"请选择完整主页或分段读取")
+    created=[];rejected=[]
+    for url in links:
+        try:created.append(_start_catalog(url,me,limit=body.limit))
+        except HTTPException as error:rejected.append({"url":url,"reason":error.detail})
+    return {"catalogs":created,"rejected":rejected}
+
 
 def _get_catalog(cid, me):
     c = _catalogs.get(cid)
@@ -949,7 +997,7 @@ def _get_catalog(cid, me):
 @app.get("/api/catalogs")
 def list_catalogs(request:Request,response:Response,me: Identity = Depends(current_identity)):
     with _catalog_lock:
-        rows=[c for c in sorted(_catalogs.values(),key=lambda c:c['created'],reverse=True) if c['owner']==me.device]
+        rows=[c for c in sorted(_catalogs.values(),key=lambda c:c['created'],reverse=True) if c['owner']==me.device and task_history.retained('running' if c['status']=='loading' else c['status'],c.get('completed_at',0),c['created'])]
         version=[(c['id'],c.get('_version',0),c['status'],len(c['entries'])) for c in rows]
         etag='"'+hashlib.sha256(json.dumps(version).encode()).hexdigest()+'"'
         headers={'ETag':etag,'Cache-Control':'private, no-cache','Vary':'Cookie'}
@@ -961,10 +1009,9 @@ def list_catalogs(request:Request,response:Response,me: Identity = Depends(curre
 def continue_catalog(cid:str,me:Identity=Depends(current_identity)):
     with _catalog_lock:
         c=_get_catalog(cid,me)
-        if c['status']=='loading':raise HTTPException(409,'该主页已在读取中')
-        if sum(x['owner']==me.device and x['status']=='loading' for x in _catalogs.values())>=2:
-            raise HTTPException(429,'已有两个主页正在读取，请稍候')
-        c.update(limit=0,status='loading',complete=False,message='继续读取全部公开作品，已有勾选和作品保留',_version=c.get('_version',0)+1)
+        if c['status'] in ('loading','queued'):raise HTTPException(409,'该主页已在读取中')
+
+        c.update(limit=0,status='queued',completed_at=0,complete=False,message='继续读取全部公开作品，已有勾选和作品保留',_version=c.get('_version',0)+1)
     threading.Thread(target=_catalog_worker,args=(cid,),daemon=True).start()
     return {'ok':True}
 
@@ -994,9 +1041,10 @@ def download_catalog(cid: str, body: CatalogSelection, request: Request,
         job = Job(id=uuid.uuid4().hex[:12], url=c["url"], kind="collection",
                   title=f"{c['title']} · 已选 {len(entries)} 个", total=len(entries),
                   owner=me.device, owner_label=_device_label(request.headers.get("user-agent", "")),
-                  batch_id=c["batch_id"], entries=entries)
+                  batch_id=c["batch_id"], entries=entries, catalog_id=cid)
     with _lock:
         JOBS[job.id] = job
+    task_history.remember(job)
     threading.Thread(target=_worker, args=(job,), daemon=True).start()
     return {"created": [job.public()]}
 
@@ -1026,7 +1074,8 @@ def create_job(body: NewJob, request: Request,
         seen.add(item)
 
         if body.mode == "profile" or (body.mode == "auto" and video_catalog.is_profile(item)):
-            catalogs.append(_start_catalog(item, me, batch_id))
+            try:catalogs.append(_start_catalog(item, me, batch_id))
+            except HTTPException:rejected.append(item)
             continue
         kind = _kind_of(item)
         if body.mode == "cloud" and not cloud_backend.provider(item):
@@ -1041,6 +1090,7 @@ def create_job(body: NewJob, request: Request,
         job = Job(id=uuid.uuid4().hex[:12], url=item, kind=kind, owner=me.device, owner_label=_device_label(ua), batch_id=batch_id)
         with _lock:
             JOBS[job.id] = job
+        task_history.remember(job)
         threading.Thread(target=_worker, args=(job,), daemon=True).start()
         created.append(job.public())
 
@@ -1058,7 +1108,7 @@ def create_job(body: NewJob, request: Request,
 def list_jobs(scope: str = "browser", me: Identity = Depends(current_identity)) -> list[dict]:
     with _lock:
         jobs = sorted(JOBS.values(), key=lambda j: j.created, reverse=True)
-    return [j.public() for j in jobs if j.owner == me.device or (scope == "all" and me.is_admin)]
+    return [j.public() for j in jobs if (j.owner == me.device or (scope == "all" and me.is_admin)) and task_history.retained(j.status,j.completed_at,j.created)]
 
 
 @app.post("/api/jobs/{job_id}/cancel")
@@ -1115,6 +1165,9 @@ def remove_files(job_id: str, body: RemoveFiles, me: Identity = Depends(current_
         job.finished = sum(f.done for f in job.files)
         if not job.files and job.status not in ("queued", "running"):
             JOBS.pop(job_id, None)
+            task_history.forget(job_id)
+        else:
+            _save_meta(job)
         return {"removed": removed, "failed": failed,
                 "job": job.public() if job_id in JOBS else None}
 
@@ -1129,6 +1182,7 @@ def delete_job(job_id: str, purge: bool = False,
     if not job:
         raise HTTPException(404, "任务不存在")
 
+    task_history.forget(job_id)
     if purge:
         shutil.rmtree(DOWNLOADS / job_id, ignore_errors=True)
         _unhide_all(job_id)
@@ -1203,11 +1257,14 @@ def delete_file(job_id: str, name: str, purge: bool = False,
         if not job.files and job.status in ("done", "partial", "error"):
             with _lock:
                 JOBS.pop(job_id, None)
+                task_history.forget(job_id)
             # 只有在确实清理了文件的情况下才删目录；
             # 否则目录里还躺着用户要留的视频，删了就真没了
             if purge:
                 shutil.rmtree(DOWNLOADS / job_id, ignore_errors=True)
                 _unhide_all(job_id)
+        else:
+            _save_meta(job)
     return {"ok": True}
 
 
