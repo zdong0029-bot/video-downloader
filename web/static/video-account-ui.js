@@ -11,7 +11,7 @@
    box.replaceChildren(...d.accounts.map(a=>{
     const row=document.createElement('div');row.className='platform-status-row';
     const info=document.createElement('div');info.className='platform-info';
-    const name=document.createElement('strong');name.textContent=({'kuaishou':'快手','xiaohongshu':'小红书','tiktok':'TikTok','douyin':'抖音'}[a.provider]||a.provider);
+    const name=document.createElement('strong');name.textContent=({'bilibili':'B站','kuaishou':'快手','xiaohongshu':'小红书','tiktok':'TikTok','douyin':'抖音'}[a.provider]||a.provider);
     const state=document.createElement('p');state.textContent=a.message;
     info.append(name,state);const button=document.createElement('button');button.className='ghost';button.textContent='连接 / 更换';button.type='button';button.onclick=()=>window.connectVideoPlatform(button,a.provider);
     row.append(info,button);return row;

@@ -53,7 +53,7 @@ with sync_playwright() as p:
                 # Manual Douyin confirmation saves issued session credentials.
                 # save() requires a live sessionid; saved never means verified.
                 require_page_check = quiet or provider != 'douyin'
-                if require_page_check and provider in ('xiaohongshu','tiktok','douyin') and not any(
+                if require_page_check and provider in ('xiaohongshu','tiktok','douyin','kuaishou','bilibili') and not any(
                     accounts.page_authorized(provider, tab)
                     for tab in context.pages if not tab.is_closed()
                 ):

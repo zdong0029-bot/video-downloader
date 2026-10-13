@@ -383,6 +383,11 @@ def _run_web(job: Job) -> None:
     if (urlsplit(job.url).hostname or '').lower() == 'v.qq.com':
         opts.update(retries=2, fragment_retries=2, socket_timeout=15)
 
+    # Bilibili and iQiyi official hosts are reachable directly here; an unrelated
+    # Windows proxy was refusing the CDN, before any bytes were transferred.
+    if (urlsplit(job.url).hostname or '').lower() in ('www.bilibili.com','bilibili.com','m.bilibili.com','www.iqiyi.com','iqiyi.com'):
+        opts.update(proxy='', retries=2, fragment_retries=2, socket_timeout=15)
+
     # 部分站点（B站高清、小红书、微博等）要带浏览器 cookie 才给数据。
     # 优先用手动导出的 cookies.txt；没有就尝试从 Firefox 读。
     #

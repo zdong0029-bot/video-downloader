@@ -122,8 +122,8 @@ def install(ydl):
                     domain, domain.startswith('.'), domain.startswith('.'), c.get('path', '/'), True,
                     bool(c.get('secure')), int(expires) if expires > 0 else None, expires <= 0,
                     None, None, {'HttpOnly': c.get('httpOnly', False)}, False))
-    from focused_extractors import HaokanIE, IqiyiIE, IxiguaIE, KuaishouIE, XiaoHongShuIE
-    additions = [HaokanIE(ydl), IqiyiIE(ydl), IxiguaIE(ydl), KuaishouIE(ydl), XiaoHongShuIE(ydl), TedTalkIE(ydl)]
+    from focused_extractors import BiliBiliIE, HaokanIE, IqiyiIE, IxiguaIE, KuaishouIE, XiaoHongShuIE
+    additions = [BiliBiliIE(ydl), HaokanIE(ydl), IqiyiIE(ydl), IxiguaIE(ydl), KuaishouIE(ydl), XiaoHongShuIE(ydl), TedTalkIE(ydl)]
     for extractor in additions:
         ydl.add_info_extractor(extractor)
     # New site extractors must precede Generic, which accepts every URL.

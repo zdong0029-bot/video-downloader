@@ -18,6 +18,10 @@ FAMILIES={
  'bilibili':('bilibili.com','bilivideo.com','hdslb.com'),
  'iqiyi':('iqiyi.com','qiyi.com','qy.net','iqiyipic.com','iqiyinc.com','71edge.com'),
  'sohu':('sohu.com','sohucs.com','itc.cn'),
+ 'instagram':('instagram.com','cdninstagram.com','fbcdn.net'),
+ 'facebook':('facebook.com','fbcdn.net','fbsbx.com'),
+ 'xigua':('ixigua.com','bdxiguaimg.com','bdxiguastatic.com','byteimg.com','bytedance.com'),
+ 'rumble':('rumble.com','rumble.cloud'),
 }
 
 def family_host(host, platform):
@@ -56,6 +60,35 @@ def bilibili_profile_posts(query,payload,target):
  rows=((payload.get('data') or {}).get('list') or {}).get('vlist') or []
  return [row for row in rows if re.fullmatch(r'BV[0-9A-Za-z]{10}',str(row.get('bvid') or '')) and (not row.get('mid') or str(row['mid'])==str(target))]
 
+def xiaohongshu_state_posts(state,target):
+ """Profile store includes SSR posts that can leave the virtualized DOM."""
+ if not isinstance(state,dict) or (state.get('query') or {}).get('userId')!=target:return []
+ posts=[]
+ for note in state.get('notes') or []:
+  card=note.get('noteCard') or {};user=card.get('user') or {}
+  nid=str(note.get('id') or card.get('noteId') or '');token=note.get('xsecToken') or card.get('xsecToken')
+  if user.get('userId')!=target or not re.fullmatch(r'[a-f0-9]{24}',nid) or not token:continue
+  posts.append((nid,token,card))
+ return posts
+
+def rumble_profile_posts(cards,source):
+ path=urlsplit(source).path.rstrip('/');posts=[]
+ for card in cards:
+  owner=urlsplit(card.get('creator') or '')
+  p=urlsplit(card.get('url') or '')
+  if owner.hostname!='rumble.com' or owner.path.rstrip('/')!=path:continue
+  if p.hostname=='rumble.com' and re.fullmatch(r'/v[\w-]+\.html',p.path):posts.append(card)
+ return posts
+
+def rumble_next_page(links,current):
+ p=urlsplit(current);page=int(parse_qs(p.query).get('page',['1'])[0]);pages={}
+ for link in links:
+  q=urlsplit(link)
+  if q.scheme!='https' or q.hostname!='rumble.com' or q.path.rstrip('/')!=p.path.rstrip('/'):continue
+  value=parse_qs(q.query).get('page',[''])[0]
+  if value.isdigit():pages[int(value)]=link
+ return pages.get(page+1),bool(pages) and not any(n>page for n in pages)
+
 def profile_snapshot(page,selector,script):
  """A normal album redirect can invalidate the DOM while metadata arrives."""
  try:return page.locator(selector).evaluate_all(script)
@@ -79,6 +112,7 @@ def resolve(url, platform, limit=0, cookie_options=None, on_update=None, cancell
  from video_catalog import is_profile
  if not is_profile(url):raise ValueError('识别失败：单个作品不能进入作者主页扫描')
  target=urlsplit(url).path.rstrip('/').split('/')[-1].lstrip('@')
+ if platform in ('instagram','facebook'):target=urlsplit(url).path.strip('/').split('/')[0]
  if platform=='mgtv':target=re.search(r'/h/(\d+)',url)[1]
  if platform=='tencent':target=re.search(r'/cover/(\w+)',url)[1]
  if platform=='bilibili':target=urlsplit(url).path.strip('/').split('/')[0]
@@ -120,14 +154,9 @@ def resolve(url, platform, limit=0, cookie_options=None, on_update=None, cancell
     payload=resp.json()
     if payload.get('code')!=0 or payload.get('success') is False:pagination['blocked']=True;return
     d=payload.get('data') or {};pagination['pages']+=1;pagination['cursor']=d.get('cursor')
-    for note in d.get('notes') or []:
-     card=note.get('note_card') or note;uid=(card.get('user') or {}).get('user_id')
-     if uid and uid!=target:continue
-     nid=str(note.get('note_id') or note.get('id') or card.get('note_id') or '')
-     token=note.get('xsec_token') or card.get('xsec_token')
-     if not re.fullmatch(r'[a-f0-9]{24}',nid) or not token:continue
-     cover=card.get('cover') or {}
-     add('https://www.xiaohongshu.com/user/profile/'+target+'/'+nid+'?'+urlencode({'xsec_token':token,'xsec_source':'pc_user'}),card.get('display_title') or card.get('title'),cover.get('url_default') or cover.get('url'),media_type='image' if card.get('type')=='normal' else 'video')
+    # The official profile store retains SSR and paginated posts together.
+    # Read that complete author-scoped store below, rather than mixing
+    # potentially different SSR/response snapshots or virtualized DOM cards.
     pagination['end']=d.get('has_more') is False
    except Exception:pass
   elif platform=='kuaishou' and path in ('/graphql','/rest/v/profile/feed'):
@@ -197,18 +226,22 @@ def resolve(url, platform, limit=0, cookie_options=None, on_update=None, cancell
     for tab in (data.get('template') or {}).get('tabs') or []:
      for block in tab.get('blocks') or []:
       if block.get('bk_id')!='source_selector_bk':continue
+      declared=((block.get('data') or {}).get('video_list_params') or {}).get('more',{}).get('total')
+      block_rows=[]
       for group in (block.get('data') or {}).get('data') or []:
        for season in group.get('videos') or []:
         for item in season.get('data') or []:
          link=item.get('page_url') or ''
-         if re.fullmatch(r'/v_\w+\.html',urlsplit(link).path):add(link,item.get('title') or item.get('short_title'),item.get('image_url'))
+         if re.fullmatch(r'/v_\w+\.html',urlsplit(link).path):add(link,item.get('title') or item.get('short_title'),item.get('image_url'));block_rows.append(link)
+      if isinstance(declared,int) and declared>0 and len(set(block_rows))==declared and (not limit or len(entries)<limit):
+       pagination.update(end=True,pages=1,cursor=declared)
    except Exception:pass
  with sync_playwright() as p:
   launch={'headless':True}
   # This host already uses a local SOCKS route for foreign platforms. Keep it
   # local to profile discovery; do not change Windows networking or media quality.
   proxied=False
-  if platform=='tiktok':
+  if platform in ('tiktok','instagram','facebook','rumble'):
    try:
     with socket.create_connection(('127.0.0.1',10808),timeout=.3):pass
     launch['proxy']={'server':'socks5://127.0.0.1:10808'};proxied=True
@@ -246,18 +279,22 @@ def resolve(url, platform, limit=0, cookie_options=None, on_update=None, cancell
    # Profile discovery needs links and metadata, not thumbnail/font transfers.
    # Commit first; the bounded loop below waits for the actual work list.
    page.goto(url,wait_until='domcontentloaded' if platform=='acfun' else 'commit',timeout=30000)
-   started=time.monotonic();wall=started+3600;stale=0;old=0;next_from=None;next_at=0;visited_pages=set()
+   started=time.monotonic();expected_total=None;mgtv_loaded=False;wall=started+3600;stale=0;old=0;next_from=None;next_at=0;visited_pages=set()
    while time.monotonic()<wall and (not limit or len(entries)<limit):
     if cancelled and cancelled():raise Cancelled()
     page.wait_for_timeout(800)
     if platform=='tiktok':selector='a[href*="/@'+target+'/video/"]'
-    elif platform=='xiaohongshu':selector='section.note-item a.cover[href]'
+    elif platform=='xiaohongshu':selector=None
     elif platform=='acfun':selector='.ac-space-contribute-list a.ac-space-video[href*="/v/ac"]'
     elif platform=='haokan':selector='.videolist a.videoitem[href*="vid="]'
     elif platform=='mgtv':selector='a[href*="/b/'+target+'/"]'
     elif platform=='cctv':selector='a[href*="VIDE"][href$=".shtml"]'
     elif platform=='tencent':selector=None
     elif platform=='bilibili':selector='.bili-video-card a[href*="/video/"], .bili-video-card__wrap a[href*="/video/"], .small-item a[href*="/video/"]'
+    elif platform=='instagram':selector='a[href*="/'+target+'/reel/"]'
+    elif platform=='facebook':selector='a[href*="/'+target+'/videos/"]'
+    elif platform=='xigua':selector='.videoitem a[href*="/video/"]'
+    elif platform=='rumble':selector=None
     elif platform=='sohu':selector='a[href*="tv.sohu.com/v/"]'
     else:selector=None # GraphQL posts are scoped to the target, never the recommended feed.
     if selector:
@@ -265,6 +302,25 @@ def resolve(url, platform, limit=0, cookie_options=None, on_update=None, cancell
       link=item['url'];path=urlsplit(link).path
       if platform=='xiaohongshu':
        if not re.fullmatch(r'/(?:explore|discovery/item)/[a-f0-9]{24}',path) and not re.fullmatch(r'/user/profile/'+re.escape(target)+r'/[a-f0-9]{24}',path):continue
+      elif platform=='instagram':
+       m=re.fullmatch('/'+re.escape(target)+r'/reel/([\w-]+)/?',path,re.I)
+       if not m:continue
+       link='https://www.instagram.com/reel/'+m[1]+'/'
+      elif platform=='facebook':
+       m=re.fullmatch('/'+re.escape(target)+r'/videos/(?:[^/]+/)?(\d+)/?',path,re.I)
+       if not m:continue
+       link='https://www.facebook.com/'+target+'/videos/'+m[1]+'/'
+      elif platform=='xigua':
+       m=re.fullmatch(r'/video/(\d{15,25})',path)
+       if not m:continue
+       # Mobile SSR exposes this author's feed, rather than site recommendations.
+       own=page.evaluate("""id=>Object.values(window._SSR_DATA?.data?.loadersData||{}).some(x=>
+          Array.isArray(x.data)&&x.data.some(v=>v.action?.type==='USER-PAGE/GETUSERINFO/FULFILLED'&&v.value?.id===id))""",target)
+       if not own:continue
+       link='https://www.ixigua.com/'+m[1]
+      elif platform=='rumble':
+       if not re.fullmatch(r'/v[\w-]+\.html',path):continue
+       link='https://rumble.com'+path
       elif platform=='acfun' and not re.fullmatch(r'/v/ac\d+(?:_\d+)?',path):continue
       elif platform=='mgtv':
        if not re.fullmatch('/b/'+target+r'/\d+\.html',path):continue
@@ -284,6 +340,35 @@ def resolve(url, platform, limit=0, cookie_options=None, on_update=None, cancell
        if not decoded.lstrip('/').startswith(scope):continue
        link='https://tv.sohu.com'+path
       add(link,item['title'],item.get('thumb'))
+    if platform=='xiaohongshu':
+     state=page.evaluate("""() => {const u=window.__INITIAL_STATE__?.user, val=x=>x?.value??x?._value??x;
+       return {notes:val(u?.notes)?.[0],query:val(u?.noteQueries)?.[0],status:val(u?.userNoteFetchingStatus)?.[0]};}""")
+     for nid,token,card in xiaohongshu_state_posts(state,target):
+      cover=card.get('cover') or {}
+      add('https://www.xiaohongshu.com/user/profile/'+target+'/'+nid+'?'+urlencode({'xsec_token':token,'xsec_source':'pc_user'}),card.get('displayTitle'),cover.get('urlDefault') or cover.get('url'),media_type='image' if card.get('type')=='normal' else 'video')
+     if (state.get('query') or {}).get('userId')==target and state.get('status')=='resolved' and (state.get('query') or {}).get('hasMore') is False:
+      pagination['end']=True
+    if platform=='rumble':
+     if urlsplit(page.url).path.rstrip('/')!=urlsplit(url).path.rstrip('/'):raise ValueError('频道页面发生非目标作者跳转，未继续扫描')
+     cards=profile_snapshot(page,'.channel-listing__container rum-video-thumbnail[creator-url]',"els=>els.map(e=>({url:e.getAttribute('url'),creator:e.getAttribute('creator-url'),title:e.getAttribute('video-title'),thumb:e.getAttribute('src'),duration:Number(e.getAttribute('duration'))||0}))")
+     for item in rumble_profile_posts(cards,url):add('https://rumble.com'+urlsplit(item['url']).path,item['title'],item.get('thumb'),item['duration'])
+    if platform=='sohu' and expected_total is None:
+     html=page.content()
+     matches=[re.search(r"\bvar\s+"+key+r"\s*=\s*['\"](\d+)['\"]",html) for key in ('pgcount','pgindex','pgsize','pid')]
+     if all(matches) and matches[3][1]==target:
+      expected_total=int(matches[0][1]);pagination['pages']=int(matches[1][1])
+    if platform=='sohu' and expected_total and len(entries)==expected_total:
+     pagination['end']=True
+    if platform=='sohu' and entries and not pagination['end']:
+     controls=page.locator('#pagination_2 a').filter(has_text=re.compile('下一页|下页|Next',re.I))
+     if controls.count() and not controls.first.get_attribute('aria-disabled')=='true' and time.monotonic()-next_at>3:
+      next_at=time.monotonic();controls.first.click(timeout=4000)
+    if platform=='rumble' and entries and stale>=2:
+     links=page.locator('.channel-listing__container a[href*="page="]').evaluate_all('els=>els.map(e=>e.href)')
+     next_link,ended=rumble_next_page(links,page.url)
+     if next_link and next_link!=next_from:
+      next_from=next_link;pagination['pages']+=1;page.goto(next_link,wait_until='commit',timeout=30000);stale=0
+     elif ended:pagination['end']=True
     if platform=='tencent':
      # The native extractor expects an old class attribute order. Read only
      # the current episode controls; never related/recommended covers.
@@ -332,6 +417,8 @@ def resolve(url, platform, limit=0, cookie_options=None, on_update=None, cancell
    if saved and not pagination['blocked'] and accounts.page_authorized(platform,page):
     fresh=ctx.storage_state();fresh['ua']=page.evaluate('navigator.userAgent');accounts.refresh(platform,fresh,saved['_revision'])
   finally:browser.close()
- limited=bool(pagination['embed'] or not pagination['end'] or limit and len(entries)>=limit)
- note='TikTok 官方嵌入入口仅返回最近最多 10 条作品，这不是完整主页列表'+('；'+pagination['failure'] if pagination['failure'] else '') if pagination['embed'] else ('平台分页未确认结束，保留已识别作品，可继续读取' if limited else '')
+ if platform in ('instagram','facebook','xigua') and not pagination['end']:
+  pagination['failure']='已读取官网当前可见的目标作者作品；官网未提供已结束的全部分页，可能需要有效平台登录或客户端作者列表。当前不标为全部'
+ limited=bool(pagination['blocked'] or pagination['embed'] or not pagination['end'] or limit and len(entries)>=limit)
+ note='TikTok 官方嵌入入口仅返回最近最多 10 条作品，这不是完整主页列表'+('；'+pagination['failure'] if pagination['failure'] else '') if pagination['embed'] else ((pagination['failure'] or '平台分页未确认结束，保留已识别作品，可继续读取') if limited else '')
  return {'title':title,'entries':entries,'limited':limited,'complete':not limited,'pages':pagination['pages'],'completion_reason':'official-end' if not limited else 'recent-embed' if pagination['embed'] else 'unfinished-pagination','note':note,'method':'official-creator-embed' if pagination['embed'] else 'official-profile-browser'}

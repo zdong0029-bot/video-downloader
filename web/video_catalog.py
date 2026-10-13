@@ -68,7 +68,9 @@ def is_profile(url):
     if _host(host,'nicovideo.jp'):return bool(re.match(r'^/(?:user/\d+(?:/(?:video|mylist/\d+|series/\d+))?|mylist/\d+|series/\d+)$',path))
     if _host(host,'ted.com'):return path.startswith('/playlists/')
     if _host(host,'archive.org'):return bool(re.fullmatch(r'/details/[^/]+',path))
-    if _host(host,'youku.com'):return path.startswith('/show/') or path.startswith('/u/')
+    if _host(host,'youku.com'):
+        from youku_profile import author_uid
+        return path.startswith('/show/') or bool(author_uid(url))
     if _host(host,'iqiyi.com'):return path.startswith('/a_')
     if _host(host,'iq.com'):return path.startswith('/album/')
     if host=='v.qq.com':return bool(re.fullmatch(r'/x/cover/[\w]+\.html',path))
@@ -128,6 +130,13 @@ def resolve(url, limit=0, cookie_options=None, on_update=None, cancelled=None):
         if special=='cctv':return _cctv(url,limit,on_update,cancelled)
         from profile_browser import resolve as browser_resolve
         return browser_resolve(url,special,limit,cookie_options,on_update,cancelled)
+    for platform in ('instagram','facebook','ixigua'):
+        if _host(host,platform+'.com'):
+            from profile_browser import resolve as browser_resolve
+            return browser_resolve(url,'xigua' if platform=='ixigua' else platform,limit,cookie_options,on_update,cancelled)
+    if _host(host,'youku.com'):
+        from youku_profile import author_uid,resolve as youku_resolve
+        if author_uid(url):return youku_resolve(url,limit,cookie_options,on_update,cancelled)
     if _host(host,'douyin.com'):
         return _douyin(url, limit, cookie_options, on_update, cancelled)
     if _host(host,'instagram.com'):
@@ -185,6 +194,9 @@ def resolve(url, limit=0, cookie_options=None, on_update=None, cancelled=None):
                     if _host(host,'tiktok.com'):
                         from profile_browser import resolve as browser_resolve
                         return browser_resolve(url,'tiktok',limit,cookie_options,on_update,cancelled)
+                    if _host(host,'rumble.com'):
+                        from profile_browser import resolve as browser_resolve
+                        return browser_resolve(url,'rumble',limit,cookie_options,on_update,cancelled)
                     if host=='space.bilibili.com':
                         from profile_browser import resolve as browser_resolve
                         return browser_resolve(url,'bilibili',limit,cookie_options,on_update,cancelled)

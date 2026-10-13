@@ -2,6 +2,7 @@
 
 Browsers run in isolated contexts; no CAPTCHA, login, or DRM bypass is used.
 """
+import copy
 import base64
 import ipaddress
 import json
@@ -11,6 +12,7 @@ import threading
 import time
 from urllib.parse import urlsplit, parse_qs, parse_qsl, urlencode, urlunsplit
 
+from yt_dlp.extractor.bilibili import BiliBiliIE as OriginalBiliBiliIE
 from yt_dlp.extractor.common import InfoExtractor
 from yt_dlp.extractor.iqiyi import IqiyiIE as OriginalIqiyiIE
 from yt_dlp.extractor.ixigua import IxiguaIE as OriginalIxiguaIE
@@ -40,8 +42,17 @@ def number(value):
     except (ValueError, TypeError):
         return 0
 
+def iqiyi_snapshot_ready(snapshot):
+    if not isinstance(snapshot, dict): return False
+    info = snapshot.get('videoInfo') or {}
+    if info.get('payMark') or info.get('isLock') or info.get('downloadAllowed') is False:
+        return True  # Let the normal permission check explain the restriction.
+    rows = ((snapshot.get('dashData') or {}).get('data') or {}).get('program', {}).get('video') or []
+    return any((r.get('ml') or r.get('m3u8Url')) and not (r.get('isPreview') or r.get('is_preview') or r.get('ispre') in (1, '1')) for r in rows)
+
+
 def browser_snapshot(url, platform, cookiejar=None):
-    """Let the normal official player publish its own metadata, bounded to 40s."""
+    """Let the normal official player publish its own metadata with a bounded wait."""
     from playwright.sync_api import sync_playwright
     if not official_url(url, FAMILIES[platform]):
         raise ExtractorError('只接受该平台的官方网页地址', expected=True)
@@ -82,12 +93,13 @@ def browser_snapshot(url, platform, cookiejar=None):
             context.route('**/*', route)
             page = context.new_page()
             page.goto(url, wait_until='domcontentloaded', timeout=35000)
-            deadline = time.monotonic() + 12
+            deadline = time.monotonic() + (20 if platform == 'iqiyi' else 12)
             while True:
                 if platform == 'haokan':
                     data = page.evaluate('()=>window.__PRELOADED_STATE__?.curVideoMeta || null')
                 elif platform == 'iqiyi':
                     data = page.evaluate('()=>{const p=window.QiyiPlayerProphetData;return p?.dashData?{tvid:p.tvid,videoInfo:p.videoInfo,dashData:p.dashData,ua:navigator.userAgent}:null}')
+                    if not iqiyi_snapshot_ready(data): data = None
                 elif platform == 'xigua':
                     html = page.content()
                     data = {'html': html} if 'SSR_HYDRATED_DATA' in html or re.search(r'window\._SSR_DATA\s*=', html) else None
@@ -174,7 +186,7 @@ def public_iqiyi_rows(snapshot):
     data = (snapshot.get('dashData') or {}).get('data') or {}
     rows = []
     for row in (data.get('program') or {}).get('video') or []:
-        if row.get('isPreview') or row.get('is_preview'):
+        if row.get('isPreview') or row.get('is_preview') or row.get('ispre') in (1, '1'):
             continue
         # ml is the current player's already provided full HLS URL.
         source = row.get('ml') or row.get('m3u8Url')
@@ -325,3 +337,32 @@ class XiaoHongShuIE(OriginalXiaoHongShuIE):
                 result['duration'] = result.get('duration') or max((f.get('duration') or 0) for f in formats if f.get('vcodec') != 'none')
         result['http_headers'] = {'Referer': 'https://www.xiaohongshu.com/'}
         return result
+
+
+def bilibili_official_backups(play_info):
+ """Change CDN only; retain the exact official stream's quality and signature."""
+ result=copy.deepcopy(play_info);dash=result.get('dash') or {};rows=[]
+ for section in [dash,dash.get('dolby') or {}]:
+  for kind in ('video','audio'):rows.extend(section.get(kind) or [])
+ if (dash.get('flac') or {}).get('audio'):rows.append(dash['flac']['audio'])
+ for row in rows:
+  source=row.get('baseUrl') or row.get('base_url') or row.get('url') or ''
+  try:
+   p=urlsplit(source)
+   affected=p.port not in (None,443) or '.mcdn.' in (p.hostname or '')
+  except ValueError:affected=True
+  if not affected:continue
+  for url in row.get('backupUrl') or row.get('backup_url') or []:
+   try:
+    q=urlsplit(url)
+    if q.scheme!='https' or q.username or q.password or q.port not in (None,443):continue
+    if not any(q.hostname==h or (q.hostname or '').endswith('.'+h) for h in ('bilivideo.com','bilivideo.cn')) or '.mcdn.' in (q.hostname or ''):continue
+   except ValueError:continue
+   for key in ('baseUrl','base_url','url'):
+    if key in row:row[key]=url
+   break
+ return result
+
+class BiliBiliIE(OriginalBiliBiliIE):
+ def extract_formats(self,play_info):
+  return super().extract_formats(bilibili_official_backups(play_info))

@@ -16,9 +16,11 @@ PROVIDERS = {
     'kuaishou': ('\u5feb\u624b', 'https://www.kuaishou.com/brilliant', ('kuaishou.com',)),
     'xiaohongshu': ('\u5c0f\u7ea2\u4e66', 'https://www.xiaohongshu.com/explore', ('xiaohongshu.com',)),
     'tiktok': ('TikTok', 'https://www.tiktok.com/login', ('tiktok.com',)),
+    'bilibili': ('B站','https://www.bilibili.com/',('bilibili.com',)),
     'douyin': ('抖音', 'https://www.douyin.com/', ('douyin.com','iesdouyin.com')),
 }
 AUTH_NAMES = {'kuaishou': {'kuaishou.server.web_st', 'kuaishou.server.web_ph', 'kuaishou.server.webday7_st', 'kuaishou.server.webday7_ph'}, 'xiaohongshu': {'web_session'}}
+AUTH_NAMES['bilibili']={'SESSDATA'}
 AUTH_NAMES.update(tiktok={'sessionid','sessionid_ss'},douyin={'sessionid','sessionid_ss'})
 LOCK = threading.RLock()
 
@@ -78,6 +80,25 @@ def load(provider):
 
 def page_authorized(provider, page):
     """A visitor ID or web_session cookie alone is not a logged-in XHS user."""
+    if provider=='bilibili':
+        if not allowed_host(urlsplit(page.url).hostname,provider):return False
+        try:
+            return page.evaluate("""async () => {
+                const r=await fetch('https://api.bilibili.com/x/web-interface/nav',{credentials:'include'});
+                if(!r.ok)return false;const d=await r.json();return d.code===0 && d.data?.isLogin===true && !!d.data?.mid;
+            }""") is True
+        except Exception:return False
+    if provider=='kuaishou':
+        if not allowed_host(urlsplit(page.url).hostname,provider):return False
+        if not has_authorization(provider,{'cookies':page.context.cookies()}):return False
+        try:
+            # Official navigation component owns the signed-in account. An
+            # author's avatar or a saved webday7 cookie is not login proof.
+            return page.locator('div.user').evaluate_all("""els => els.some(el => {
+                const vm=el.__vue__;
+                return vm?.isLogin === true && !!vm.currentUserModel?.userInfo?.id;
+            })""") is True
+        except Exception:return False
     if provider=='tiktok':
         if not allowed_host(urlsplit(page.url).hostname,provider):return False
         try:
@@ -92,7 +113,7 @@ def page_authorized(provider, page):
         # Jingxuan and the older homepage expose different account markers.
         return page.locator('[data-e2e="user-avatar"], [data-e2e="user-avatar-container"], a[href^="/user/self"], a[href^="https://www.douyin.com/user/self"]').count()>0
     if provider != 'xiaohongshu':
-        return True
+        return False
     if not allowed_host(urlsplit(page.url).hostname, provider):
         return False
     try:
