@@ -31,7 +31,7 @@ function renderCatalogs(){
   document.querySelector('#catalogs').innerHTML=shown.map(c=>{
     const set=catalogSet(c.id),open=expandedCards.has('catalog-'+c.id),pending=['loading','queued'].includes(c.status);
     const working=catalogBusy.has(c.id),all=c.entries.length&&set.size===c.entries.length,files=catalogFiles(c.id),jobs=catalogJobs(c.id);
-    const actions=open?c.entries.slice(0,catalogVisible.get(c.id)||60).map(e=>{
+    const actions=open?c.entries.slice(0,catalogVisible.get(c.id)||(MOBILE?20:60)).map(e=>{
       const f=files.get(e.id),j=jobs.find(j=>j.current_entry===e.id||j.failed_entries?.[e.id]||j.selected_entries?.includes(e.id));
       const running=j&&['running','queued'].includes(j.status),err=j?.failed_entries?.[e.id];
       const progress=j?.current_entry===e.id?Math.round(j.progress*100):null;
@@ -44,11 +44,11 @@ function renderCatalogs(){
     const active=jobs.filter(j=>['queued','running'].includes(j.status));
     const progress=jobs.length?'<div class="note">本主页已准备 '+files.size+' 个文件'+(active.length?' · '+active.length+' 组后台处理中':'')+'</div>':'';
     return '<section class="job catalog" data-catalog="'+c.id+'"><div class="job-top"><div><div class="job-title"><span class="catalog-badge">'+esc(platformLabel(c.url))+'</span>'+esc(c.title)+' · '+c.entries.length+' 个素材</div><div class="job-url">'+esc(c.url)+'</div></div><button class="ghost" aria-expanded="'+open+'" onclick="catalogFold(\''+c.id+'\')">'+(open?'收起':'展开')+'</button></div><p class="msg">'+esc(c.message)+'</p>'+
-      (c.entries.length?'<div class="toolbar"><label><input data-catalog-all="'+c.id+'" type="checkbox" '+(all?'checked ':'')+(working?'disabled ':'')+'onchange="catalogAll(\''+c.id+'\',this.checked)">全选此主页</label><span class="count">已选 '+set.size+' / '+c.entries.length+'</span><span class="spacer"></span><button class="small" '+(!set.size||working?'disabled':'')+' onclick="catalogDownload(\''+c.id+'\')">'+(working?'提交中…':'下载选中')+'</button>'+(MOBILE&&files.size?'<button class="ghost" '+(!set.size?'disabled':'')+' onclick="saveCatalogAlbum(\''+c.id+'\')">选中存相册</button>':'')+'</div>':'')+progress+
+      (c.entries.length?'<div class="toolbar"><label><input data-catalog-all="'+c.id+'" type="checkbox" '+(all?'checked ':'')+(working?'disabled ':'')+'onchange="catalogAll(\''+c.id+'\',this.checked)">全选此主页</label><span class="count">已选 '+set.size+' / '+c.entries.length+'</span><span class="spacer"></span><button class="small" '+(!set.size||working?'disabled':'')+' onclick="catalogDownload(\''+c.id+'\')">'+(working?'提交中…':MOBILE?'准备 / 保存选中':'下载选中')+'</button>'+(MOBILE&&files.size?'<button class="ghost" '+(!set.size?'disabled':'')+' onclick="saveCatalogAlbum(\''+c.id+'\')">保存选中到相册</button>':'')+'</div>':'')+progress+
       (jobs.map(j=>'<div class="note">'+esc(j.message)+(['running','queued'].includes(j.status)?' <button class="ghost" onclick="cancelJob(\''+j.id+'\')">取消后台下载</button>':'')+'</div><div class="hint" data-transfer="'+j.id+'" '+(downloadTransfers.has(j.id)?'':'hidden')+'></div>').join(''))+
       (!pending&&c.limited?'<p class="note">部分列表，平台尚未确认读取结束。<button class="ghost" onclick="catalogMore(\''+c.id+'\')">继续读取全部</button></p>':!pending&&c.complete?'<p class="note">全部公开作品 · '+c.entries.length+' 个</p>':'')+
       (open?'<div class="file-heading"><span></span><span>文件</span><span>画质 / 大小</span><span>状态 / 进度</span><span>操作</span></div><div class="files">'+actions+'</div>':c.entries.length?'<p class="fold-note">已收起素材列表，勾选与进度保留。</p>':'')+
-      (open&&c.entries.length>(catalogVisible.get(c.id)||60)?'<div class="load-sentinel" data-more-catalog="'+c.id+'">已显示 '+(catalogVisible.get(c.id)||60)+' / '+c.entries.length+' · 向下滚动继续加载 <button class="ghost" onclick="catalogShowMore(\''+c.id+'\')">继续加载</button></div>':'')+
+      (open&&c.entries.length>(catalogVisible.get(c.id)||(MOBILE?20:60))?'<div class="load-sentinel" data-more-catalog="'+c.id+'">已显示 '+(catalogVisible.get(c.id)||(MOBILE?20:60))+' / '+c.entries.length+' · 向下滚动继续加载 <button class="ghost" onclick="catalogShowMore(\''+c.id+'\')">继续加载</button></div>':'')+
       (VIEW==='history'&&c.completed_at?'<p class="note">记录保留至 '+esc(new Date((c.completed_at+7*86400)*1000).toLocaleString())+'</p>':'')+
       '<div class="acts"><button class="ghost" onclick="catalogRemove(\''+c.id+'\')">移出列表</button></div></section>';
   }).join('');
@@ -60,7 +60,7 @@ function renderCatalogs(){
     if(job&&!['queued','running'].includes(job.status)){
       catalogAutoSave.delete(id);
       for(const f of job.files||[])selected.add(key(id,f.name));
-      if(job.files.length)void downloadSelected(id);
+      if(job.files.length&&!MOBILE)void downloadSelected(id);else if(job.files.length)hintEl.textContent='原文件已准备好，请点击“保存选中到相册”，然后在系统菜单确认。';
     }
   }
 }
@@ -112,15 +112,15 @@ async function catalogDownload(id){
   try{
     for(const j of catalogJobs(id)){
       const files=j.files.filter(f=>ids.includes(f.entry_id));
-      if(files.length){files.forEach(f=>selected.add(key(j.id,f.name)));void downloadSelected(j.id);}
+      if(files.length){files.forEach(f=>selected.add(key(j.id,f.name)));if(!MOBILE)void downloadSelected(j.id);}
     }
     if(needed.length){
       const r=await fetch('/api/catalogs/'+id+'/download',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({ids:needed})});
       const d=await r.json();if(!r.ok)throw new Error(d.detail||'提交失败');
       acceptSubmission(d);const job=d.created[0];catalogAutoSave.add(job.id);
-      hintEl.textContent='已加入 '+needed.length+' 个视频；主机准备完成后将在当前页面发起浏览器保存。刷新后请到下载记录继续保存。';hintEl.style.color='';
+      hintEl.textContent=MOBILE?'已加入 '+needed.length+' 个素材，主机准备后点击“保存选中到相册”。':'已加入 '+needed.length+' 个视频；主机准备完成后将在当前页面发起浏览器保存。刷新后请到下载记录继续保存。';hintEl.style.color='';
       await refresh(true);
-    }
+    }else if(MOBILE)saveCatalogAlbum(id);
   }catch(e){hintEl.textContent=e.message;hintEl.style.color='var(--err)';}
   finally{catalogBusy.delete(id);renderCatalogs();}
 }

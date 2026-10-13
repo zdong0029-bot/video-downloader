@@ -38,4 +38,4 @@ function toggleExpanded(id){
 
 
 const fileVisible=new Map();
-function showMoreFiles(id){fileVisible.set(id,(fileVisible.get(id)||60)+100);repaint();}
+function showMoreFiles(id){fileVisible.set(id,(fileVisible.get(id)||(MOBILE?20:60))+(MOBILE?20:100));repaint();}

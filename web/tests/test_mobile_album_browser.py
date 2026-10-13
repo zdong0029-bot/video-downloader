@@ -42,9 +42,13 @@ def test_mobile_album_browser():
   expect(page.locator('#saveHelp')).to_contain_text('网页无法确认');page.click('#previewDialog button:has-text("关闭")')
   page.evaluate("previewFile('albumfixture','clip.mp4')");expect(page.locator('#shareVideo')).to_be_enabled();expect(page.locator('#previewVideo')).to_be_visible()
   page.click('#shareVideo');page.wait_for_function('albumCalls.length===2');assert page.evaluate('albumCalls[1].files[0].sha256')==hashlib.sha256(video).hexdigest();assert page.evaluate('albumCalls[1].files[0].type')=='video/mp4'
+  first_reads=requests.count('clip.mp4');page.evaluate("closePreview();previewFile('albumfixture','clip.mp4')");expect(page.locator('#shareVideo')).to_be_enabled();assert requests.count('clip.mp4')==first_reads
+  page.reload();expect(page.locator('#main')).to_be_visible();page.wait_for_function("typeof previewFile==='function'&&cache.some(j=>j.id==='albumfixture')");page.click('#historyTab');page.evaluate("expandedCards.add('albumfixture');repaint();previewFile('albumfixture','clip.mp4')");expect(page.locator('#shareVideo')).to_be_enabled();assert requests.count('clip.mp4')==first_reads
+  # Native-share recording is per page; retain cancellation checks' expected count.
+  page.evaluate("albumCalls=[{},{}]")
   page.evaluate("window.albumShareMode='cancel'");page.click('#shareVideo');expect(page.locator('#saveHelp')).to_contain_text('未确认保存');expect(page.locator('#shareVideo')).to_be_enabled();assert page.evaluate('albumCalls.length')==2
   page.evaluate("window.albumShareMode='denied'");page.click('#shareVideo');expect(page.locator('#saveHelp')).to_contain_text('系统未允许');page.evaluate("window.albumShareMode='ok';closePreview();selected.clear();selected.add(key('albumfixture','photo.png'));selected.add(key('albumfixture','clip.mp4'));repaint()")
-  page.get_by_role('button',name='选中存相册',exact=True).click();expect(page.locator('#shareVideo')).to_have_text('保存这 2 个到相册');page.click('#shareVideo');page.wait_for_function('albumCalls.length===3');assert len(page.evaluate('albumCalls[2].files'))==2
+  page.get_by_role('button',name='保存选中到相册',exact=True).click();expect(page.locator('#shareVideo')).to_have_text('保存这 2 个到相册');page.click('#shareVideo');page.wait_for_function('albumCalls.length===3');assert len(page.evaluate('albumCalls[2].files'))==2
   page.screenshot(path=str(out/'mobile-album.png'),full_page=False)
   # Batch splitting and explicit next gesture; no automatic Photos write.
   page.evaluate("closePreview();selected.clear();selected.add(key('albumfixture','photo.png'));cache[0].files=Array.from({length:17},(_,i)=>({name:'photo.png',size:68,entry_id:String(i)}));saveSelectedAlbum('albumfixture')")
@@ -54,16 +58,15 @@ def test_mobile_album_browser():
   before=len(requests);page.evaluate("closePreview();cache[0].files=[{name:'large.mp4',size:4294967296}];previewFile('albumfixture','large.mp4')")
   expect(page.locator('#saveHelp')).to_contain_text('128 MB');expect(page.locator('#shareVideo')).to_be_disabled();assert 'large.mp4' not in requests[before:] or requests[before:].count('large.mp4')<=1 # metadata preview is permitted
   page.evaluate("closePreview();window.albumSupport=false;previewFile('albumfixture','photo.png')");expect(page.locator('#saveHelp')).to_contain_text('不支持');expect(page.locator('#saveOriginal')).to_have_attribute('href','/api/files/albumfixture/photo.png')
-  page.evaluate("closePreview();window.albumSupport=true;cache[0].files=[{name:'broken.png',size:12345}];previewFile('albumfixture','broken.png')")
-  # Explicit expected transfer mismatch: header omission means metadata length is enforced.
   page.route('**/api/files/albumfixture/broken.png*',lambda r:r.fulfill(body=png,headers={'Content-Type':'image/png','Content-Length':str(len(png))}))
-  page.evaluate("closePreview();previewFile('albumfixture','broken.png')");expect(page.locator('#shareVideo')).to_be_disabled();expect(page.locator('#saveHelp')).to_contain_text('不完整')
+  page.evaluate("closePreview();window.albumSupport=true;cache[0].files=[{name:'broken.png',size:12345}];previewFile('albumfixture','broken.png')")
+  expect(page.locator('#shareVideo')).to_be_disabled();expect(page.locator('#saveHelp')).to_contain_text('不完整')
   # Catalog result buttons point to the same original-file album flow.
   page.evaluate("closePreview();cache=[{id:'albumfixture',catalog_id:'albumcatalog',files:[{name:'photo.png',size:68,entry_id:'one'}],status:'done'}];catalogCache=[{id:'albumcatalog',url:'https://www.youtube.com/@fixture',title:'主页',entries:[{id:'one',title:'原图',url:'https://example.test'}],status:'done',message:'完成',complete:true}];catalogSet('albumcatalog').add('one');expandedCards.add('catalog-albumcatalog');renderCatalogs()")
-  expect(page.locator('#catalogs').get_by_role('button',name='存相册',exact=True)).to_be_visible();page.locator('#catalogs').get_by_role('button',name='选中存相册',exact=True).click();expect(page.locator('#shareVideo')).to_be_enabled()
+  expect(page.locator('#catalogs').get_by_role('button',name='存相册',exact=True)).to_be_visible();page.locator('#catalogs').get_by_role('button',name='保存选中到相册',exact=True).click();expect(page.locator('#shareVideo')).to_be_enabled()
   assert page.evaluate('document.documentElement.scrollWidth<=innerWidth')
   assert not errors,errors
-  print('PASS image/video original bytes and MIME, fresh click activation, batch saving/splitting, cancel/denied, large-file guard, unsupported fallback, incomplete file rejection, catalog and cloud entries, mobile width')
+  print('PASS reopen and page-reload reuse cached original with zero extra media fetches');print('PASS image/video original bytes and MIME, fresh click activation, batch saving/splitting, cancel/denied, large-file guard, unsupported fallback, incomplete file rejection, catalog and cloud entries, mobile width')
   browser.close()
 
 if __name__=='__main__':

@@ -5,26 +5,28 @@
  const mime=n=>mimeByExt[String(n).split('.').pop().toLowerCase()]||'';
  window.isAlbumMedia=n=>!!mime(n);
  const dialog=q('#previewDialog'),video=q('#previewVideo'),image=q('#previewImage'),share=q('#shareVideo'),help=q('#saveHelp'),next=q('#nextAlbumBatch'),download=q('#saveOriginal');
- let current=null;
+ let current=null;const previewURLs=[];
  function fileURL(item){return '/api/files/'+encodeURIComponent(item.id)+'/'+encodeURIComponent(item.name);}
  function live(s){return current===s&&!s.controller.signal.aborted;}
  function supported(){return window.isSecureContext&&typeof navigator.share==='function'&&typeof navigator.canShare==='function';}
  function canShare(files){try{return supported()&&navigator.canShare({files});}catch(e){return false;}}
- function stop(){if(current){current.controller.abort();current.files=[];}current=null;video.pause();video.removeAttribute('src');video.load();image.removeAttribute('src');share.onclick=null;next.onclick=null;}
+ function stop(){window.MEDIA_PREPARING=false;for(const url of previewURLs)URL.revokeObjectURL(url);previewURLs.length=0;if(current){current.controller.abort();current.files=[];}current=null;video.pause();video.removeAttribute('src');video.load();image.removeAttribute('src');share.onclick=null;next.onclick=null;}
  window.closePreview=()=>{stop();if(dialog.open)dialog.close();};
  dialog.addEventListener('cancel',stop);dialog.addEventListener('close',()=>{if(!dialog.open)stop();});
- function preview(item){
-  const type=mime(item.name),url=fileURL(item);const isImage=type.startsWith('image/');
+ function preview(item,file=null,remote=false){
+  video.pause();for(const old of previewURLs)URL.revokeObjectURL(old);previewURLs.length=0;
+  const type=mime(item.name);let url=fileURL(item);const isImage=type.startsWith('image/');if(file){url=URL.createObjectURL(file);previewURLs.push(url);}
   video.hidden=isImage;image.hidden=!isImage;
-  if(isImage){video.removeAttribute('src');image.src=url+'?inline=1';}
-  else{image.removeAttribute('src');video.src=url+'?inline=1';}
-  download.href=url;download.download=item.name;download.onclick=null;
+  if(isImage){video.removeAttribute('src');if(file||remote||!MOBILE){image.src=file?url:url+'?inline=1';}else{image.removeAttribute('src');image.hidden=true;}}
+  else{image.removeAttribute('src');video.preload='none';if(file||remote||!MOBILE)video.src=file?url:url+'?inline=1';else video.removeAttribute('src');}
+  download.href=file?url:fileURL(item);download.download=item.name;download.onclick=null;
  }
  function fallback(s,message){
-  if(!live(s))return;share.hidden=false;share.disabled=true;share.textContent='系统相册保存不可用';next.hidden=true;
+  if(!live(s))return;preview(s.items[s.offset],null,true);share.hidden=false;share.disabled=true;share.textContent='系统相册保存不可用';next.hidden=true;
   help.textContent=message+(s.items.length===1&&mime(s.items[0].name).startsWith('image/')?' 可长按上面的原图，选择保存图片。':' 可点“下载原文件”，再从手机文件应用保存到相册。');
  }
  async function readOriginal(item,s){
+  const cached=await window.MediaOriginalCache?.get(item);if(cached){if(!live(s))throw new DOMException('Stopped','AbortError');if(s.bytes+cached.size>LIMIT)throw Error('当前批次超过手机准备容量，请减少勾选数量。');s.bytes+=cached.size;s.cachedCount++;return new File([cached],item.name,{type:mime(item.name)||cached.type});}
   if(item.size>LIMIT)throw Error('此原文件超过 128 MB，请使用“下载原文件”，下载后从文件应用存入相册。');
   const r=await fetchVideo(item.id,item.name,s.controller.signal);
   if(!r.ok)throw Error('原文件读取失败（HTTP '+r.status+'），请重试。');
@@ -33,14 +35,14 @@
   const expected=Number(r.headers.get('content-length'))||Number(item.size)||0;
   if(expected>LIMIT){await r.body?.cancel();throw Error('此原文件较大，请使用“下载原文件”，下载后再存入相册。');}
   const chunks=[];let size=0;const reader=r.body?.getReader();
-  if(reader){try{while(true){const data=await reader.read();if(data.done)break;size+=data.value.byteLength;s.bytes+=data.value.byteLength;if(size>LIMIT||s.bytes>LIMIT)throw Error('当前批次超过手机准备容量，请减少勾选数量或下载原文件。');chunks.push(data.value);if(live(s))help.textContent='正在准备原文件 '+(s.files.length+1)+' / '+s.batchCount+' · '+fmtSize(s.bytes)+'，准备好后点击“保存到相册”。';}}finally{try{await reader.cancel();}catch(e){}reader.releaseLock();}}
+  if(reader){try{while(true){const data=await reader.read();if(data.done)break;size+=data.value.byteLength;s.bytes+=data.value.byteLength;if(size>LIMIT||s.bytes>LIMIT)throw Error('当前批次超过手机准备容量，请减少勾选数量或下载原文件。');chunks.push(data.value);if(live(s)&&performance.now()-s.lastPaint>250){s.lastPaint=performance.now();help.textContent='正在准备原文件 '+(s.files.length+1)+' / '+s.batchCount+' · '+fmtSize(s.bytes)+'，准备好后点击“保存到相册”。';}}}finally{try{await reader.cancel();}catch(e){}reader.releaseLock();}}
   else{const buffer=await r.arrayBuffer();size=buffer.byteLength;s.bytes+=size;if(size>LIMIT||s.bytes>LIMIT)throw Error('原文件较大，请先下载原文件。');chunks.push(buffer);}
   if(!size||(expected&&size!==expected)||(Number(item.size)&&size!==Number(item.size)))throw Error('原文件接收不完整，请重试；未交给系统保存。');
   if(!live(s))throw new DOMException('Stopped','AbortError');
-  return new File(chunks,item.name,{type:mime(item.name)||type});
+  const file=new File(chunks,item.name,{type:mime(item.name)||type});await window.MediaOriginalCache?.put(item,file);return file;
  }
  async function prepare(s){
-  if(!live(s))return;s.files=[];s.bytes=0;share.hidden=false;share.disabled=true;share.textContent='正在准备…';next.hidden=true;
+  if(!live(s))return;window.MEDIA_PREPARING=true;s.files=[];s.bytes=0;s.cachedCount=0;s.lastPaint=0;share.hidden=false;share.disabled=true;share.textContent='正在准备…';next.hidden=true;
   const start=s.offset;let end=start,estimate=0;
   while(end<s.items.length&&end-start<s.pack){const size=Number(s.items[end].size)||0;if(end>start&&estimate+size>LIMIT)break;estimate+=size;end++;}
   s.batchCount=end-start;preview(s.items[start]);
@@ -55,8 +57,8 @@
     if(s.files.length>1&&canShare([s.files[0]])){s.pack=1;end=start+1;s.files=s.files.slice(0,1);}
     else{fallback(s,'系统不支持保存这个原文件格式。为保持画质，不会自动压缩或转码。');return;}
    }
-   s.end=end;share.disabled=false;share.textContent=s.files.length===1?'保存到相册':'保存这 '+s.files.length+' 个到相册';
-   help.textContent='原文件已准备好'+(s.items.length>1?'（'+(start+1)+'–'+end+' / '+s.items.length+'）':'')+'。点击按钮，在系统菜单选择“存储图像 / 存储视频”或相册；可用选项由手机提供。';
+   s.end=end;preview(s.items[start],s.files[0]);share.disabled=false;share.textContent=s.files.length===1?'保存到相册':'保存这 '+s.files.length+' 个到相册';
+   help.textContent='原文件已准备好并缓存到本机'+(s.items.length>1?'（'+(start+1)+'–'+end+' / '+s.items.length+'）':'')+'。点击按钮后，在系统菜单向下找到“存储图像 / 存储视频”。图片也可长按原图，选择存入照片；本页再次打开会复用缓存。';
    share.onclick=async()=>{
     if(!live(s)||s.sharing)return;s.sharing=true;share.disabled=true;
     try{
@@ -71,7 +73,7 @@
      else help.textContent='系统保存未完成。可重试、减少勾选，或下载原文件后保存到相册。';
     }finally{if(live(s)){s.sharing=false;share.disabled=false;}}
    };
-  }catch(e){if(e.name!=='AbortError'&&live(s))fallback(s,e.message);}
+  }catch(e){if(e.name!=='AbortError'&&live(s))fallback(s,e.message);}finally{if(live(s))window.MEDIA_PREPARING=false;}
  }
  function open(items){
   stop();const list=items.filter(item=>mime(item.name));
@@ -79,6 +81,7 @@
   current={items:list,offset:0,end:0,files:[],pack:PACK,bytes:0,controller:new AbortController(),sharing:false};
   if(!dialog.open)dialog.showModal();void prepare(current);
  }
+ window.saveAlbumItems=open;
  window.previewFile=(id,name)=>{
   const job=cache.find(j=>j.id===id),file=job?.files.find(f=>f.name===name);
   open([{id,name,size:file?.size||0}]);

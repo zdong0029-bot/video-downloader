@@ -1105,10 +1105,17 @@ def create_job(body: NewJob, request: Request,
 
 
 @app.get("/api/jobs")
-def list_jobs(scope: str = "browser", me: Identity = Depends(current_identity)) -> list[dict]:
+def list_jobs(request: Request,response: Response,scope: str = "browser", me: Identity = Depends(current_identity)):
     with _lock:
         jobs = sorted(JOBS.values(), key=lambda j: j.created, reverse=True)
-    return [j.public() for j in jobs if (j.owner == me.device or (scope == "all" and me.is_admin)) and task_history.retained(j.status,j.completed_at,j.created)]
+    rows=[j.public() for j in jobs if (j.owner == me.device or (scope == "all" and me.is_admin)) and task_history.retained(j.status,j.completed_at,j.created)]
+    fingerprint=json.dumps([me.device,me.is_admin,scope,rows],sort_keys=True,separators=(',',':'))
+    etag='"'+hashlib.sha256(fingerprint.encode()).hexdigest()+'"'
+    headers={'ETag':etag,'Cache-Control':'private, no-cache','Vary':'Cookie'}
+    if request.headers.get('if-none-match')==etag:return Response(status_code=304,headers=headers)
+    response.headers.update(headers)
+    return rows
+
 
 
 @app.post("/api/jobs/{job_id}/cancel")
@@ -1452,4 +1459,5 @@ def platform_account_connect(body: VideoPlatformConnectBody, request: Request, m
         _cloud_connector = subprocess.Popen([str(pythonw), str(ROOT/'connect_video_platform.py'), body.provider], cwd=str(ROOT), creationflags=subprocess.CREATE_NO_WINDOW)
     return {'ok': True, 'message': '已打开官方网页。请完成登录和验证，然后点击小窗口保存授权。'}
 
-app.mount("/", StaticFiles(directory=STATIC, html=True), name="static")
+from compressed_static import PrecompressedStaticFiles
+app.mount("/", PrecompressedStaticFiles(directory=STATIC, html=True), name="static")
