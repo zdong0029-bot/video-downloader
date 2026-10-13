@@ -1,0 +1,16 @@
+<!doctype html><html lang="zh-CN"><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>iPhone 一键存相册设置</title><style>body{font:17px/1.75 -apple-system,system-ui;background:#f5f7fa;color:#173030;max-width:720px;margin:0 auto;padding:22px}li{margin:14px 0}b{color:#087e7a}code{background:#e6ebef;padding:2px 6px;border-radius:4px}.tip{background:#fff;border-radius:12px;padding:12px 16px;margin-top:18px}</style>
+<h1>iPhone 一键存相册（只需设置一次）</h1>
+<p>设置好以后，在下载器网页勾选视频 / 图片，点“<b>一键存相册</b>”，会自动下载原文件并存进相册，画质不变。</p>
+<ol>
+<li>打开 iPhone 自带的“<b>快捷指令</b>”App，点右上角 <b>＋</b> 新建。</li>
+<li>点顶部名称，改成 <code>视频下载器存相册</code>（一个字都不能差）。</li>
+<li>点“添加操作”，搜索“<b>拆分文本</b>”添加。点它里面蓝色的“文本”，选“<b>快捷指令输入</b>”；拆分方式选“<b>新行</b>”。</li>
+<li>搜索“<b>重复每一项</b>”添加，对象选上一步的“拆分文本”。</li>
+<li>在“重复”里面，添加“<b>获取 URL 内容</b>”，URL 选“<b>重复项目</b>”。</li>
+<li>紧接着添加“<b>存储到相簿</b>”，内容选“URL 的内容”，相簿保持“最近项目”。</li>
+<li>点“完成”保存。</li>
+</ol>
+<div class="tip"><b>第一次运行</b>会弹出“允许访问照片”和“允许连接到服务器”，都点“<b>始终允许</b>”。存完会自动回到浏览器。</div>
+<div class="tip">没反应？检查名称是否完全一致；一次选太多可能失败，建议每次 30 个以内。普通文件（压缩包、文档等）不走这里，照常点“保存到文件”。</div>
+<div class="tip">安卓手机不需要设置：任何浏览器（自带浏览器、Chrome 都行）下载的视频图片在“下载”文件夹，相册一般会自动显示。</div>
+</html>

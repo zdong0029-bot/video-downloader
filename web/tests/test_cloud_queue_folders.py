@@ -65,3 +65,32 @@ def _queue_case():
         assert started==[a.id,b.id] and a.status=='done' and b.status=='done'
         f=a.public()['files'][0];assert f['folder']=='课程/第1章' and f['label']=='a.mp4'
         meta=(m.DOWNLOADS/a.id/m.META).read_text(encoding='utf-8');assert '课程/第1章' in meta
+
+
+def test_shortcut_signed_links():
+    saved_path=list(sys.path);saved_modules=dict(sys.modules)
+    try:
+        with tempfile.TemporaryDirectory(prefix='shortcut-test-') as folder:
+            fixture=Path(folder);(fixture/'static').mkdir()
+            for source in ROOT.glob('*.py'):shutil.copy2(source,fixture/source.name)
+            sys.path.insert(0,str(fixture))
+            for name in list(sys.modules):
+                if name in ('app','cloud_backend','file_download','task_history','relay_sync'):del sys.modules[name]
+            import app as m
+            from fastapi.testclient import TestClient
+            from fastapi import HTTPException
+            job=m.Job(id='cccccccccccc',url='u',kind='file',owner='me',status='done')
+            d=m._job_dir(job.id);(d/'a.mp4').write_bytes(b'video')
+            job.files=[m.FileItem('a.mp4',5,True)];m.JOBS[job.id]=job
+            with patch.object(m.relay_sync,'enabled',return_value=False):
+                urls=m.shortcut_links(m.ShortcutItems(items=[{'id':job.id,'name':'a.mp4'}]),m.Identity(device='me'))['urls']
+            try:m.shortcut_links(m.ShortcutItems(items=[{'id':job.id,'name':'a.mp4'}]),m.Identity(device='other'));raise AssertionError('foreign job')
+            except HTTPException as e:assert e.status_code==404
+            c=TestClient(m.app)
+            r=c.get(urls[0]);assert r.status_code==200 and r.content==b'video'
+            assert c.get(urls[0].replace('&s=','&s=0')).status_code==403
+    finally:
+        sys.path[:]=saved_path
+        for name in list(sys.modules):
+            if name not in saved_modules:del sys.modules[name]
+        sys.modules.update(saved_modules)

@@ -1337,6 +1337,51 @@ def get_file(job_id: str, name: str, inline: bool = False, me: Identity = Depend
                         content_disposition_type="inline" if inline and Path(name).suffix.lower() in {".mp4", ".webm", ".mov", ".mkv", ".mp3", ".wav", ".jpg", ".jpeg", ".png", ".webp", ".gif"} else "attachment")
 
 
+# iPhone 快捷指令没有本站 cookie：发 2 小时有效的签名链接（优先国内中转，未同步完则走主机）
+_SIGN_KEY = secrets.token_bytes(32)
+SIGNED_TTL = 7200
+
+
+def _sign(job_id: str, name: str, exp: int) -> str:
+    import hmac
+    return hmac.new(_SIGN_KEY, f"{job_id}\n{name}\n{exp}".encode(), hashlib.sha256).hexdigest()[:32]
+
+
+class ShortcutItems(BaseModel):
+    items: list[dict]
+
+
+@app.post("/api/shortcut-links")
+def shortcut_links(body: ShortcutItems, me: Identity = Depends(current_identity)) -> dict:
+    if not body.items or len(body.items) > 200:
+        raise HTTPException(400, "请选择 1 到 200 个文件")
+    urls = []
+    for item in body.items:
+        job_id, name = str(item.get("id", "")), str(item.get("name", ""))
+        job = _get_job(job_id, me)
+        path = _safe_file(job_id, name)
+        if not any(f.name == name and f.done for f in job.files):
+            raise HTTPException(404, "文件不存在")
+        relay = relay_sync.link(job_id, name, path, job.owner) if relay_sync.enabled() else {}
+        if relay.get("state") == "ready" and relay.get("url"):
+            urls.append(relay["url"]); continue
+        exp = int(time.time()) + SIGNED_TTL
+        urls.append(f"/api/signed/{quote(job_id, safe='')}/{quote(name, safe='')}?e={exp}&s={_sign(job_id, name, exp)}")
+    return {"urls": urls}
+
+
+@app.get("/api/signed/{job_id}/{name}")
+def signed_file(job_id: str, name: str, e: int = 0, s: str = ""):
+    import hmac
+    if e < time.time() or not hmac.compare_digest(s, _sign(job_id, name, e)):
+        raise HTTPException(403, "链接已过期，请回网页重新点击")
+    job = JOBS.get(job_id)
+    if not job or not any(f.name == name and f.done for f in job.files):
+        raise HTTPException(404, "文件不存在")
+    return FileResponse(_safe_file(job_id, name), filename=name, headers={"Cache-Control": "private, no-store"},
+                        media_type=mimetypes.guess_type(name)[0] or "application/octet-stream")
+
+
 @app.get("/api/files/{job_id}/{name}/link")
 def file_link(job_id: str, name: str, me: Identity = Depends(current_identity)) -> dict:
     """Short-lived relay URL for the same original (same ownership checks as get_file)."""

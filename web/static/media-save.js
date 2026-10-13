@@ -97,12 +97,37 @@
   if(!dialog.open)dialog.showModal();void prepare(current);
  }
  window.saveAlbumItems=open;
+ // iPhone / iPad：交给“快捷指令”一次存完，不用逐个点系统菜单
+ const SHORTCUT='视频下载器存相册';
+ window.IOS_DEVICE=/iPhone|iPad|iPod/i.test(navigator.userAgent)||(navigator.platform==='MacIntel'&&navigator.maxTouchPoints>1);
+ window.saveViaShortcut=async items=>{
+  const list=items.filter(item=>mime(item.name));
+  if(!list.length){hintEl.textContent='请先勾选已经准备好的图片或视频。';return;}
+  hintEl.textContent='正在生成下载链接…';
+  try{
+   const r=await fetch('/api/shortcut-links',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({items:list.map(i=>({id:i.id,name:i.name}))})});
+   const d=await r.json();if(!r.ok)throw Error(d.detail||'生成链接失败');
+   const text=d.urls.map(u=>new URL(u,location.href).href).join('\n');
+   hintEl.textContent='已交给快捷指令保存 '+list.length+' 个，到相册“最近项目”查看。没反应？点“首次使用设置”。';
+   location.href='shortcuts://x-callback-url/run-shortcut?name='+encodeURIComponent(SHORTCUT)+'&input=text&text='+encodeURIComponent(text)+'&x-success='+encodeURIComponent(location.href);
+  }catch(e){hintEl.textContent=e.message;}
+ };
+ window.shortcutButtons=(onclick,enabled)=>window.IOS_DEVICE?'<button class="small" '+(enabled?'':'disabled')+' onclick="'+onclick+'">一键存相册</button><a class="ghost" href="/shortcut-help.html" target="_blank" rel="noopener" style="font-size:12px;align-self:center">首次使用设置</a>':'';
  window.previewFile=(id,name)=>{
   const job=cache.find(j=>j.id===id),file=job?.files.find(f=>f.name===name);
   open([{id,name,size:file?.size||0}]);
  };
  window.saveSelectedAlbum=id=>{
   const job=viewJob(id);if(!job)return;open(selectedIn(job).map(f=>({id:originId(job,f),name:f.name,size:f.size})));
+ };
+ window.shortcutSelected=id=>{
+  const job=viewJob(id);if(!job)return;window.saveViaShortcut(selectedIn(job).map(f=>({id:originId(job,f),name:f.name,size:f.size})));
+ };
+ window.shortcutCatalog=id=>{
+  const chosen=catalogSet(id),files=catalogFiles(id),items=[];
+  for(const entry of chosen){const f=files.get(entry);if(f)items.push({id:f.job_id,name:f.name,size:f.size});}
+  if(!items.length){hintEl.textContent='选中的素材还未准备好，请先点击“准备 / 保存选中”。';return;}
+  window.saveViaShortcut(items);
  };
  window.saveCatalogAlbum=id=>{
   const chosen=catalogSet(id),files=catalogFiles(id),items=[];
