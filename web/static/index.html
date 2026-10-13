@@ -688,7 +688,17 @@ async function removeJob(id, purge){
 
 const PUBLIC_SITE='https://video-downloader.tail49ff9c.ts.net/';
 let CATEGORY=sessionStorage.getItem('downloadCategory')==='cloud'?'cloud':'video';
+const inputLinksKey='video-downloader-input-links-v1';
 const categoryDrafts={video:'',cloud:''};
+try{
+  const saved=JSON.parse(localStorage.getItem(inputLinksKey)||'{}');
+  for(const category of ['video','cloud'])if(typeof saved?.[category]==='string')categoryDrafts[category]=saved[category];
+}catch(e){}
+urlEl.value=categoryDrafts[CATEGORY];
+function rememberInputLinks(){
+  categoryDrafts[CATEGORY]=urlEl.value;
+  try{localStorage.setItem(inputLinksKey,JSON.stringify(categoryDrafts));}catch(e){}
+}
 function categoryOf(j){if(j.kind==='file' && /\.(jpe?g|png|webp|gif)(?:[?#]|$)/i.test(j.url))return 'video';return ['cloud','file'].includes(j.kind)?'cloud':'video';}
 function updateCategoryUI(){
   const cloud=CATEGORY==='cloud';
@@ -716,6 +726,7 @@ async function copyShareSite(){
 const countEl = $('#linkCount');
 
 function updateCount(){
+  rememberInputLinks();
   const n = (urlEl.value.match(/https?:\/\/[^\s]+/g)||[]).length;
   countEl.textContent = n > 1 ? `检测到 ${n} 个链接` : '';
 }
@@ -734,7 +745,6 @@ async function submit(){
       hintEl.textContent = data.detail || '请求失败';
       hintEl.style.color = 'var(--err)';
     }else{
-      urlEl.value = '';
       urlEl.focus();
       updateCount();
       const n = (data.created || []).length;
@@ -750,6 +760,7 @@ async function submit(){
   } finally { goEl.disabled = false; }
 }
 
+updateCount();
 goEl.onclick = submit;
 urlEl.addEventListener('input', updateCount);
 urlEl.addEventListener('paste', e=>{
@@ -964,7 +975,7 @@ async function delUser(name){
 
 boot();
 </script>
-<script src="/cloud-ui.js?v=20261012"></script><script src="/catalog-ui.js?v=20261012-full"></script>
+<script src="/cloud-ui.js?v=20261012"></script><script src="/catalog-ui.js?v=20261013-retain-links"></script>
 <script src="/video-account-ui.js?v=20261012-full"></script>
 </body>
 </html>

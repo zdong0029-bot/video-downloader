@@ -54,7 +54,7 @@ async function parseCatalog(url=null,limit=0){
     const r=await fetch('/api/catalogs',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({url,limit})});
     const d=await r.json();if(!r.ok)throw new Error(d.detail||'主页识别失败');
     hintEl.textContent='正在读取主页视频列表，识别完成后勾选下载。';hintEl.style.color='';
-    if(limit===0){urlEl.value='';updateCount();}
+    updateCount();
     await refreshCatalogs(true);
   }catch(e){hintEl.textContent=e.message;hintEl.style.color='var(--err)';}
   finally{button.disabled=false;}
