@@ -23,6 +23,36 @@ class ProfileCatalogTests(unittest.TestCase):
    'https://www.kuaishou.com/short-video/3abc123','https://v.qq.com/x/cover/a/b.html',
    'https://www.mgtv.com/b/123/456.html','https://www.acfun.cn/v/ac123']:
    with self.subTest(url=url):self.assertFalse(catalog.is_profile(url))
+ def test_single_xhs_work_never_enters_profile_browser(self):
+  from unittest.mock import patch
+  from profile_browser import resolve as browser_resolve
+  for url in ['https://www.xiaohongshu.com/discovery/item/6ac119c000000000014033c23?xsec_token=fixture', 'https://www.xiaohongshu.com/explore/'+'b'*24, 'https://www.youtube.com/watch?v=fixture']:
+   self.assertFalse(catalog.is_profile(url))
+   with patch('profile_browser.resolve') as resolve:
+    with self.assertRaisesRegex(ValueError,'识别失败'):catalog.resolve(url)
+    resolve.assert_not_called()
+  with self.assertRaisesRegex(ValueError,'识别失败'):browser_resolve('https://www.xiaohongshu.com/discovery/item/'+'b'*24,'xiaohongshu')
+ def test_all_connected_platform_work_and_profile_classification(self):
+  import json
+  from pathlib import Path
+  from unittest.mock import patch
+  rows=json.loads(Path(__file__).with_name('profile_dispatch_cases.json').read_text(encoding='utf-8'))
+  self.assertEqual(len(rows),31)
+  for row in rows:
+   with self.subTest(platform=row['platform']):
+    self.assertEqual(catalog.is_profile(row['profile_url']),row['has_profile'])
+    self.assertFalse(catalog.is_profile(row['work_url']))
+    # A single work fails before either browser discovery or native extraction.
+    with patch('profile_browser.resolve') as browser,patch.object(catalog.yt_dlp,'YoutubeDL') as native:
+     with self.assertRaisesRegex(ValueError,'识别失败'):catalog.resolve(row['work_url'])
+     browser.assert_not_called();native.assert_not_called()
+ def test_platform_entrypoints_and_video_on_profile_are_not_profiles(self):
+  for url in ['https://clips.twitch.tv/FaintLightGullWholeWheat','https://www.douyin.com/user/fixture?modal_id=7686067191647997182',
+   'https://space.bilibili.com','https://space.bilibili.com/login','https://www.youtube.com/playlist',
+   'https://www.youtube.com/@fixture/watch?v=fixture','https://www.instagram.com/accounts',
+   'https://www.instagram.com/explore','https://x.com/home','https://twitter.com/i',
+   'https://www.twitch.tv/login']:
+   with self.subTest(url=url):self.assertFalse(catalog.is_profile(url))
  def test_host_boundary_and_credentials(self):
   for url in ['https://evil-tiktok.com/@x','https://tiktok.com.evil.test/@x',
     'https://user:password@tiktok.com/@x','https://tiktok.com:8000/@x',
@@ -55,6 +85,19 @@ class ProfileCatalogTests(unittest.TestCase):
   full='https://www.xiaohongshu.com/user/profile/'+'a'*24+'/'+'b'*24+'?xsec_token=fixture'
   self.assertEqual(work_identity(full,'xiaohongshu'),'xiaohongshu:'+'b'*24)
   self.assertEqual(work_identity(full,'xiaohongshu'),work_identity(full.replace('fixture','rotated'),'xiaohongshu'))
+ def test_bilibili_official_uploads_bound_to_author(self):
+  from profile_browser import bilibili_profile_posts
+  rows=[{'bvid':'BV16G411C7Zh','mid':123},{'bvid':'BV16G411C7Zh','mid':999},{'bvid':'garbage','mid':123}]
+  payload={'code':0,'data':{'list':{'vlist':rows}}}
+  self.assertEqual(bilibili_profile_posts({'mid':['123']},payload,'123'),[rows[0]])
+  self.assertEqual(bilibili_profile_posts({'mid':['999']},payload,'123'),[])
+  self.assertEqual(bilibili_profile_posts({'mid':['123']},{**payload,'code':-352},'123'),[])
+ def test_album_redirect_retries_dom_snapshot(self):
+  from types import SimpleNamespace
+  from profile_browser import profile_snapshot
+  def failure(*args,**kwargs):raise RuntimeError('Execution context was destroyed, most likely because of a navigation')
+  page=SimpleNamespace(locator=lambda selector:SimpleNamespace(evaluate_all=failure))
+  self.assertEqual(profile_snapshot(page,'a','script'),[])
  def test_kuaishou_rest_feed_bound_to_profile(self):
   feed={'result':1,'pcursor':'no_more','feeds':[{'photo':{'id':'3abc123456','caption':'own'},'author':{'id':'authorA'}},{'photo':{'id':'3abc654321'},'author':{'id':'authorB'}}]}
   posts=kuaishou_profile_posts({'user_id':'authorA'},feed,'authorA')

@@ -148,7 +148,7 @@
 .cloud-status-row{display:flex;flex-wrap:wrap;align-items:center;gap:8px;margin:12px 0}#cloudStatus{display:flex;flex-wrap:wrap;gap:7px}.cloud-pill{border:1px solid var(--line);border-radius:20px;padding:6px 10px;font-size:12px;color:var(--muted)}.cloud-ok{color:#0b766b;background:#eafaf6;border-color:#b4e0d7}.cloud-error{color:#b33131;background:#fff1f1}.cloud-controls{display:flex;flex-wrap:wrap;gap:7px;align-items:center}#cloudCards .row{flex-wrap:wrap}#cloudCards h4{margin:0;font-size:16px}
 .category-tabs{display:flex;gap:8px;margin:0 0 14px}.category-tabs button{flex:1;background:var(--card);color:var(--muted);border:1px solid var(--line);padding:11px}.category-tabs button[aria-current="page"]{background:var(--accent);color:#fff;border-color:var(--accent)}.who #loginBtn{font-size:12px;padding:6px 10px}
 </style>
-<link rel="stylesheet" href="/workspace.css?v=20261013-mobile-v5">
+<link rel="stylesheet" href="/workspace.css?v=20261013-extract-v6">
 </head>
 <body>
 <!-- 未登录时显示：首次初始化 / 登录 -->
@@ -191,11 +191,11 @@
 
   <div class="card" id="downloadForm">
     <strong class="form-heading">粘贴链接，开始整理</strong><span class="quality-badge">最高可用画质</span>
-    <label class="note" id="sourceModeRow">下载类型：<select id="sourceMode"><option value="auto">自动识别</option><option value="cloud">网盘分享（8 个网盘）</option><option value="file">原文件直链（安装包、视频等）</option><option value="profile">主页 / 合集（先选择视频）</option></select></label>
+    <label class="note" id="sourceModeRow">下载类型：<select id="sourceMode"><option value="auto">自动识别</option><option value="media">视频图片提取</option><option value="cloud">网盘分享（8 个网盘）</option><option value="file">原文件直链（安装包、视频等）</option><option value="profile">主页 / 合集（先选择视频）</option></select></label>
     <p class="note" id="categoryDescription">支持视频、图片和主页合集，自动选择当前授权可取得的最高画质。</p>
     <p class="note" id="adminCloudNote" hidden>后台账号供访客下载原文件。必要的临时转存仅在主机文件全部下载并校验完成后清理。</p>
     <div class="cloud-status-row" id="cloudStatusRow" hidden><div id="cloudStatus" aria-live="polite"></div><button id="cloudStatusRefresh" class="ghost" type="button">刷新状态</button></div>
-    <textarea id="url" rows="3" spellcheck="false" autocapitalize="off"
+    <textarea id="url" rows="3" autocomplete="off" spellcheck="false" autocapitalize="off"
       placeholder="粘贴视频、平台主页、网盘分享、原文件直链或 Symphony 分享码&#10;多个单视频会合并成一组，多视频链接独立展示"></textarea>
     <div class="row submission-actions">
       <button id="go">开始下载</button><button id="scanProfile" class="ghost" type="button">识别主页 / 合集</button>
@@ -206,7 +206,7 @@
     <label class="note" id="transferModeRow">视频传输：<select id="transferMode"><option value="auto">自动（公网优先平台直连）</option><option value="server">主机传输</option></select> · 当前优先支持 Symphony；直连失败自动回退。</label>
     <label class="note newline-option"><input type="checkbox" id="autoNewline" checked style="width:14px;height:14px;vertical-align:middle"> 粘贴链接后自动换行</label>
     <div class="hint" id="hint"></div>
-    <div class="note form-retention">链接自动保留 · 刷新清空当前列表，后台任务继续；下载记录保留七天。</div>
+    <div class="note form-retention">刷新清空输入框与当前结果；后台任务继续，下载记录保留七天。</div>
   </div>
 
   <div class="workspace-heading">
@@ -249,10 +249,10 @@ const jobsEl = $('#jobs'), urlEl = $('#url'), goEl = $('#go'), hintEl = $('#hint
 // 重绘会把 DOM 里的勾选全部冲掉，用户正勾到一半就白勾了。
 // New page loads start an empty workspace; records remain server-side.
 let VIEW='workspace';
-const workspaceJobs=new Set(),workspaceCatalogs=new Set();
+const workspaceJobs=new Set(),workspaceCatalogs=new Set(),workspaceJobPages=new Map();
 const selected = new Set();
-function acceptSubmission(data){
-  for(const j of data.created||[])workspaceJobs.add(j.id);
+function acceptSubmission(data,page=CATEGORY){
+  for(const j of data.created||[]){workspaceJobs.add(j.id);workspaceJobPages.set(j.id,page);}
   for(const c of data.catalogs||[])workspaceCatalogs.add(c.id);
 }
 function matchStatus(status){
@@ -261,7 +261,7 @@ function matchStatus(status){
 }
 function searchValue(){return $('#taskSearch').value.trim().toLowerCase();}
 function visibleJob(j){
-  return (VIEW==='history'||workspaceJobs.has(j.id)) && (VIEW==='history'||categoryOf(j)===CATEGORY) && matchStatus(j.status)
+  return (VIEW==='history'||workspaceJobs.has(j.id)) && (VIEW==='history'||(workspaceJobPages.get(j.id)||categoryOf(j))===CATEGORY) && matchStatus(j.status)
     && (!searchValue()||[j.title,j.url,...(j.files||[]).map(f=>f.name)].join(' ').toLowerCase().includes(searchValue()));
 }
 async function clearCompletedHistory(){
@@ -744,44 +744,48 @@ async function removeJob(id, purge){
 }
 
 const PUBLIC_SITE='https://video-downloader.tail49ff9c.ts.net/';
-let CATEGORY=sessionStorage.getItem('downloadCategory')==='cloud'?'cloud':'video';
+let CATEGORY=location.hash==='#profiles'?'profile':location.hash==='#files'?'cloud':'video';
 const inputLinksKey='video-downloader-input-links-v1';
-const categoryDrafts={video:'',cloud:''};
-try{
-  const saved=JSON.parse(localStorage.getItem(inputLinksKey)||'{}');
-  for(const category of ['video','cloud'])if(typeof saved?.[category]==='string')categoryDrafts[category]=saved[category];
-}catch(e){}
-urlEl.value=categoryDrafts[CATEGORY];
-function rememberInputLinks(){
-  categoryDrafts[CATEGORY]=urlEl.value;
-  try{localStorage.setItem(inputLinksKey,JSON.stringify(categoryDrafts));}catch(e){}
-}
-function categoryOf(j){if(j.kind==='file' && /\.(jpe?g|png|webp|gif)(?:[?#]|$)/i.test(j.url))return 'video';return ['cloud','file'].includes(j.kind)?'cloud':'video';}
+const categoryDrafts={video:'',profile:'',cloud:''};
+try{localStorage.removeItem(inputLinksKey);sessionStorage.removeItem('downloadCategory');}catch(e){}
+urlEl.value='';
+function rememberInputLinks(){categoryDrafts[CATEGORY]=urlEl.value;}
+function categoryOf(j){if(j.catalog_id)return 'profile';if(j.kind==='file' && /\.(mp4|mov|webm|m4v|mkv|jpe?g|png|webp|gif)(?:[?#]|$)/i.test(j.url))return 'video';return ['cloud','file'].includes(j.kind)?'cloud':'video';}
 function updateCategoryUI(){
-  const history=VIEW==='history',cloud=CATEGORY==='cloud';
-  $('#downloadForm').hidden=history;
-  $('#clearHistory').hidden=!history;
+  const history=VIEW==='history',cloud=CATEGORY==='cloud',profile=CATEGORY==='profile';
+  $('#downloadForm').hidden=history;$('#clearHistory').hidden=!history;
   $('#historyTab').setAttribute('aria-current',history?'page':'false');
-  $('#workspaceTitle').textContent=history?'下载记录':cloud?'网盘文件':'当前素材';
-  $('#workspaceNote').textContent=history?'任务结束后保留七天 · 清除记录不删除文件':'多个来源独立分组 · 本轮列表刷新后不再显示';
-
+  $('#workspaceTitle').textContent=history?'下载记录':cloud?'提取的文件':profile?'主页 / 合集素材':'提取的视频 / 图片';
+  $('#workspaceNote').textContent=history?'任务结束后保留七天 · 清除记录不删除文件':'本页来源独立分组 · 刷新后输入框与本轮结果清空';
   $('#videoTab').setAttribute('aria-current',!history&&!cloud?'page':'false');
   $('#cloudTab').setAttribute('aria-current',!history&&cloud?'page':'false');
-  $('#sourceModeRow').hidden=!ME;
-  $('#cloudStatusRow').hidden=!cloud || !ME;
-  $('#adminCloudNote').hidden=!cloud || !ME;
-  $('#scanProfile').hidden=cloud;
-  $('#transferModeRow').hidden=cloud || !ME;
-  $('#categoryDescription').textContent=cloud?'粘贴网盘分享链接或文件直链。视频、安装包和文档保持原文件；管理员连接后台账号后，朋友不用登录网盘。新增网盘需要完成账号与文件测试。':'粘贴视频、图片、主页或合集链接。自动选择当前授权可取得的最高画质，主页先识别再勾选。';
-  urlEl.placeholder=cloud?'粘贴网盘分享链接和提取码，或原文件直链\n可以连续粘贴，自动换行':'粘贴视频、图片、平台主页或 Symphony 分享码\n多个单视频合并成一组，多视频链接独立展示';
-  $('#catalogs').hidden=cloud&&!history;
+  $('#mediaExtractTab')?.setAttribute('aria-current',!history&&CATEGORY==='video'?'page':'false');
+  $('#profileExtractTab')?.setAttribute('aria-current',!history&&profile?'page':'false');
+  $('#sourceModeRow').hidden=true;$('#sourceMode').value=profile?'profile':cloud?'file':'media';
+  $('#cloudStatusRow').hidden=!cloud || !ME;$('#adminCloudNote').hidden=!cloud || !ME;
+  $('#scanProfile').hidden=!profile;goEl.hidden=profile;
+  goEl.textContent=cloud?'提取文件':'提取视频 / 图片';$('#scanProfile').textContent='识别主页 / 合集';
+  $('#transferModeRow').hidden=cloud||profile||!ME;
+  $('#categoryDescription').textContent=cloud?'粘贴网盘分享链接与提取码，或原文件直链。保留原文件内容。':profile?'只识别作者主页和合集链接，作品按来源分组；选择素材后下载。单个作品链接会显示识别失败。':'粘贴单个视频、图片或 Symphony 素材链接。自动识别作品，保留最高可用画质；主页链接请使用主页 / 合集页面。';
+  urlEl.placeholder=cloud?'粘贴网盘分享链接和提取码，或原文件直链':profile?'粘贴作者主页或合集链接，多条来源独立分组':'粘贴视频、图片或 Symphony 分享链接\n多个单视频合并成一组';
+  $('#catalogs').hidden=!profile&&!history;
+  document.querySelector('.form-heading').textContent=cloud?'文件提取':profile?'主页 / 合集识别':'视频图片提取';
 }
 function setCategory(value){
-  if(!['video','cloud'].includes(value))return;
+  if(!['video','profile','cloud'].includes(value))return;
   categoryDrafts[CATEGORY]=urlEl.value;CATEGORY=value;VIEW='workspace';
-  sessionStorage.setItem('downloadCategory',value);urlEl.value=categoryDrafts[value];
-  $('#sourceMode').value='auto';updateCount();updateCategoryUI();repaint();if(typeof renderCatalogs==='function')renderCatalogs();
+  urlEl.value=categoryDrafts[value];hintEl.textContent='';hintEl.style.color='';
+  history.replaceState(null,'',value==='profile'?'#profiles':value==='cloud'?'#files':'#extract');
+  updateCount();updateCategoryUI();repaint();if(typeof renderCatalogs==='function')renderCatalogs();
 }
+function resetFreshWorkspace(){
+  for(const key of Object.keys(categoryDrafts))categoryDrafts[key]='';urlEl.value='';
+  workspaceJobs.clear();workspaceCatalogs.clear();workspaceJobPages.clear();selected.clear();expandedCards.clear();
+  if(typeof catalogChosen!=='undefined')catalogChosen.clear();
+  VIEW='workspace';hintEl.textContent='';$('#taskSearch').value='';$('#taskStatus').value='all';
+  updateCount();updateCategoryUI();repaint();if(typeof renderCatalogs==='function')renderCatalogs();
+}
+window.addEventListener('pageshow',()=>{resetFreshWorkspace();window.applyRoleLayout?.();});
 async function copyShareSite(){
   try{await navigator.clipboard.writeText(PUBLIC_SITE);hintEl.textContent='已复制公网网址，其他电脑和手机直接打开即可。主机需要保持开机联网。';}
   catch(e){hintEl.replaceChildren();const a=document.createElement('a');a.href=PUBLIC_SITE;a.textContent=PUBLIC_SITE;a.target='_blank';hintEl.append('其他电脑请使用：',a);}
@@ -797,8 +801,9 @@ function updateCount(){
 async function submit(){
   const url = urlEl.value.trim();
   if(!url) return;
+  if(CATEGORY==='profile'){await parseCatalog(url);return;}
   if(window.rejectWorkspaceURL?.(url))return;
-  goEl.disabled = true;
+  const submissionPage=CATEGORY;goEl.disabled = true;
   try{
     const r = await fetch('/api/jobs', {
       method:'POST', headers:{'Content-Type':'application/json'},
@@ -809,7 +814,7 @@ async function submit(){
       hintEl.textContent = data.detail || '请求失败';
       hintEl.style.color = 'var(--err)';
     }else{
-      acceptSubmission(data);
+      acceptSubmission(data,submissionPage);
       urlEl.focus();
       updateCount();
       const n = (data.created || []).length;
@@ -1021,6 +1026,6 @@ function scheduleListLoading(){
 
 
 
-<script src="/site-runtime.js?v=20261013-mobile-v5"></script>
+<script src="/site-runtime.js?v=20261013-extract-v6"></script>
 </body>
 </html>

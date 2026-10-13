@@ -4,7 +4,7 @@
 
 ## 当前流程
 
-1. 在原首页粘贴作者主页或合集，自动路由到列表识别。
+1. 在“主页 / 合集”页面粘贴作者主页或合集，读取后勾选作品。单个作品须用“视频图片提取”；两页类型不符时明确显示识别失败。自动接口仍支持按真实链接类型分流。
 2. 原生列表解析可用时使用原生解析。快手、小红书、AcFun、好看、芒果、央视、爱奇艺和搜狐读取官方作者/选集页面的真实作品；B站、腾讯和TikTok在原生列表失效时有官方页面补充。
 3. 只接收属于目标作者/合集的作品，排除推荐视频、没有官方播放参数的占位链接和主页自身。小红书保留官网原始路径与播放参数，按作品ID去重。
 4. 官网页面未确认分页结束时明确标记部分列表；TikTok官方作者嵌入最多只返回最近10条，不能表示全部作品。
@@ -49,3 +49,11 @@
 后者使用临时源码副本和本地媒体，不复制授权文件，不操作生产记录；检查单视频分组、多作品独立卡片、245条主页只下载勾选项、展开收起、定位、并发、访客隔离、移除保留文件和重启恢复。
 
 来源：[TikTok官方作者嵌入范围](https://developers.tiktok.com/docs/en/embed-creator-profiles)、[yt-dlp主页解析](https://github.com/yt-dlp/yt-dlp)。
+
+## 2026-10-13 全平台类型验证
+
+- `profile_dispatch_cases.json` 包含31个平台的主页/合集和单作品对照，Streamable和视频号站点首页明确不是作者页。
+- `python -m unittest discover -s tests -p test_profile_catalog.py` 检查所有平台单作品不会进入列表解析器，及站点入口、Twitch clips、抖音 modal_id 的反例。
+- `python tests/test_profile_dispatch_api.py` 在临时源码/数据目录验证真实API分流，不访问账号或下载素材。
+- `python tests/test_extract_pages_browser.py` 检查电脑/模拟手机独立页面、输入和结果隔离、错类型提示、刷新为空及七天历史保留。
+- 本次全平台真实读取的结果见 `/homepage-verification-report.html`。列表读取、分页结束、完整媒体下载分别验收；不能拿列表通过代替成品通过。

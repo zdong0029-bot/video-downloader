@@ -36,7 +36,7 @@ with sync_playwright() as p:
  print('PASS large album original preparation and cached reopen')
  # No task POST or parser POST for the workstation URL pasted as media.
  posts=[];page.on('request',lambda r:posts.append(r.url) if r.method=='POST' else None)
- page.fill('#url','https://video-downloader.tail49ff9c.ts.net/?v=20261013-mobile-v4');page.click('#go');expect(page.locator('#hint')).to_contain_text('这是下载工作台');page.click('#scanProfile');expect(page.locator('#hint')).to_contain_text('这是下载工作台');assert not posts
+ page.fill('#url','https://video-downloader.tail49ff9c.ts.net/?v=20261013-mobile-v4');page.click('#go');expect(page.locator('#hint')).to_contain_text('这是下载工作台');page.click('#profileExtractTab');page.fill('#url','https://video-downloader.tail49ff9c.ts.net/?v=20261013-mobile-v4');page.click('#scanProfile');expect(page.locator('#hint')).to_contain_text('这是下载工作台');assert not posts
  assert page.evaluate('BrowserEnvironment.mobile') and not page.evaluate('BrowserEnvironment.wechat');assert not errors,errors
  c.close()
  # Embedded WeChat renders actionable guidance without preparing unsupported share data.

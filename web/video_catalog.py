@@ -47,21 +47,22 @@ def is_profile(url):
     except ValueError:
         return False
     host, path = (p.hostname or '').lower(), p.path.rstrip('/')
+    query = parse_qs(p.query)
     if host=='channels.weixin.qq.com':return path=='/web/pages/home'
     if _host(host, 'douyin.com'):
-        return path.startswith('/user/')
+        return bool(re.fullmatch(r'/user/[^/]+', path)) and not query.get('modal_id')
     if _host(host, 'tiktok.com'):
         return bool(re.fullmatch(r'/@[^/]+', path))
     if _host(host, 'youtube.com'):
-        return bool(re.match(r'^/(?:@[^/]+|channel/[^/]+|c/[^/]+|user/[^/]+)(?:/|$)', path)) or path == '/playlist'
+        return bool(re.fullmatch(r'/(?:@[^/]+|channel/[^/]+|c/[^/]+|user/[^/]+)(?:/(?:videos|shorts|streams|featured|playlists))?', path)) or (path == '/playlist' and bool(query.get('list')))
     if host == 'space.bilibili.com':
-        return True
+        return bool(re.fullmatch(r'/\d+(?:/(?:video|upload/video|channel/detail|lists))?',path))
     if _host(host, 'instagram.com'):
-        return bool(re.fullmatch(r'/[^/]+(?:/reels)?', path))
+        return bool(re.fullmatch(r'/[^/]+(?:/reels)?', path)) and path.split('/')[1].lower() not in ('p','reel','reels','stories','explore','accounts','direct','about','developer','legal')
     if _host(host,'xiaohongshu.com'):return bool(re.fullmatch(r'/user/profile/[a-f0-9]{24}',path))
     if _host(host,'kuaishou.com'):return bool(re.fullmatch(r'/profile/[A-Za-z0-9]+',path))
     if _host(host,'dailymotion.com'):return bool(re.fullmatch(r'/(?:user/|playlist/)?[^/]+',path)) and path not in ('/video','/embed','/search')
-    if _host(host,'twitch.tv'):return bool(re.fullmatch(r'/[^/]+(?:/(?:videos|clips|collections))?',path)) and path not in ('/directory','/search')
+    if _host(host,'twitch.tv'):return host!='clips.twitch.tv' and bool(re.fullmatch(r'/[^/]+(?:/(?:videos|clips|collections))?',path)) and path not in ('/directory','/search','/videos','/downloads','/settings','/login')
     if _host(host,'weibo.com'):return bool(re.fullmatch(r'/u/\d+',path))
     if _host(host,'vimeo.com'):return bool(re.fullmatch(r'/(?:user\d+|[A-Za-z][\w-]*)(?:/videos)?',path) or re.match(r'^/(?:showcase|album|channels)/[^/]+$',path))
     if _host(host,'nicovideo.jp'):return bool(re.match(r'^/(?:user/\d+(?:/(?:video|mylist/\d+|series/\d+))?|mylist/\d+|series/\d+)$',path))
@@ -77,7 +78,7 @@ def is_profile(url):
     if _host(host,'toutiao.com'):return bool(re.fullmatch(r'/c/user/(?:token/)?[^/]+',path))
     if host=='haokan.baidu.com':return path.startswith('/author/')
     if _host(host,'facebook.com'):return bool(re.fullmatch(r'/[^/]+/(?:videos|reels)',path))
-    if _host(host,'x.com') or _host(host,'twitter.com'):return bool(re.fullmatch(r'/[^/]+(?:/media)?',path))
+    if _host(host,'x.com') or _host(host,'twitter.com'):return bool(re.fullmatch(r'/[^/]+(?:/media)?',path)) and path.split('/')[1].lower() not in ('home','i','explore','search','settings','login','signup','notifications','messages','tos','privacy')
     if _host(host,'reddit.com'):return bool(re.fullmatch(r'/(?:r|user)/[^/]+',path))
     if _host(host,'rumble.com'):return path.startswith(('/c/','/user/'))
     if _host(host,'zhihu.com'):return path.startswith('/people/')
@@ -110,8 +111,8 @@ def normalize_entry(entry, index, source_url=''):
             'thumbnail': thumb, 'duration': entry.get('duration') or 0}
 
 def resolve(url, limit=0, cookie_options=None, on_update=None, cancelled=None):
-    if not platform_url(url):
-        raise ValueError('请提供视频平台的主页或合集链接')
+    if not is_profile(url):
+        raise ValueError('识别失败：请提供作者主页或合集链接；单个作品请使用视频图片提取')
     parts = urlsplit(url)
     host=parts.hostname or ''
     if host=='channels.weixin.qq.com' and parts.path.rstrip('/')=='/web/pages/home':

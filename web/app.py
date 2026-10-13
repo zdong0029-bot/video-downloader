@@ -365,7 +365,7 @@ def _run_web(job: Job) -> None:
         "format_sort": ["res", "fps", "tbr"],
         "format_sort_force": True,
         "merge_output_format": "mp4",
-        "noplaylist": False,
+        "noplaylist": True,
         "windowsfilenames": True,
         "retries": 10,
         "fragment_retries": 10,
@@ -794,7 +794,7 @@ def remove_user(name: str, me: Identity = Depends(admin_only)) -> dict:
 
 class NewJob(BaseModel):
     url: str
-    mode: Literal["auto", "file", "profile", "cloud"] = "auto"
+    mode: Literal["auto", "media", "file", "profile", "cloud"] = "auto"
 
 
 _URL_RE = re.compile(r"https?://[^\s一-鿿，。、；：！？（）【】「」…]+")
@@ -884,6 +884,8 @@ def _catalog_restore():
     try:
         for c in json.loads(cloud_accounts.crypt(_catalog_store.read_bytes(),True)):
             if not task_history.retained('running' if c['status']=='loading' else c['status'],c.get('completed_at',0),c['created']):continue
+            if not video_catalog.is_profile(c['url']):
+                c.update(entries=[],status='error',completed_at=c.get('completed_at') or time.time(),limited=False,complete=False,title='链接识别失败',message='旧版把单个作品误作主页识别，已停止展示错误列表。请到视频图片提取重新提交该作品链接。')
             if c['status'] in ('loading','queued'):
                 c.update(status='error',completed_at=time.time(),limited=True,complete=False,message='上次读取中断，已保留作品；可继续读取全部')
             _catalogs[c['id']]=c
@@ -948,12 +950,12 @@ def _catalog_worker(cid):
             with _catalog_lock:
                 if _catalogs.get(cid) is not c:return
                 c.update(status="error", completed_at=time.time(), title=c["title"] if c["entries"] else "主页识别失败",
-                         message=str(error)[:1500],limited=True,complete=False,_version=c.get('_version',0)+1)
+                         message=('识别失败：'+str(error))[:1500],limited=True,complete=False,_version=c.get('_version',0)+1)
                 _catalog_checkpoint()
 
 def _start_catalog(url, me, batch_id="", limit=0):
-    if not video_catalog.platform_url(url):
-        raise HTTPException(400, "主页识别需要视频平台的主页或合集链接")
+    if not video_catalog.is_profile(url):
+        raise HTTPException(400, "识别失败：这不是主页或合集链接。单个视频、图片请使用“视频图片提取”。")
     with _catalog_lock:
         now = time.time()
         for cid in list(_catalogs):
@@ -1087,11 +1089,15 @@ def create_job(body: NewJob, request: Request,
         if _workspace_url(item, request):
             rejected.append(item);continue
 
+        if body.mode == "media" and video_catalog.is_profile(item):
+            rejected.append(item);continue
         if body.mode == "profile" or (body.mode == "auto" and video_catalog.is_profile(item)):
             try:catalogs.append(_start_catalog(item, me, batch_id))
             except HTTPException:rejected.append(item)
             continue
         kind = _kind_of(item)
+        if body.mode == "media" and kind in ("cloud", "file") and not re.search(r'\.(?:mp4|mov|webm|m4v|mkv|jpe?g|png|webp|gif)(?:[?#]|$)', item, re.I):
+            rejected.append(item);continue
         if body.mode == "cloud" and not cloud_backend.provider(item):
             rejected.append(item)
             continue
@@ -1111,7 +1117,7 @@ def create_job(body: NewJob, request: Request,
     if not created and not catalogs:
         raise HTTPException(
             400,
-            "没有识别出可用链接。请粘贴 Symphony 分享链接/UUID，"
+            "识别失败：当前页面不接受这个链接类型。视频图片提取请提供单个作品；主页请使用主页 / 合集页面。" if body.mode == "media" else "没有识别出可用链接。请粘贴 Symphony 分享链接/UUID，"
             "或以 http(s):// 开头的视频链接，一行一个。",
         )
 

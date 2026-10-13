@@ -7,7 +7,11 @@
  const aside=make('aside','app-sidebar');aside.setAttribute('aria-label','工作台导航');
  const brand=make('div','sidebar-brand');brand.append(top.querySelector('h1'));
  const visitorNav=q('.category-tabs');visitorNav.classList.add('sidebar-nav');
- const adminNav=make('nav','sidebar-nav admin-navigation');adminNav.setAttribute('aria-label','管理导航');
+ const subnav=make('div','video-subnav');subnav.setAttribute('aria-label','视频提取方式');
+ const mediaTab=make('button','','视频图片提取');mediaTab.id='mediaExtractTab';mediaTab.type='button';mediaTab.onclick=()=>window.openDownload('video');
+ const profileTab=make('button','','主页 / 合集');profileTab.id='profileExtractTab';profileTab.type='button';profileTab.onclick=()=>window.openDownload('profile');
+ subnav.append(mediaTab,profileTab);q('#videoTab').after(subnav);q('#cloudTab').textContent='文件提取';
+ const adminNav=make('nav' ,'sidebar-nav admin-navigation');adminNav.setAttribute('aria-label','管理导航');
  const foot=make('div','sidebar-footer');
  const label=make('div','sidebar-label','工作空间');
  aside.append(brand,label,visitorNav,adminNav,foot);
@@ -51,7 +55,7 @@
    visitorNav.hidden=mode==='admin';adminNav.hidden=mode!=='admin';
    panel.hidden=mode!=='admin'||section==='tasks';download.hidden=mode==='admin'&&section!=='tasks';
    modeButton.hidden=!ME;modeButton.textContent=mode==='admin'?'返回下载页面':'管理后台';
-   label.textContent=mode==='admin'?'管理后台':'下载工作区';
+   label.textContent=mode==='admin'?'管理后台':'下载工作区';subnav.hidden=mode==='admin';
    q('#logoutBtn').hidden=!ME;q('#loginBtn').hidden=!!ME;
    q('#whoName').hidden=!ME;q('#scopeBtn').textContent='全部任务';
    for(const b of adminNav.querySelectorAll('button'))b.setAttribute('aria-current',b.dataset.adminSection===section?'page':'false');
@@ -61,7 +65,7 @@
      title.textContent=sectionNames[section];description.textContent=section==='overview'?'集中管理后台账号、平台授权和下载任务':'后台管理仅对管理员开放';
      if(section==='tasks'){q('#downloadForm').hidden=true;q('#workspaceTitle').textContent='全部下载记录';q('#workspaceNote').textContent='按来源分组 · 可搜索和筛选所有访客的任务';}
    }else{
-     title.textContent=VIEW==='history'?'下载记录':CATEGORY==='cloud'?'网盘 / 文件':'视频 / 图片';
+     title.textContent=VIEW==='history'?'下载记录':CATEGORY==='cloud'?'文件提取':CATEGORY==='profile'?'主页 / 合集':'视频图片提取';
      description.textContent=VIEW==='history'?'任务结束后保留七天，记录和文件分别管理。':'粘贴链接，整理素材，选择后下载。';
    }
  }

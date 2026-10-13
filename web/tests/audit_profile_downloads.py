@@ -17,7 +17,9 @@ def run(case):
  s=requests.Session();s.trust_env=False;other=requests.Session();other.trust_env=False
  start=time.monotonic();job_id=None;cid=None
  try:
-  r=s.post(BASE+'/api/catalogs',json={'url':case['url'],'limit':LIMIT},timeout=30);r.raise_for_status();cid=r.json()['id']
+  r=s.post(BASE+'/api/catalogs',json={'url':case['url'],'limit':LIMIT},timeout=30);r.raise_for_status();payload=r.json()
+  cid=payload.get('id') or next((c['id'] for c in payload.get('catalogs',[]) if c.get('id')),None)
+  if not cid:raise ValueError('; '.join(str(row.get('reason','识别失败')) for row in payload.get('rejected',[])) or '主页接口未返回列表编号')
   until=time.monotonic()+CATALOG_TIMEOUT
   while time.monotonic()<until:
    r=s.get(BASE+'/api/catalogs',timeout=20);r.raise_for_status();cat=next((c for c in r.json() if c['id']==cid),None)

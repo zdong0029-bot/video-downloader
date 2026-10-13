@@ -50,6 +50,19 @@ def kuaishou_profile_posts(request,data,target,rest=True):
   if re.fullmatch(r'[A-Za-z0-9]{8,32}',vid):posts.append(photo)
  return posts
 
+def bilibili_profile_posts(query,payload,target):
+ """Read only this author's official upload response, never search suggestions."""
+ if str((query.get('mid') or [''])[0])!=str(target) or payload.get('code')!=0:return []
+ rows=((payload.get('data') or {}).get('list') or {}).get('vlist') or []
+ return [row for row in rows if re.fullmatch(r'BV[0-9A-Za-z]{10}',str(row.get('bvid') or '')) and (not row.get('mid') or str(row['mid'])==str(target))]
+
+def profile_snapshot(page,selector,script):
+ """A normal album redirect can invalidate the DOM while metadata arrives."""
+ try:return page.locator(selector).evaluate_all(script)
+ except Exception as error:
+  if any(word in str(error).lower() for word in ('execution context was destroyed','frame was detached','cannot find context')):return []
+  raise
+
 def advance_page(page):
  """Scroll the actual page/content pane, including virtualized author lists."""
  page.evaluate("""() => {
@@ -63,12 +76,14 @@ def advance_page(page):
  }""")
 
 def resolve(url, platform, limit=0, cookie_options=None, on_update=None, cancelled=None):
+ from video_catalog import is_profile
+ if not is_profile(url):raise ValueError('识别失败：单个作品不能进入作者主页扫描')
  target=urlsplit(url).path.rstrip('/').split('/')[-1].lstrip('@')
  if platform=='mgtv':target=re.search(r'/h/(\d+)',url)[1]
  if platform=='tencent':target=re.search(r'/cover/(\w+)',url)[1]
  if platform=='bilibili':target=urlsplit(url).path.strip('/').split('/')[0]
  if platform=='sohu':target=urlsplit(url).path.strip('/').split('/')[1]
- entries,seen=[],set();pagination={'end':False,'blocked':False,'embed':False,'pages':0,'cursor':None}
+ entries,seen=[],set();pagination={'end':False,'blocked':False,'embed':False,'pages':0,'cursor':None,'failure':''}
  def add(link,title='',thumbnail='',duration=0,media_type='video'):
   identity=work_identity(link,platform)
   if not identity:return # SSR placeholders wait for official signed cards.
@@ -98,7 +113,7 @@ def resolve(url, platform, limit=0, cookie_options=None, on_update=None, cancell
      vid=str(item.get('id',''));video=item.get('video') or {}
      if re.fullmatch(r'\d{15,25}',vid):add('https://www.tiktok.com/@'+target+'/video/'+vid,item.get('desc'),video.get('cover'),video.get('duration'))
     pagination['end']=d.get('hasMore') is False
-   except Exception:pagination['blocked']=True
+   except Exception:pagination.update(blocked=True,failure='TikTok 官方作者列表返回空响应或非 JSON；当前会话/线路未通过列表请求，不能把推荐流作为作者作品')
   elif platform=='xiaohongshu' and ('/user_posted' in path or '/user/posted' in path):
    try:
     if parse_qs(urlsplit(resp.url).query).get('user_id',[''])[0]!=target:return
@@ -122,7 +137,9 @@ def resolve(url, platform, limit=0, cookie_options=None, on_update=None, cancell
     if path=='/rest/v/profile/feed':
      if req.get('user_id')!=target:return
      data=resp.json()
-     if data.get('result')!=1:pagination['blocked']=True;return
+     if data.get('result')!=1:
+      pagination.update(blocked=True,failure='快手官方作者列表拒绝当前会话，返回代码 '+str(data.get('result'))+'；已有 Cookie 不代表官网当前接受登录，请在官方账号入口检测授权')
+      return
     else:
      if (req.get('variables') or {}).get('userId')!=target:return
      data=(resp.json().get('data') or {}).get('visionProfilePhotoList') or {}
@@ -132,6 +149,23 @@ def resolve(url, platform, limit=0, cookie_options=None, on_update=None, cancell
      vid=str(photo.get('id') or '')
      if re.fullmatch(r'[A-Za-z0-9]{8,32}',vid):add('https://www.kuaishou.com/short-video/'+vid,photo.get('caption'),photo.get('coverUrl'),float(photo.get('duration') or 0)/1000)
     pagination['end']=data.get('pcursor') in ('no_more','noMore')
+   except Exception:pass
+  elif platform=='bilibili' and path=='/x/space/wbi/arc/search':
+   try:
+    query=parse_qs(urlsplit(resp.url).query)
+    if query.get('mid',[''])[0]!=target:return
+    payload=resp.json()
+    if payload.get('code')!=0:
+     pagination.update(blocked=True,failure='B站官方作者列表要求登录或安全验证，返回代码 '+str(payload.get('code'))+'；不会改抓其他作者或推荐列表')
+     return
+    data=payload.get('data') or {};meta=data.get('page') or {};pn=int(meta.get('pn') or query.get('pn',['1'])[0]);size=int(meta.get('ps') or 0);total=meta.get('count')
+    pagination['pages']=max(pagination['pages'],pn);pagination['cursor']=pn
+    for item in bilibili_profile_posts(query,payload,target):
+     thumbnail=str(item.get('pic') or '')
+     if thumbnail.startswith('//'):thumbnail='https:'+thumbnail
+     length=str(item.get('length') or '');duration=sum(int(v)*60**i for i,v in enumerate(reversed(length.split(':')))) if re.fullmatch(r'\d+(?::\d+){1,2}',length) else 0
+     add('https://www.bilibili.com/video/'+item['bvid'],item.get('title'),thumbnail,duration)
+    pagination['end']=total is not None and size>0 and pn*size>=int(total)
    except Exception:pass
   elif platform=='haokan' and path=='/web/author/listall':
    try:
@@ -227,7 +261,7 @@ def resolve(url, platform, limit=0, cookie_options=None, on_update=None, cancell
     elif platform=='sohu':selector='a[href*="tv.sohu.com/v/"]'
     else:selector=None # GraphQL posts are scoped to the target, never the recommended feed.
     if selector:
-     for item in page.locator(selector).evaluate_all("els=>els.map(a=>{const row=a.closest('section,li,.scroll-item,.videolist-item,.ac-space-video');return {url:a.href,title:row?.querySelector('.title')?.innerText||a.innerText||row?.innerText,thumb:a.querySelector('img')?.src||row?.querySelector('img')?.src}})"):
+     for item in profile_snapshot(page,selector,"els=>els.map(a=>{const row=a.closest('section,li,.scroll-item,.videolist-item,.ac-space-video');return {url:a.href,title:row?.querySelector('.title')?.innerText||a.innerText||row?.innerText,thumb:a.querySelector('img')?.src||row?.querySelector('img')?.src}})"):
       link=item['url'];path=urlsplit(link).path
       if platform=='xiaohongshu':
        if not re.fullmatch(r'/(?:explore|discovery/item)/[a-f0-9]{24}',path) and not re.fullmatch(r'/user/profile/'+re.escape(target)+r'/[a-f0-9]{24}',path):continue
@@ -255,6 +289,12 @@ def resolve(url, platform, limit=0, cookie_options=None, on_update=None, cancell
      # the current episode controls; never related/recommended covers.
      for item in page.locator('[data-vid]').evaluate_all("els=>els.filter(a=>/episode|选集/.test(a.className+' '+a.parentElement?.className)).map(a=>({vid:a.dataset.vid,title:a.innerText}))"):
       if re.fullmatch(r'\w{11}',str(item['vid'])):add('https://v.qq.com/x/cover/'+target+'/'+item['vid']+'.html',item['title'])
+    if platform=='bilibili' and entries and not pagination['end']:
+     controls=page.get_by_role('button',name='下一页',exact=True)
+     if controls.count() and not controls.first.is_disabled():
+      current=pagination['cursor']
+      if current is not None and (current!=next_from or time.monotonic()-next_at>=8):
+       next_from=current;next_at=time.monotonic();controls.first.click(timeout=4000);page.wait_for_timeout(1000)
     if platform=='acfun' and entries:
      # This official author page uses numbered pages, not infinite scroll.
      controls=page.locator('.pager__btn__next:visible')
@@ -283,13 +323,15 @@ def resolve(url, platform, limit=0, cookie_options=None, on_update=None, cancell
      if re.fullmatch('/@'+re.escape(target)+r'/video/\d{15,25}',urlsplit(item['url']).path):add(item['url'],item['title'])
     pagination['embed']=True
    if not entries:
+    if pagination['failure']:raise ValueError(pagination['failure'])
+    if '/login' in page.url:raise ValueError('平台官方主页已跳转登录页，已保存的会话没有被官网接受；主页列表当前不可用')
     if '验证' in body or 'captcha' in body.lower():raise ValueError('平台官方主页要求验证，当前会话未返回作者作品列表；不会把推荐视频当作该主页作品')
     if '/login' in page.url or ('登录' in body and platform=='xiaohongshu' and not accounts.page_authorized(platform,page)):raise ValueError('平台官方主页当前未登录，已保存的授权没有被官网接受')
     raise ValueError('官网未返回可选作品列表；账号可能无公开视频，或当前公开入口不提供列表')
    title=re.sub(r'\s*[-|]\s*(TikTok|小红书|快手|AcFun).*$', '',page.title()) or platform+' 主页'
-   if saved and accounts.page_authorized(platform,page):
+   if saved and not pagination['blocked'] and accounts.page_authorized(platform,page):
     fresh=ctx.storage_state();fresh['ua']=page.evaluate('navigator.userAgent');accounts.refresh(platform,fresh,saved['_revision'])
   finally:browser.close()
  limited=bool(pagination['embed'] or not pagination['end'] or limit and len(entries)>=limit)
- note='TikTok 官方嵌入入口仅返回最近最多 10 条作品，这不是完整主页列表' if pagination['embed'] else ('平台分页未确认结束，保留已识别作品，可继续读取' if limited else '')
+ note='TikTok 官方嵌入入口仅返回最近最多 10 条作品，这不是完整主页列表'+('；'+pagination['failure'] if pagination['failure'] else '') if pagination['embed'] else ('平台分页未确认结束，保留已识别作品，可继续读取' if limited else '')
  return {'title':title,'entries':entries,'limited':limited,'complete':not limited,'pages':pagination['pages'],'completion_reason':'official-end' if not limited else 'recent-embed' if pagination['embed'] else 'unfinished-pagination','note':note,'method':'official-creator-embed' if pagination['embed'] else 'official-profile-browser'}

@@ -2,7 +2,7 @@ let catalogCache=[],catalogSnapshot='',catalogEtag='',catalogRefreshing=false,ca
 const catalogVisible=new Map(),catalogChosen=new Map(),catalogBusy=new Set(),catalogAutoSave=new Set();
 function rememberCatalogSelection(){}
 function visibleCatalog(c){
-  return (VIEW==='history'||CATEGORY==='video'&&workspaceCatalogs.has(c.id))
+  return (VIEW==='history'||CATEGORY==='profile'&&workspaceCatalogs.has(c.id))
     && matchStatus(c.status)
     && (!searchValue()||[c.title,c.url,...c.entries.map(e=>e.title)].join(' ').toLowerCase().includes(searchValue()));
 }
@@ -85,6 +85,7 @@ async function parseCatalog(url=null,limit=0){
     const d=await r.json();if(!r.ok)throw new Error(d.detail||'主页识别失败');
     // Accept legacy single responses during a rolling deployment.
     const result=d.catalogs?d:{catalogs:[d]};
+    if(!result.catalogs.length)throw Error('识别失败：'+(d.rejected||[]).map(x=>x.reason).join('；'));
     acceptSubmission(result);
     const rejected=d.rejected||[];
     hintEl.textContent='已提交 '+result.catalogs.length+' 个主页，逐组识别，完成后勾选下载。'+(rejected.length?' '+rejected.map(x=>x.reason).join('；'):'');hintEl.style.color=rejected.length?'var(--warn)':'';
@@ -117,7 +118,7 @@ async function catalogDownload(id){
     if(needed.length){
       const r=await fetch('/api/catalogs/'+id+'/download',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({ids:needed})});
       const d=await r.json();if(!r.ok)throw new Error(d.detail||'提交失败');
-      acceptSubmission(d);const job=d.created[0];catalogAutoSave.add(job.id);
+      acceptSubmission(d,'profile');const job=d.created[0];catalogAutoSave.add(job.id);
       hintEl.textContent=MOBILE?'已加入 '+needed.length+' 个素材，主机准备后点击“保存选中到相册”。':'已加入 '+needed.length+' 个视频；主机准备完成后将在当前页面发起浏览器保存。刷新后请到下载记录继续保存。';hintEl.style.color='';
       await refresh(true);
     }else if(MOBILE)saveCatalogAlbum(id);
