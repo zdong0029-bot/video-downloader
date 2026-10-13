@@ -21,18 +21,20 @@ with sync_playwright() as p:
     cat={'id':'catalog1','url':d['url'],'title':'fixture profile','status':'done','message':'complete','complete':True,'entries':[],'created':1};catalogs.append(cat);r.fulfill(json={'catalogs':[cat],'rejected':[]})
    else:r.continue_()
   page.route('**/api/**',route);page.goto(BASE);expect(page.locator('#main')).to_be_visible();page.wait_for_function("typeof openDownload==='function'")
+  assert page.locator('.app-content > .video-subnav').count()==1;assert page.locator('.app-sidebar .video-subnav').count()==0
+  expect(page.locator('.app-title')).to_have_text('视频 / 图片')
   expect(page.locator('#url')).to_have_value('');expect(page.locator('#scanProfile')).to_be_hidden();expect(page.locator('#go')).to_have_text('提取视频 / 图片');expect(page.locator('#mediaExtractTab')).to_have_attribute('aria-current','page')
   note='https://www.xiaohongshu.com/discovery/item/6ac119c000000000014033c23?xsec_token=fixture';page.fill('#url',note);page.click('#go');expect(page.locator('#jobs .job')).to_have_count(1);assert posts[-1]['mode']=='media';assert not catalogs
   page.click('#profileExtractTab');expect(page.locator('#url')).to_have_value('');expect(page.locator('#go')).to_be_hidden();expect(page.locator('#scanProfile')).to_be_visible();expect(page.locator('#jobs .job')).to_have_count(0);assert page.url.endswith('#profiles')
   page.fill('#url',note);page.click('#scanProfile');expect(page.locator('#hint')).to_contain_text('识别失败');assert not catalogs
   profile='https://www.youtube.com/@fixture';page.fill('#url',profile);page.click('#scanProfile');expect(page.locator('#catalogs .catalog')).to_have_count(1)
   page.click('#mediaExtractTab');expect(page.locator('#url')).to_have_value(note);expect(page.locator('#jobs .job')).to_have_count(1);expect(page.locator('#catalogs')).to_be_hidden()
-  page.click('#cloudTab');expect(page.locator('#cloudTab')).to_have_text('文件提取');expect(page.locator('#url')).to_have_value('');page.fill('#url','https://files.example.test/original.mp4');page.click('#go');expect(page.locator('#jobs .job')).to_have_count(1);assert posts[-1]['mode']=='file'
-  page.click('#mediaExtractTab');expect(page.locator('#jobs .job')).to_have_count(1);page.reload();expect(page.locator('#url')).to_have_value('');expect(page.locator('#jobs .job')).to_have_count(0);expect(page.locator('#catalogs .catalog')).to_have_count(0)
+  page.click('#cloudTab');expect(page.locator('#cloudTab')).to_have_text('网盘下载');expect(page.locator('#url')).to_have_value('');page.fill('#url','https://files.example.test/original.mp4');page.click('#go');expect(page.locator('#jobs .job')).to_have_count(1);assert posts[-1]['mode']=='file'
+  expect(page.locator('.video-subnav')).to_be_hidden();page.click('#videoTab');expect(page.locator('#jobs .job')).to_have_count(1);page.reload();expect(page.locator('#url')).to_have_value('');expect(page.locator('#jobs .job')).to_have_count(0);expect(page.locator('#catalogs .catalog')).to_have_count(0)
   page.click('#profileExtractTab');expect(page.locator('#url')).to_have_value('');expect(page.locator('#catalogs .catalog')).to_have_count(0);page.click('#cloudTab');expect(page.locator('#url')).to_have_value('');expect(page.locator('#jobs .job')).to_have_count(0)
-  page.click('#historyTab');expect(page.locator('#jobs .job')).to_have_count(2);expect(page.locator('#catalogs .catalog')).to_have_count(1)
+  page.click('#historyTab');expect(page.locator('.video-subnav')).to_be_hidden();expect(page.locator('#jobs .job')).to_have_count(2);expect(page.locator('#catalogs .catalog')).to_have_count(1)
   assert page.evaluate('document.documentElement.scrollWidth<=innerWidth');assert not errors,errors
-  page.click('#mediaExtractTab');page.screenshot(path=str(Path(tempfile.gettempdir())/('extract-pages-mobile.png' if mobile else 'extract-pages-desktop.png')),full_page=False)
+  page.click('#videoTab');page.screenshot(path=str(Path(tempfile.gettempdir())/('extract-pages-mobile.png' if mobile else 'extract-pages-desktop.png')),full_page=False)
   print('PASS', 'mobile' if mobile else 'desktop','independent pages, single work routing, mismatch failure, refresh empty input/results and retained history')
   c.close()
  b.close()

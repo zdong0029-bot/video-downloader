@@ -1,0 +1,13 @@
+{
+  "manifest_version": 3,
+  "name": "视频下载器 · 本机文件定位",
+  "version": "1.0.0",
+  "description": "从视频下载器网页定位本浏览器已下载的视频，仅打开文件夹，不上传下载记录。",
+  "permissions": ["downloads"],
+  "background": {"service_worker": "background.js"},
+  "content_scripts": [{
+    "matches": ["https://video-downloader.tail49ff9c.ts.net/*"],
+    "js": ["content.js"],
+    "run_at": "document_idle"
+  }]
+}

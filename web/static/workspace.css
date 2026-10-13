@@ -96,6 +96,9 @@ input:not([type=checkbox]),select,textarea{font-size:16px!important}#url{width:1
 .browser-help p{font-size:14px;line-height:1.6;margin:8px 0;overflow-wrap:anywhere}
 .browser-help-actions{display:flex;flex-wrap:wrap;gap:8px}
 
-.video-subnav{display:flex;flex-direction:column;gap:6px;padding-left:12px;margin:-6px 0 4px;border-left:2px solid #e2e8f0}
-.video-subnav button{font-size:12px;padding:11px 12px!important}
-@media(max-width:780px){.sidebar-nav>.video-subnav{grid-column:1/-1;grid-row:2;flex-direction:row;padding:8px 0 0;margin:0;border-left:0;border-top:1px solid #e2e8f0}.video-subnav button{flex:1;min-width:0}.sidebar-nav>#videoTab{grid-column:1;grid-row:1}.sidebar-nav>#cloudTab{grid-column:2;grid-row:1}.sidebar-nav>#historyTab{grid-column:3;grid-row:1}}
+/* Extraction pages sit below the content header, separate from the sidebar. */
+.video-subnav{display:flex;gap:10px;margin:-7px 0 22px;max-width:100%;min-width:0}
+.video-subnav button{min-height:44px;padding:11px 22px;border:1px solid var(--line);border-radius:9px;background:#fff;color:#647189;font-size:14px;font-weight:600}
+.video-subnav button[aria-current=page]{background:var(--accent);border-color:var(--accent);color:#fff;box-shadow:0 3px 9px #1465ff18}
+.video-subnav button:hover{border-color:#9dc0ff}
+@media(max-width:780px){.video-subnav{margin:0 0 16px;gap:8px}.video-subnav button{flex:1;min-width:0;font-size:13px;padding:11px 8px}}

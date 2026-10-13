@@ -10,7 +10,7 @@
  const subnav=make('div','video-subnav');subnav.setAttribute('aria-label','视频提取方式');
  const mediaTab=make('button','','视频图片提取');mediaTab.id='mediaExtractTab';mediaTab.type='button';mediaTab.onclick=()=>window.openDownload('video');
  const profileTab=make('button','','主页 / 合集');profileTab.id='profileExtractTab';profileTab.type='button';profileTab.onclick=()=>window.openDownload('profile');
- subnav.append(mediaTab,profileTab);q('#videoTab').after(subnav);q('#cloudTab').textContent='文件提取';
+ subnav.append(mediaTab,profileTab);q('#cloudTab').textContent='网盘下载';
  const adminNav=make('nav' ,'sidebar-nav admin-navigation');adminNav.setAttribute('aria-label','管理导航');
  const foot=make('div','sidebar-footer');
  const label=make('div','sidebar-label','工作空间');
@@ -47,7 +47,7 @@
  navButton('管理概览','overview');navButton('网盘账号','cloud','cloudAccountsBtn');navButton('平台授权','platforms');navButton('全部任务','tasks','scopeBtn');navButton('服务检查','services');navButton('管理员账号','users','adminBtn');
  const visitorNote=make('p','sidebar-help','原文件下载 · 最高可用画质');
  foot.append(visitorNote,q('#loginBtn'),q('#logoutBtn'));
- top.remove();content.append(header,panel,download);main.replaceChildren(aside,content);
+ top.remove();content.append(header,subnav,panel,download);main.replaceChildren(aside,content);
  q('#videoTab').onclick=()=>window.openDownload('video');q('#cloudTab').onclick=()=>window.openDownload('cloud');q('#historyTab').onclick=()=>window.openDownload(null,'history');
  const sectionNames={overview:'管理概览',cloud:'网盘账号',platforms:'平台授权',tasks:'全部任务',services:'服务检查',users:'管理员账号'};
  function layout(){
@@ -55,7 +55,7 @@
    visitorNav.hidden=mode==='admin';adminNav.hidden=mode!=='admin';
    panel.hidden=mode!=='admin'||section==='tasks';download.hidden=mode==='admin'&&section!=='tasks';
    modeButton.hidden=!ME;modeButton.textContent=mode==='admin'?'返回下载页面':'管理后台';
-   label.textContent=mode==='admin'?'管理后台':'下载工作区';subnav.hidden=mode==='admin';
+   label.textContent=mode==='admin'?'管理后台':'下载工作区';subnav.hidden=mode==='admin'||VIEW==='history'||CATEGORY==='cloud';
    q('#logoutBtn').hidden=!ME;q('#loginBtn').hidden=!!ME;
    q('#whoName').hidden=!ME;q('#scopeBtn').textContent='全部任务';
    for(const b of adminNav.querySelectorAll('button'))b.setAttribute('aria-current',b.dataset.adminSection===section?'page':'false');
@@ -65,7 +65,7 @@
      title.textContent=sectionNames[section];description.textContent=section==='overview'?'集中管理后台账号、平台授权和下载任务':'后台管理仅对管理员开放';
      if(section==='tasks'){q('#downloadForm').hidden=true;q('#workspaceTitle').textContent='全部下载记录';q('#workspaceNote').textContent='按来源分组 · 可搜索和筛选所有访客的任务';}
    }else{
-     title.textContent=VIEW==='history'?'下载记录':CATEGORY==='cloud'?'文件提取':CATEGORY==='profile'?'主页 / 合集':'视频图片提取';
+     title.textContent=VIEW==='history'?'下载记录':CATEGORY==='cloud'?'网盘下载':'视频 / 图片';
      description.textContent=VIEW==='history'?'任务结束后保留七天，记录和文件分别管理。':'粘贴链接，整理素材，选择后下载。';
    }
  }

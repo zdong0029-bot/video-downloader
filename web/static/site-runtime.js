@@ -353,7 +353,7 @@ setInterval(()=>{if(!document.querySelector('#main').hidden)void refreshCatalogs
  const subnav=make('div','video-subnav');subnav.setAttribute('aria-label','视频提取方式');
  const mediaTab=make('button','','视频图片提取');mediaTab.id='mediaExtractTab';mediaTab.type='button';mediaTab.onclick=()=>window.openDownload('video');
  const profileTab=make('button','','主页 / 合集');profileTab.id='profileExtractTab';profileTab.type='button';profileTab.onclick=()=>window.openDownload('profile');
- subnav.append(mediaTab,profileTab);q('#videoTab').after(subnav);q('#cloudTab').textContent='文件提取';
+ subnav.append(mediaTab,profileTab);q('#cloudTab').textContent='网盘下载';
  const adminNav=make('nav' ,'sidebar-nav admin-navigation');adminNav.setAttribute('aria-label','管理导航');
  const foot=make('div','sidebar-footer');
  const label=make('div','sidebar-label','工作空间');
@@ -390,7 +390,7 @@ setInterval(()=>{if(!document.querySelector('#main').hidden)void refreshCatalogs
  navButton('管理概览','overview');navButton('网盘账号','cloud','cloudAccountsBtn');navButton('平台授权','platforms');navButton('全部任务','tasks','scopeBtn');navButton('服务检查','services');navButton('管理员账号','users','adminBtn');
  const visitorNote=make('p','sidebar-help','原文件下载 · 最高可用画质');
  foot.append(visitorNote,q('#loginBtn'),q('#logoutBtn'));
- top.remove();content.append(header,panel,download);main.replaceChildren(aside,content);
+ top.remove();content.append(header,subnav,panel,download);main.replaceChildren(aside,content);
  q('#videoTab').onclick=()=>window.openDownload('video');q('#cloudTab').onclick=()=>window.openDownload('cloud');q('#historyTab').onclick=()=>window.openDownload(null,'history');
  const sectionNames={overview:'管理概览',cloud:'网盘账号',platforms:'平台授权',tasks:'全部任务',services:'服务检查',users:'管理员账号'};
  function layout(){
@@ -398,7 +398,7 @@ setInterval(()=>{if(!document.querySelector('#main').hidden)void refreshCatalogs
    visitorNav.hidden=mode==='admin';adminNav.hidden=mode!=='admin';
    panel.hidden=mode!=='admin'||section==='tasks';download.hidden=mode==='admin'&&section!=='tasks';
    modeButton.hidden=!ME;modeButton.textContent=mode==='admin'?'返回下载页面':'管理后台';
-   label.textContent=mode==='admin'?'管理后台':'下载工作区';subnav.hidden=mode==='admin';
+   label.textContent=mode==='admin'?'管理后台':'下载工作区';subnav.hidden=mode==='admin'||VIEW==='history'||CATEGORY==='cloud';
    q('#logoutBtn').hidden=!ME;q('#loginBtn').hidden=!!ME;
    q('#whoName').hidden=!ME;q('#scopeBtn').textContent='全部任务';
    for(const b of adminNav.querySelectorAll('button'))b.setAttribute('aria-current',b.dataset.adminSection===section?'page':'false');
@@ -408,7 +408,7 @@ setInterval(()=>{if(!document.querySelector('#main').hidden)void refreshCatalogs
      title.textContent=sectionNames[section];description.textContent=section==='overview'?'集中管理后台账号、平台授权和下载任务':'后台管理仅对管理员开放';
      if(section==='tasks'){q('#downloadForm').hidden=true;q('#workspaceTitle').textContent='全部下载记录';q('#workspaceNote').textContent='按来源分组 · 可搜索和筛选所有访客的任务';}
    }else{
-     title.textContent=VIEW==='history'?'下载记录':CATEGORY==='cloud'?'文件提取':CATEGORY==='profile'?'主页 / 合集':'视频图片提取';
+     title.textContent=VIEW==='history'?'下载记录':CATEGORY==='cloud'?'网盘下载':'视频 / 图片';
      description.textContent=VIEW==='history'?'任务结束后保留七天，记录和文件分别管理。':'粘贴链接，整理素材，选择后下载。';
    }
  }
@@ -538,6 +538,90 @@ setInterval(()=>{if(!document.querySelector('#main').hidden)void refreshCatalogs
    const response=new Response(blob,{headers:{'Content-Type':blob.type,'Content-Length':String(size),'X-Transfer-Route':'parallel2'}});response.originalBlob=blob;return response;
   }finally{signal.removeEventListener('abort',abort);}
  };
+})();
+
+;
+
+// Source: original-file-transfer.js
+/* Save original bytes to disk with bounded memory. No encoding or recompression. */
+(() => {
+ const CHUNK=1048576,LANES=4;
+ const integrity=message=>Object.assign(Error(message),{integrity:true});
+ const stopped=()=>new DOMException('Stopped','AbortError');
+ async function pick(name){
+  try{return await window.showSaveFilePicker({suggestedName:name});}
+  catch(e){if(e.name==='AbortError')throw e;if(['SecurityError','NotAllowedError','NotSupportedError'].includes(e.name))return null;throw e;}
+ }
+ async function save(url,handle,expected,signal,onProgress=()=>{}){
+  const controller=new AbortController();const abort=()=>controller.abort();
+  signal.addEventListener('abort',abort,{once:true});if(signal.aborted)abort();
+  let writer=null,writeChain=Promise.resolve();
+  async function request(headers){
+   const local=new AbortController(),cancel=()=>local.abort();controller.signal.addEventListener('abort',cancel,{once:true});
+   if(controller.signal.aborted)cancel();let timer=setTimeout(cancel,30000);
+   try{const response=await fetch(url,{signal:local.signal,headers,cache:'no-store'});clearTimeout(timer);
+    return {response,async read(reader){timer=setTimeout(cancel,90000);try{return await reader.read();}finally{clearTimeout(timer);}},close(){clearTimeout(timer);controller.signal.removeEventListener('abort',cancel);local.abort();}};
+   }catch(e){clearTimeout(timer);controller.signal.removeEventListener('abort',cancel);throw e;}
+  }
+  function enqueue(position,data){
+   const operation=writeChain.then(()=>{if(controller.signal.aborted)throw stopped();return writer.write({type:'write',position,data});});
+   writeChain=operation.catch(()=>{});return operation;
+  }
+  try{
+   if(controller.signal.aborted)throw stopped();
+   writer=await handle.createWritable();
+   const probe=await request({Range:'bytes=0-0'});const r=probe.response;
+   const range=r.headers.get('content-range'),etag=r.headers.get('etag');
+   const size=r.status===206?Number(/^bytes 0-0\/(\d+)$/.exec(range)?.[1]):Number(r.headers.get('content-length'));
+   if(!r.ok||![200,206].includes(r.status)){probe.close();throw Error('原文件读取失败（HTTP '+r.status+'）');}
+   if(!Number.isSafeInteger(size)||size<=0||(expected&&size!==expected)){probe.close();throw integrity('原文件大小发生变化，请刷新下载记录后重试。');}
+   if(r.status===200||!etag||etag.startsWith('W/')){
+    // An origin without strong Range support still streams to disk, never a GB Blob.
+    let whole=probe;
+    if(r.status===206){probe.close();whole=await request({});}
+    if(whole.response.status!==200||Number(whole.response.headers.get('content-length'))!==size){whole.close();throw integrity('原文件响应不完整，请重试。');}
+    let count=0;const reader=whole.response.body.getReader();
+    try{while(true){const part=await whole.read(reader);if(part.done)break;if(count+part.value.byteLength>size)throw integrity('原文件响应大小异常');await enqueue(count,part.value);count+=part.value.byteLength;onProgress(count,size,'原文件流式保存');}}
+    finally{try{await reader.cancel();}catch(e){}reader.releaseLock();whole.close();}
+    if(count!==size)throw integrity('原文件传输不完整，请重试。');
+   }else{
+    const probeReader=r.body.getReader();let probeBytes=0;
+    try{while(true){const sample=await probe.read(probeReader);if(sample.done)break;probeBytes+=sample.value.byteLength;if(probeBytes>1)throw integrity('原文件探测响应大小异常');}if(probeBytes!==1)throw integrity('原文件探测响应不完整');}
+    finally{try{await probeReader.cancel();}catch(e){}probeReader.releaseLock();probe.close();}
+    let next=0,written=0;const inflight=new Map();const count=Math.ceil(size/CHUNK);
+    const report=()=>onProgress(written+[...inflight.values()].reduce((a,b)=>a+b,0),size,'四路分段保存原文件');
+    async function worker(){while(next<count){
+     if(controller.signal.aborted)throw stopped();
+     const index=next++,start=index*CHUNK,end=Math.min(size,start+CHUNK)-1,wanted=end-start+1;
+     for(let attempt=0;attempt<3;attempt++){
+      let part=null,reader=null;
+      try{
+       part=await request({Range:'bytes='+start+'-'+end,'If-Range':etag});const response=part.response;
+       if([408,429,500,502,503,504].includes(response.status))throw Error('HTTP '+response.status);
+       if(response.status!==206||response.headers.get('etag')!==etag||response.headers.get('content-range')!=='bytes '+start+'-'+end+'/'+size)throw integrity('原文件版本或分段变化，已停止保存，请重试。');
+       const data=new Uint8Array(wanted);let filled=0;reader=response.body.getReader();
+       while(true){const chunk=await part.read(reader);if(chunk.done)break;if(filled+chunk.value.byteLength>wanted)throw integrity('分段响应超出原文件范围');data.set(chunk.value,filled);filled+=chunk.value.byteLength;inflight.set(index,filled);report();}
+       if(filled!==wanted)throw Error('分段传输不完整');
+       try{await enqueue(start,data);}catch(e){e.integrity=true;throw e;}inflight.delete(index);written+=filled;report();break;
+      }catch(e){
+       inflight.delete(index);report();
+       if(controller.signal.aborted||e.integrity||attempt===2)throw e;
+       await new Promise(resolve=>setTimeout(resolve,400*(attempt+1)));
+      }finally{if(reader){try{await reader.cancel();}catch(e){}reader.releaseLock();}part?.close();}
+     }
+    }}
+    let failure=null;
+    const workers=Array.from({length:Math.min(LANES,count)},()=>worker().catch(e=>{if(!failure)failure=e;controller.abort();throw e;}));
+    await Promise.allSettled(workers);if(failure)throw failure;
+    if(written!==size)throw integrity('原文件传输不完整');
+   }
+   await writeChain;if(controller.signal.aborted)throw stopped();
+   await writer.truncate(size);if(controller.signal.aborted)throw stopped();await writer.close();writer=null;
+   return {size};
+  }catch(e){controller.abort();await writeChain;if(writer){try{await writer.abort();}catch(ignore){}}throw e;}
+  finally{signal.removeEventListener('abort',abort);}
+ }
+ window.OriginalFileTransfer={supported:()=>window.isSecureContext&&typeof window.showSaveFilePicker==='function',pick,save};
 })();
 
 ;
