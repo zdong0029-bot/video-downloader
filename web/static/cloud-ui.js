@@ -34,13 +34,13 @@
         const add=node('button','扫码连接 / 添加账号','primary');add.type='button';
         add.onclick=()=>action(add,async()=>{const r=await api('/api/admin/cloud-accounts/connect',{provider:key});opening=true;msg.textContent=r.message;});card.append(add);
         const list=d.accounts.filter(a=>a.provider===key);
-        if(!list.length)card.append(node('p','后台账号未连接。请管理员连接并检测；朋友不用提交账号密码。','muted'));
+        if(!list.length)card.append(node('p','后台账号未连接。请管理员连接并检测；朋友不用提交账号密码。','muted unconnected'));
         for(const a of list) {
           const row=node('div','','row'),info=document.createElement('div');info.append(node('strong',a.label));
           const state=a.auth_ok===true?'账号验证通过':a.auth_ok===false?'授权失效，请重新扫码':'授权已保存，等待检测';
           info.append(node('p',a.created+' · '+state,'muted'));
           if(a.checked_at)info.append(node('p',(a.message||'最近检测')+' · '+new Date(a.checked_at*1000).toLocaleString(),'muted'));
-          row.append(info);const controls=node('div','','cloud-controls');
+          row.dataset.active=String(d.active[key]===a.id);row.append(info);const controls=node('div','','cloud-controls');
           if(d.active[key]===a.id)controls.append(node('span','当前使用','badge'));
           else {const use=node('button','切换到此账号','ghost');use.type='button';use.onclick=()=>action(use,async()=>{await api('/api/admin/cloud-accounts/activate',{id:a.id});msg.textContent='已切换后台账号，新任务使用此账号。';await load();});controls.append(use);}
           const check=node('button','检测账号','ghost');check.type='button';check.onclick=()=>action(check,async()=>{const r=await api('/api/admin/cloud-accounts/check',{id:a.id});msg.textContent=r.message;await load();});controls.append(check);row.append(controls);card.append(row);
@@ -65,8 +65,7 @@
   window.loadCloudAccounts=()=>load().catch(e=>msg.textContent=e.message);
   window.openCloudAccounts=()=>{
     if(!ME){showGate();return;}
-    document.querySelector('#adminPanel').hidden=false;loadUsers();window.loadCloudAccounts();
-    document.querySelector('#cloudAccountSection').scrollIntoView({block:'start',behavior:'smooth'});
+    window.openAdmin('cloud');
   };
   document.querySelector('#cloudRefresh').onclick=e=>action(e.target,async()=>{await load();msg.textContent='账号状态已刷新';});
   document.querySelector('#cloudStatusRefresh').onclick=status;
