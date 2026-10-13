@@ -78,7 +78,7 @@ async function refreshCatalogs(force=false){
   }catch(e){}finally{catalogRefreshing=false;if(catalogRefreshAgain){catalogRefreshAgain=false;void refreshCatalogs(true);}}
 }
 async function parseCatalog(url=null,limit=0){
-  url=url||urlEl.value.trim();if(!url)return;
+  url=url||urlEl.value.trim();if(!url)return;if(window.rejectWorkspaceURL?.(url))return;
   const button=document.querySelector('#scanProfile');button.disabled=true;
   try{
     const r=await fetch('/api/catalogs',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({url,limit})});

@@ -971,18 +971,28 @@ def _start_catalog(url, me, batch_id="", limit=0):
     threading.Thread(target=_catalog_worker, args=(c["id"],), daemon=True).start()
     return _catalog_public(c)
 
+def _workspace_url(url: str, request: Request) -> bool:
+    from urllib.parse import urlsplit
+    parsed = urlsplit(url)
+    hosts = {request.url.hostname, 'video-downloader.tail49ff9c.ts.net', '127.0.0.1', 'localhost'}
+    return parsed.hostname in hosts and parsed.path.rstrip('/') in {'', '/index.html', '/cloud-accounts.html'}
+
+WORKSPACE_LINK_ERROR = '这是下载工作台的网址，请直接在浏览器打开；下载框请粘贴视频、主页或网盘分享链接。'
+
 class CatalogRequest(BaseModel):
     url: str
     limit: int = 0
 
 @app.post("/api/catalogs")
-def create_catalog(body: CatalogRequest, me: Identity = Depends(current_identity)):
+def create_catalog(body: CatalogRequest, request: Request, me: Identity = Depends(current_identity)):
     links = _extract_links(body.url)
     if not links:raise HTTPException(400,"请输入主页或合集链接")
     if len(links)>100:raise HTTPException(400,"一次最多提交100个主页")
     if body.limit not in (0,100,200):raise HTTPException(400,"请选择完整主页或分段读取")
     created=[];rejected=[]
     for url in links:
+        if _workspace_url(url, request):
+            rejected.append({'url':url,'reason':WORKSPACE_LINK_ERROR});continue
         try:created.append(_start_catalog(url,me,limit=body.limit))
         except HTTPException as error:rejected.append({"url":url,"reason":error.detail})
     return {"catalogs":created,"rejected":rejected}
@@ -1060,6 +1070,8 @@ def create_job(body: NewJob, request: Request,
     items = _extract_links(raw)
     if not items:
         raise HTTPException(400, "请输入链接")
+    if all(_workspace_url(item, request) for item in items):
+        raise HTTPException(400, WORKSPACE_LINK_ERROR)
 
     # 同一批里重复粘贴的只建一个任务
     seen: set[str] = set()
@@ -1072,6 +1084,8 @@ def create_job(body: NewJob, request: Request,
         if item in seen:
             continue
         seen.add(item)
+        if _workspace_url(item, request):
+            rejected.append(item);continue
 
         if body.mode == "profile" or (body.mode == "auto" and video_catalog.is_profile(item)):
             try:catalogs.append(_start_catalog(item, me, batch_id))

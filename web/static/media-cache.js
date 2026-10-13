@@ -36,7 +36,8 @@
   try{const db=await database();if(db){
    await operation(db,'readwrite',(store)=>store.put({key:k,time:Date.now(),size:file.size,file}));
    await operation(db,'readwrite',store=>{
-    const r=store.getAll();r.onsuccess=()=>{const rows=r.result.sort((a,b)=>a.time-b.time);let bytes=rows.reduce((n,a)=>n+a.size,0);
+    const rows=[];const r=store.openCursor();r.onsuccess=()=>{const cursor=r.result;if(cursor){const row=cursor.value;rows.push({key:row.key,time:row.time,size:row.size});cursor.continue();return;}
+     rows.sort((a,b)=>a.time-b.time);let bytes=rows.reduce((n,a)=>n+a.size,0);
      for(const row of rows)if(Date.now()-row.time>TTL||bytes>DISK_LIMIT){store.delete(row.key);bytes-=row.size;}
     };
    });

@@ -22,24 +22,37 @@
   download.href=file?url:fileURL(item);download.download=item.name;download.onclick=null;
  }
  function fallback(s,message){
-  if(!live(s))return;preview(s.items[s.offset],null,true);share.hidden=false;share.disabled=true;share.textContent='系统相册保存不可用';next.hidden=true;
+  if(!live(s))return;preview(s.items[s.offset],null,!window.BrowserEnvironment?.wechat);share.hidden=false;share.disabled=true;share.textContent='系统相册保存不可用';next.hidden=true;
   help.textContent=message+(s.items.length===1&&mime(s.items[0].name).startsWith('image/')?' 可长按上面的原图，选择保存图片。':' 可点“下载原文件”，再从手机文件应用保存到相册。');
  }
  async function readOriginal(item,s){
   const cached=await window.MediaOriginalCache?.get(item);if(cached){if(!live(s))throw new DOMException('Stopped','AbortError');if(s.bytes+cached.size>LIMIT)throw Error('当前批次超过手机准备容量，请减少勾选数量。');s.bytes+=cached.size;s.cachedCount++;return new File([cached],item.name,{type:mime(item.name)||cached.type});}
   if(item.size>LIMIT)throw Error('此原文件超过 128 MB，请使用“下载原文件”，下载后从文件应用存入相册。');
-  const r=await fetchVideo(item.id,item.name,s.controller.signal);
+  const start=performance.now();
+  const progress=(received,total,route='原文件传输')=>{
+   if(!live(s)||performance.now()-s.lastPaint<250)return;s.lastPaint=performance.now();
+   const elapsed=Math.max(.1,(performance.now()-start)/1000),rate=received/elapsed,remaining=rate>0&&total?Math.ceil((total-received)/rate):0;
+   help.textContent=route+' · '+fmtSize(received)+(total?' / '+fmtSize(total)+' · '+Math.min(100,Math.floor(received/total*100))+'%':'')+' · '+fmtSize(rate)+'/秒'+(remaining>0?' · 约剩 '+(remaining>60?Math.ceil(remaining/60)+' 分钟':remaining+' 秒'):'')+'。接收完成后存相册，原画不变。';
+  };
+  const r=await window.fetchAlbumOriginal(item,s.controller.signal,progress);
   if(!r.ok)throw Error('原文件读取失败（HTTP '+r.status+'），请重试。');
   const type=(r.headers.get('content-type')||'').split(';')[0].trim();
   if(type==='text/html'||type==='application/json'){await r.body?.cancel();throw Error('服务器未返回媒体原文件，请重试。');}
   const expected=Number(r.headers.get('content-length'))||Number(item.size)||0;
   if(expected>LIMIT){await r.body?.cancel();throw Error('此原文件较大，请使用“下载原文件”，下载后再存入相册。');}
+  // Reuse the verified assembled Blob without a second JS chunk-array copy.
+  if(r.originalBlob instanceof Blob){
+   const blob=r.originalBlob;if(!blob.size||blob.size!==expected||(item.size&&blob.size!==Number(item.size)))throw Error('原文件接收不完整');
+   s.bytes+=blob.size;if(s.bytes>LIMIT)throw Error('当前批次超过手机准备容量');
+   await r.body?.cancel();if(!live(s))throw new DOMException('Stopped','AbortError');
+   const file=new File([blob],item.name,{type:mime(item.name)||type});help.textContent='原文件已完整接收，正在缓存到手机，再次保存可直接复用…';await window.MediaOriginalCache?.put(item,file);return file;
+  }
   const chunks=[];let size=0;const reader=r.body?.getReader();
-  if(reader){try{while(true){const data=await reader.read();if(data.done)break;size+=data.value.byteLength;s.bytes+=data.value.byteLength;if(size>LIMIT||s.bytes>LIMIT)throw Error('当前批次超过手机准备容量，请减少勾选数量或下载原文件。');chunks.push(data.value);if(live(s)&&performance.now()-s.lastPaint>250){s.lastPaint=performance.now();help.textContent='正在准备原文件 '+(s.files.length+1)+' / '+s.batchCount+' · '+fmtSize(s.bytes)+'，准备好后点击“保存到相册”。';}}}finally{try{await reader.cancel();}catch(e){}reader.releaseLock();}}
+  if(reader){try{while(true){const data=await reader.read();if(data.done)break;size+=data.value.byteLength;s.bytes+=data.value.byteLength;if(size>LIMIT||s.bytes>LIMIT)throw Error('当前批次超过手机准备容量，请减少勾选数量或下载原文件。');chunks.push(data.value);progress(size,expected,r.headers.get('X-Transfer-Route')==='parallel2'?'两路原文件传输':'原文件传输');}}finally{try{await reader.cancel();}catch(e){}reader.releaseLock();}}
   else{const buffer=await r.arrayBuffer();size=buffer.byteLength;s.bytes+=size;if(size>LIMIT||s.bytes>LIMIT)throw Error('原文件较大，请先下载原文件。');chunks.push(buffer);}
   if(!size||(expected&&size!==expected)||(Number(item.size)&&size!==Number(item.size)))throw Error('原文件接收不完整，请重试；未交给系统保存。');
   if(!live(s))throw new DOMException('Stopped','AbortError');
-  const file=new File(chunks,item.name,{type:mime(item.name)||type});await window.MediaOriginalCache?.put(item,file);return file;
+  const file=new File(chunks,item.name,{type:mime(item.name)||type});if(live(s))help.textContent='原文件已完整接收，正在缓存到手机，再次保存可直接复用…';await window.MediaOriginalCache?.put(item,file);return file;
  }
  async function prepare(s){
   if(!live(s))return;window.MEDIA_PREPARING=true;s.files=[];s.bytes=0;s.cachedCount=0;s.lastPaint=0;share.hidden=false;share.disabled=true;share.textContent='正在准备…';next.hidden=true;
@@ -47,8 +60,9 @@
   while(end<s.items.length&&end-start<s.pack){const size=Number(s.items[end].size)||0;if(end>start&&estimate+size>LIMIT)break;estimate+=size;end++;}
   s.batchCount=end-start;preview(s.items[start]);
   q('#previewTitle').textContent=s.items.length===1?(mime(s.items[0].name).startsWith('image/')?'图片 · 原画保存':'视频 · 原画保存'):'选中素材 · 原画保存';
-  if(!MOBILE){share.hidden=true;help.textContent='预览和下载均为原文件，画质保持不变。';return;}
-  if(!supported()){fallback(s,window.isSecureContext?'此浏览器不支持图片、视频的系统保存，请用系统浏览器打开。':'请从公网 HTTPS 网站打开，再保存到相册。');return;}
+  if(!MOBILE){share.hidden=true;help.textContent='预览和下载均为原文件，画质保持不变。';window.MEDIA_PREPARING=false;return;}
+  if(window.BrowserEnvironment?.wechat&&(!supported()||!canShare([new File([new Uint8Array([0])],s.items[start].name,{type:mime(s.items[start].name)})]))){fallback(s,'微信内的系统相册分享受限制。请点击右上角“…”→ 在 Safari / 系统浏览器打开本站；可先复制本轮素材链接继续。');window.MEDIA_PREPARING=false;return;}
+  if(!supported()){fallback(s,window.isSecureContext?'此浏览器不支持图片、视频的系统保存，请用系统浏览器打开。':'请从公网 HTTPS 网站打开，再保存到相册。');window.MEDIA_PREPARING=false;return;}
   help.textContent='正在准备原始图片 / 视频，请稍候…';
   try{
    for(let i=start;i<end;i++){if(!live(s))return;s.files.push(await readOriginal(s.items[i],s));}
