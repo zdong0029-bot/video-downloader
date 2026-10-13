@@ -20,6 +20,7 @@ import json
 import re
 import time
 from dataclasses import dataclass
+from urllib.parse import urlsplit, parse_qs
 
 from playwright.sync_api import sync_playwright
 
@@ -82,15 +83,17 @@ def _pick_video(aweme: dict) -> tuple[str, int, int, float]:
     return best_url, best_w, best_h, dur
 
 
-def _scan(payload: dict) -> dict | None:
+def _scan(payload: dict, expected_id: str | None = None) -> dict | None:
     """在接口返回里找到作品对象。不同接口的包装层不一样，都扫一遍。"""
     for key in ("aweme_detail", "aweme_info"):
-        if isinstance(payload.get(key), dict):
+        if isinstance(payload.get(key), dict) and (not expected_id or str(payload[key].get('aweme_id')) == expected_id):
             return payload[key]
     for key in ("aweme_list", "data", "item_list"):
         v = payload.get(key)
-        if isinstance(v, list) and v and isinstance(v[0], dict):
-            return v[0]
+        if isinstance(v, list):
+            for item in v:
+                if isinstance(item, dict) and (not expected_id or str(item.get('aweme_id')) == expected_id):
+                    return item
     return None
 
 
@@ -107,21 +110,26 @@ def resolve(url: str, timeout: float = 45.0, headless: bool = True) -> DouyinVid
             data = resp.json()
         except Exception:  # noqa: BLE001  响应体读不到就跳过，不影响其它请求
             return
-        aweme = _scan(data) if isinstance(data, dict) else None
+        match = AWEME_ID_RE.search(url) or AWEME_ID_RE.search(page.url)
+        target = (match.group(1) or match.group(2)) if match else parse_qs(urlsplit(page.url).query).get('modal_id', [''])[0]
+        if not target:return
+        aweme = _scan(data, target) if isinstance(data, dict) else None
         if aweme and (aweme.get("video") or {}).get("play_addr"):
             captured["aweme"] = aweme
 
     with sync_playwright() as p:
         browser = p.chromium.launch(
             headless=headless,
-            args=["--disable-blink-features=AutomationControlled", "--mute-audio"],
+            args=["--mute-audio"],
         )
         try:
-            ctx = browser.new_context(
-                user_agent=UA,
-                viewport={"width": 1440, "height": 900},
-                locale="zh-CN",
-            )
+            import video_platform_accounts as accounts
+            saved = accounts.load('douyin')
+            options = {'viewport': {'width': 1440, 'height': 900}, 'locale': 'zh-CN'}
+            if saved:
+                options['storage_state'] = {'cookies': accounts.live_cookies(saved), 'origins': saved['origins']}
+                if saved.get('ua'):options['user_agent'] = saved['ua']
+            ctx = browser.new_context(**options)
             page = ctx.new_page()
             page.on("response", on_response)
 
@@ -133,6 +141,9 @@ def resolve(url: str, timeout: float = 45.0, headless: bool = True) -> DouyinVid
 
             final_url = page.url
             page_title = page.title()
+            if saved and accounts.page_authorized('douyin', page):
+                fresh = ctx.storage_state();fresh['ua'] = page.evaluate('navigator.userAgent')
+                accounts.refresh('douyin', fresh, saved['_revision'])
         finally:
             browser.close()
 

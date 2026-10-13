@@ -5,6 +5,12 @@ from unittest.mock import patch
 WEB=Path(__file__).resolve().parent.parent;sys.path.insert(0,str(WEB))
 import douyin,media_quality,video_platform_accounts as accounts,file_download,focused_extractors as focused,yt_dlp
 class Recovery(unittest.TestCase):
+ def test_douyin_only_selects_requested_work_from_mixed_payload(self):
+  payload={'aweme_list':[{'aweme_id':'recommended','video':{}},{'aweme_id':'requested','video':{}}]}
+  self.assertEqual(douyin._scan(payload,'requested')['aweme_id'],'requested')
+  self.assertIsNone(douyin._scan(payload,'missing'))
+ def test_douyin_detail_must_match_requested_id(self):
+  self.assertIsNone(douyin._scan({'aweme_detail':{'aweme_id':'different'}},'requested'))
  def test_short_body_is_not_successful_douyin_original(self):
   # A valid MP4 signature cannot make a truncated body complete.
   class Response:

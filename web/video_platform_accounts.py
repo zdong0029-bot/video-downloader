@@ -88,7 +88,9 @@ def page_authorized(provider, page):
         except Exception:return False
     if provider=='douyin':
         if not allowed_host(urlsplit(page.url).hostname,provider):return False
-        return has_authorization(provider,{'cookies':page.context.cookies()}) and page.locator('[data-e2e="user-avatar"]').count()>0
+        if not has_authorization(provider,{'cookies':page.context.cookies()}):return False
+        # Jingxuan and the older homepage expose different account markers.
+        return page.locator('[data-e2e="user-avatar"], [data-e2e="user-avatar-container"], a[href^="/user/self"], a[href^="https://www.douyin.com/user/self"]').count()>0
     if provider != 'xiaohongshu':
         return True
     if not allowed_host(urlsplit(page.url).hostname, provider):

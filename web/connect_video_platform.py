@@ -1,8 +1,19 @@
 """Official interactive login; saves only after the user's local confirmation."""
-import sys,json,time
+import sys,json,time,importlib
+from pathlib import Path
 import tkinter as tk
 from playwright.sync_api import sync_playwright
 import video_platform_accounts as accounts
+
+# Keep the official browser alive when the status detector is updated.
+accounts_mtime = Path(accounts.__file__).stat().st_mtime_ns
+def reload_detector():
+    global accounts_mtime
+    current = Path(accounts.__file__).stat().st_mtime_ns
+    if current != accounts_mtime:
+        importlib.invalidate_caches()
+        importlib.reload(accounts)
+        accounts_mtime = current
 
 providers = sys.argv[1:] or ['kuaishou', 'xiaohongshu']
 if any(p not in accounts.PROVIDERS for p in providers):
@@ -17,8 +28,8 @@ with sync_playwright() as p:
             launch['proxy']={'server':'socks5://127.0.0.1:10808'}
         except OSError:pass
     browser = p.chromium.launch(**launch)
-    window = tk.Tk(); window.title('连接视频平台官方账号'); window.geometry('600x360')
-    tk.Label(window, text='请在官方网页登录，并亲自完成页面要求的验证。\n检测到登录授权后自动加密保存，也可点击下面的保存按钮。', pady=14).pack()
+    window = tk.Tk(); window.title('连接视频平台官方账号 · ' + ' / '.join(accounts.PROVIDERS[item][0] for item in providers)); window.geometry('600x360')
+    tk.Label(window, text='请在官方网页登录，并亲自完成页面要求的验证。\n登录后点击下面的保存按钮；检测通过时也会自动加密保存。', pady=14).pack()
     contexts = []
     for provider in providers:
         name, url, _ = accounts.PROVIDERS[provider]
@@ -35,10 +46,14 @@ with sync_playwright() as p:
         saved = {'done':False, 'revision':None}
         def save(provider=provider, context=context, message=message, saved=saved, quiet=False):
             try:
+                reload_detector()
                 for tab in context.pages:
                     if not tab.is_closed():
                         tab.evaluate('location.href')  # Flush navigation events while Tk owns the loop.
-                if provider in ('xiaohongshu','tiktok','douyin') and not any(
+                # Manual Douyin confirmation saves issued session credentials.
+                # save() requires a live sessionid; saved never means verified.
+                require_page_check = quiet or provider != 'douyin'
+                if require_page_check and provider in ('xiaohongshu','tiktok','douyin') and not any(
                     accounts.page_authorized(provider, tab)
                     for tab in context.pages if not tab.is_closed()
                 ):
@@ -51,7 +66,7 @@ with sync_playwright() as p:
                 else:
                     revision = accounts.save(provider, state)
                 saved.update(done=True, revision=revision)
-                message.set('已加密保存。现在可回网站复测；如仍有验证，请先在官方网页完成。')
+                message.set('授权已加密保存；真实下载验证待完成。现在可回网站复测。')
             except ValueError as error:
                 if not quiet:message.set(str(error))
             except Exception:
