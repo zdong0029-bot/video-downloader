@@ -7,14 +7,18 @@
   try{return await window.showSaveFilePicker({suggestedName:name});}
   catch(e){if(e.name==='AbortError')throw e;if(['SecurityError','NotAllowedError','NotSupportedError'].includes(e.name))return null;throw e;}
  }
- async function save(url,handle,expected,signal,onProgress=()=>{}){
+ // source: URL string, or async (renew)=>URL for short-lived signed relay links (re-requested on 403).
+ async function save(source,handle,expected,signal,onProgress=()=>{}){
+  const resolve=typeof source==='function'?source:async()=>source;let url=await resolve(false),renewing=null;
+  const cross=()=>new URL(url,location.href).origin!==location.origin,STEP=cross()?4*CHUNK:CHUNK;
+  async function renew(){if(typeof source!=='function'||!cross())return false;renewing=renewing||resolve(true).then(u=>{url=u;}).finally(()=>{renewing=null;});await renewing;return true;}
   const controller=new AbortController();const abort=()=>controller.abort();
   signal.addEventListener('abort',abort,{once:true});if(signal.aborted)abort();
   let writer=null,writeChain=Promise.resolve();
   async function request(headers){
    const local=new AbortController(),cancel=()=>local.abort();controller.signal.addEventListener('abort',cancel,{once:true});
    if(controller.signal.aborted)cancel();let timer=setTimeout(cancel,30000);
-   try{const response=await fetch(url,{signal:local.signal,headers,cache:'no-store'});clearTimeout(timer);
+   try{const response=await fetch(url,{signal:local.signal,headers,cache:'no-store',credentials:cross()?'omit':'same-origin'});clearTimeout(timer);
     return {response,async read(reader){timer=setTimeout(cancel,90000);try{return await reader.read();}finally{clearTimeout(timer);}},close(){clearTimeout(timer);controller.signal.removeEventListener('abort',cancel);local.abort();}};
    }catch(e){clearTimeout(timer);controller.signal.removeEventListener('abort',cancel);throw e;}
   }
@@ -25,7 +29,9 @@
   try{
    if(controller.signal.aborted)throw stopped();
    writer=await handle.createWritable();
-   const probe=await request({Range:'bytes=0-0'});const r=probe.response;
+   let probe=await request({Range:'bytes=0-0'});
+   if(probe.response.status===403&&await renew()){probe.close();probe=await request({Range:'bytes=0-0'});}
+   const r=probe.response;
    const range=r.headers.get('content-range'),etag=r.headers.get('etag');
    const size=r.status===206?Number(/^bytes 0-0\/(\d+)$/.exec(range)?.[1]):Number(r.headers.get('content-length'));
    if(!r.ok||![200,206].includes(r.status)){probe.close();throw Error('原文件读取失败（HTTP '+r.status+'）');}
@@ -43,16 +49,17 @@
     const probeReader=r.body.getReader();let probeBytes=0;
     try{while(true){const sample=await probe.read(probeReader);if(sample.done)break;probeBytes+=sample.value.byteLength;if(probeBytes>1)throw integrity('原文件探测响应大小异常');}if(probeBytes!==1)throw integrity('原文件探测响应不完整');}
     finally{try{await probeReader.cancel();}catch(e){}probeReader.releaseLock();probe.close();}
-    let next=0,written=0;const inflight=new Map();const count=Math.ceil(size/CHUNK);
+    let next=0,written=0;const inflight=new Map();const count=Math.ceil(size/STEP);
     const report=()=>onProgress(written+[...inflight.values()].reduce((a,b)=>a+b,0),size,'四路分段保存原文件');
     async function worker(){while(next<count){
      if(controller.signal.aborted)throw stopped();
-     const index=next++,start=index*CHUNK,end=Math.min(size,start+CHUNK)-1,wanted=end-start+1;
+     const index=next++,start=index*STEP,end=Math.min(size,start+STEP)-1,wanted=end-start+1;
      for(let attempt=0;attempt<3;attempt++){
       let part=null,reader=null;
       try{
        part=await request({Range:'bytes='+start+'-'+end,'If-Range':etag});const response=part.response;
        if([408,429,500,502,503,504].includes(response.status))throw Error('HTTP '+response.status);
+       if(response.status===403&&await renew())throw Error('下载链接已过期，已重新获取');
        if(response.status!==206||response.headers.get('etag')!==etag||response.headers.get('content-range')!=='bytes '+start+'-'+end+'/'+size)throw integrity('原文件版本或分段变化，已停止保存，请重试。');
        const data=new Uint8Array(wanted);let filled=0;reader=response.body.getReader();
        while(true){const chunk=await part.read(reader);if(chunk.done)break;if(filled+chunk.value.byteLength>wanted)throw integrity('分段响应超出原文件范围');data.set(chunk.value,filled);filled+=chunk.value.byteLength;inflight.set(index,filled);report();}

@@ -23,6 +23,7 @@ import uuid
 from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any, Literal
+from urllib.parse import quote
 
 import yt_dlp
 from fastapi import Cookie, Depends, FastAPI, HTTPException, Request, Response
@@ -40,6 +41,7 @@ import baidu_backend
 import cloud_backend
 import cloud_cleanup
 import task_history
+import relay_sync
 import video_catalog
 import xhs_images
 import video_accounts, wechat_channels, platform_extractors
@@ -92,6 +94,7 @@ class Job:
         return self.stop.is_set()
 
     def public(self) -> dict[str, Any]:
+        relay = relay_sync.enabled()
         return {
             "id": self.id,
             "url": self.url,
@@ -112,7 +115,7 @@ class Job:
             "failed_entries": self.failed_entries,
             "selected_entries": [e["id"] for e in self.entries],
             "owner": (self.owner_label + " · " + self.owner[:6]) if self.owner_label else self.owner[:8],
-            "files": [{"name": f.name, "size": f.size, "entry_id": f.entry_id} for f in self.files if f.done],
+            "files": [{"name": f.name, "size": f.size, "entry_id": f.entry_id, **({"relay": relay_sync.status(self.id, f.name)} if relay else {})} for f in self.files if f.done],
         }
 
 
@@ -573,6 +576,21 @@ def _worker(job: Job) -> None:
             _save_meta(job)
             if job.kind == "cloud" and job.status == "done" and (DOWNLOADS / job.id / META).is_file():
                 (DOWNLOADS / job.id / ".cloud-incomplete").unlink(missing_ok=True)
+            if job.status in ("done", "partial", "cancelled"): _relay_enqueue(job)
+
+
+def _relay_enqueue(job: Job) -> None:
+    """Optional mainland relay copy for faster public delivery; no-op unless configured."""
+    if not relay_sync.enabled(): return
+    for f in job.files:
+        if f.done and _safe_restore_path(job.id, f.name): relay_sync.enqueue(job.id, f.name, DOWNLOADS / job.id / f.name, job.owner)
+
+
+def _relay_known(job_id: str, name: str):
+    job = JOBS.get(job_id)
+    if job and any(f.name == name and f.done for f in job.files) and _safe_restore_path(job_id, name):
+        return DOWNLOADS / job_id / name, job.owner
+    return None
 
 
 # ----------------------------------------------------------------- API
@@ -583,6 +601,7 @@ _restore_jobs()
 _restore_task_history()
 for _old_job in JOBS.values():
     task_history.remember(_old_job)
+relay_sync.restore(_relay_known)
 
 COOKIE = "sid"        # 管理员会话
 DEVICE = "did"        # 设备/浏览器标识
@@ -1187,6 +1206,7 @@ def remove_files(job_id: str, body: RemoveFiles, me: Identity = Depends(current_
                 try:
                     path.unlink(missing_ok=True)
                     removed.append(name)
+                    relay_sync.discard(job_id, name)
                 except OSError:
                     failed.append(name)
         else:
@@ -1218,6 +1238,7 @@ def delete_job(job_id: str, purge: bool = False,
     if purge:
         shutil.rmtree(DOWNLOADS / job_id, ignore_errors=True)
         _unhide_all(job_id)
+        relay_sync.discard(job_id)
     else:
         _hide(job_id, [f.name for f in job.files])
     return {"ok": True}
@@ -1267,6 +1288,17 @@ def get_file(job_id: str, name: str, inline: bool = False, me: Identity = Depend
                         content_disposition_type="inline" if inline and Path(name).suffix.lower() in {".mp4", ".webm", ".mov", ".mkv", ".mp3", ".wav", ".jpg", ".jpeg", ".png", ".webp", ".gif"} else "attachment")
 
 
+@app.get("/api/files/{job_id}/{name}/link")
+def file_link(job_id: str, name: str, me: Identity = Depends(current_identity)) -> dict:
+    """Short-lived relay URL for the same original (same ownership checks as get_file)."""
+    job = _get_job(job_id, me)
+    path = _safe_file(job_id, name)
+    fallback = f"/api/files/{quote(job_id, safe='')}/{quote(name, safe='')}"
+    if not relay_sync.enabled() or not any(f.name == name and f.done for f in job.files):
+        return {"state": "disabled", "fallback": fallback}
+    return {**relay_sync.link(job_id, name, path, job.owner), "fallback": fallback}
+
+
 @app.delete("/api/files/{job_id}/{name}")
 def delete_file(job_id: str, name: str, purge: bool = False,
                 me: Identity = Depends(current_identity)) -> dict:
@@ -1279,6 +1311,7 @@ def delete_file(job_id: str, name: str, purge: bool = False,
     path = _safe_file(job_id, name)
     if purge:
         path.unlink(missing_ok=True)
+        relay_sync.discard(job_id, name)
     else:
         _hide(job_id, [name])
 

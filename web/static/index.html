@@ -412,7 +412,7 @@ function render(jobs){
         <label><input aria-label="选择文件" type="checkbox" ${jobBusy(j.id) ? 'disabled' : ''} ${on ? 'checked' : ''} onchange="toggleOne('${sourceId}', ${arg}, this.checked)"></label>
         ${video ? `<button class="preview-link" title="预览视频" onclick="previewFile('${sourceId}', ${arg})"><img class="thumb" alt="视频首帧" loading="lazy" src="/api/thumb/${sourceId}/${encodeURIComponent(f.name)}" onerror="this.style.visibility='hidden'"></button>` : image ? `<a href="${base}" target="_blank" rel="noopener"><img class="thumb" loading="lazy" alt="图片" src="${base}"></a>` : `<span class="thumb" style="display:grid;place-items:center" aria-label="文件">📦</span>`}
         <button class="fname" onclick="${video || (MOBILE && image) ? 'previewFile' : 'saveFile'}('${sourceId}', ${arg})">${esc(f.name)}<br><span class="fsize">${video ? '视频原文件' : image ? '原始图片' : '文件'}</span>${j.is_group ? '<br><span class="fsize">来源：'+esc(f.source_url)+'</span>' : ''}</button>
-        <div class="file-detail">原文件<br><span class="fsize">${fmtSize(f.size)}</span></div><div class="file-state"><span class="status-done">✓ 已就绪</span></div>
+        <div class="file-detail">原文件<br><span class="fsize">${fmtSize(f.size)}</span></div><div class="file-state"><span class="status-done">✓ 已就绪</span>${window.relayBadge?.(f)||''}</div>
         <div class="file-actions">${MOBILE && (video || image) ? `<button class="ghost" onclick="previewFile('${sourceId}', ${arg})">保存到相册</button>` : `<button class="ghost" ${jobBusy(j.id) ? 'disabled' : ''} onclick="saveFile('${sourceId}', ${arg})">保存</button>`}
         ${!MOBILE ? LOCAL ? `<button class="ghost" title="定位主机保存的文件" onclick="revealFile('${sourceId}', ${arg})">📁 定位</button>` : `<button class="ghost" data-folder-file="${esc(f.name)}" title="定位当前浏览器已保存的文件（需安装定位扩展）" onclick="folderLocatorHelp()">📁 定位</button>` : ''}</div>
       </div>`;
@@ -533,7 +533,14 @@ async function fetchVideo(jobId,name,signal,onRoute=()=>{}){
       }
     }catch(e){if(signal?.aborted || e.name==='AbortError') throw e;}
   }
-  onRoute(useDirect ? '主机传输（直连不可用，已回退）' : '主机传输');
+  // Optional mainland relay: identical original bytes from a faster server via a short-lived signed link.
+  const relay=await window.RelayLinks?.link(jobId,name);
+  if(relay){
+    onRoute('国内中转服务器（不经过主机隧道）');
+    try{const r=await fetch(relay.url,{signal,credentials:'omit',cache:'no-store'});if(r.ok)return r;await r.body?.cancel();}
+    catch(e){if(signal?.aborted || e.name==='AbortError') throw e;}
+  }
+  onRoute(relay ? '主机传输（中转不可用，已回退）' : useDirect ? '主机传输（直连不可用，已回退）' : '主机传输');
   return fetch(localUrl,{signal});
 }
 
@@ -586,7 +593,7 @@ async function downloadSelected(jobId, singleName=null, sourceId=null, forceFile
       if(t.controller.signal.aborted) throw new DOMException('Stopped','AbortError');
       if(handle){
         t.route='四路分段保存原文件';updateTransfer(jobId);
-        await window.OriginalFileTransfer.save(`/api/files/${originId(job,f)}/${encodeURIComponent(f.name)}`,handle,f.size,t.controller.signal,(received,total,route)=>{
+        await window.OriginalFileTransfer.save(window.RelayLinks ? window.RelayLinks.source(originId(job,f),f.name) : `/api/files/${originId(job,f)}/${encodeURIComponent(f.name)}`,handle,f.size,t.controller.signal,(received,total,route)=>{
           t.receivedBytes=received;t.totalBytes=total;t.route=route;
           if(performance.now()-lastPaint>120){updateTransfer(jobId);lastPaint=performance.now();}
         });
@@ -596,9 +603,10 @@ async function downloadSelected(jobId, singleName=null, sourceId=null, forceFile
       // gigabytes into JS arrays/Blob can exhaust memory before saving anything.
       if(MOBILE||f.size>=256*1048576){
         const a=document.createElement('a');
-        a.href=`/api/files/${originId(job,f)}/${encodeURIComponent(f.name)}`;a.download=f.name;
+        const relay=await window.RelayLinks?.link(originId(job,f),f.name);
+        a.href=relay ? relay.url : `/api/files/${originId(job,f)}/${encodeURIComponent(f.name)}`;a.download=f.name;
         document.body.appendChild(a);a.click();a.remove();
-        t.nativeCount=(t.nativeCount||0)+1;t.totalBytes-=f.size;t.route='浏览器直接下载';
+        t.nativeCount=(t.nativeCount||0)+1;t.totalBytes-=f.size;t.route=relay ? '国内中转服务器 · 浏览器直接下载' : '浏览器直接下载';
         updateTransfer(jobId);
         await new Promise(resolve=>setTimeout(resolve,700));
         continue;
@@ -1040,6 +1048,6 @@ function scheduleListLoading(){
 
 
 
-<script src="/site-runtime.js?v=20261013-transfer-v7"></script>
+<script src="/site-runtime.js?v=20261014-relay-v1"></script>
 </body>
 </html>

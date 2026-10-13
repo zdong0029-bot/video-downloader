@@ -1,0 +1,36 @@
+# /etc/caddy/Caddyfile —— 二选一：方案 1（已备案域名）或方案 2（直接用公网 IP）。
+# 上传 8 MiB 分段、下载 GB 级文件均为流式转发，不在内存里攒整个文件。
+
+# ---------- 方案 1：已完成 ICP 备案的域名（推荐，最稳） ----------
+relay.example.cn {
+    reverse_proxy 127.0.0.1:8080 {
+        flush_interval -1
+    }
+    header {
+        X-Content-Type-Options nosniff
+        Referrer-Policy no-referrer
+        -Server
+    }
+}
+
+# ---------- 方案 2：直接用服务器公网 IPv4（无域名/未备案时） ----------
+# 需要较新的 Caddy（支持 ACME profile 与 IP 证书），向 Let's Encrypt 申请 6 天短期 IP 证书，
+# 只能用 HTTP-01 或 TLS-ALPN-01 验证，所以 80 和 443 端口必须对公网开放；Caddy 会自动续期。
+# 若签发失败，见 README 的 acme.sh 备用办法。把 203.0.113.10 换成你的公网 IP，并删掉方案 1。
+#
+# 203.0.113.10 {
+#     tls {
+#         issuer acme {
+#             profile shortlived
+#             disable_tlsalpn_challenge
+#         }
+#     }
+#     reverse_proxy 127.0.0.1:8080 {
+#         flush_interval -1
+#     }
+#     header {
+#         X-Content-Type-Options nosniff
+#         Referrer-Policy no-referrer
+#         -Server
+#     }
+# }

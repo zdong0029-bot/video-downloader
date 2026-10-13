@@ -483,6 +483,34 @@ setInterval(()=>{if(!document.querySelector('#main').hidden)void refreshCatalogs
 
 ;
 
+// Source: relay-links.js
+/* Optional mainland relay: same original bytes from a faster server via short-lived signed links; host path stays the fallback. */
+(() => {
+ const links=new Map(),local=(id,name)=>'/api/files/'+encodeURIComponent(id)+'/'+encodeURIComponent(name);
+ const state=(id,name)=>cache.find(j=>j.id===id)?.files?.find(f=>f.name===name)?.relay||null;
+ const fresh=d=>d&&d.expires*1000-Date.now()>120000;
+ async function link(id,name,renew=false){
+  const k=id+'\n'+name,hit=links.get(k);if(!renew&&fresh(hit))return hit;
+  // Disabled on the host, or this browser sits on the host/LAN where the direct path is already fast.
+  const s=state(id,name);if(!s||LOCAL||location.protocol!=='https:'||document.querySelector('#transferMode')?.value==='server')return null;
+  try{
+   const r=await fetch(local(id,name)+'/link',{cache:'no-store'});if(!r.ok)return null;
+   const d=await r.json();if(d.state!=='ready'||!d.url){links.delete(k);return null;}links.set(k,d);return d;
+  }catch(e){return null;}
+ }
+ // Resolver for OriginalFileTransfer.save: renew=true re-requests a signed link after expiry (403).
+ const source=(id,name)=>async renew=>(await link(id,name,renew))?.url||local(id,name);
+ window.RelayLinks={state,link,source,url:(id,name)=>source(id,name)(false),local,
+  cached:(id,name)=>{const d=links.get(id+'\n'+name);return fresh(d)?d.url:'';}};
+ window.relayBadge=f=>{
+  const s=f.relay;if(!s||s.state==='none')return '';
+  const text=s.state==='ready'?'云端加速可用':s.state==='uploading'?'云端同步 '+(s.progress||0)+'%':s.state==='pending'?'云端同步排队中':s.state==='failed'?'云端同步失败，使用主机传输':'';
+  return text?'<br><span class="fsize relay-'+s.state+'" title="朋友下载时优先从国内中转服务器接收同一原文件">'+text+'</span>':'';
+ };
+})();
+
+;
+
 // Source: media-transfer.js
 /* Two bounded readers; retry only failed ranges, never mix versions or alter bytes. */
 (() => {
@@ -504,8 +532,10 @@ setInterval(()=>{if(!document.querySelector('#main').hidden)void refreshCatalogs
   const size=Number(item.size)||0;
   // CDN CORS and authorization differ by source; preserve the established direct path.
   if(size<2*1048576||size>MAX||cache.find(j=>j.id===item.id)?.kind==='symphony')return fetchVideo(item.id,item.name,signal);
-  const url='/api/files/'+encodeURIComponent(item.id)+'/'+encodeURIComponent(item.name);
-  const probe=await fetch(url,{signal,headers:{Range:'bytes=0-0'}});
+  // A ready relay copy is preferred; the signed link carries no cookies (credentials omitted).
+  const relay=await window.RelayLinks?.link(item.id,item.name);
+  const url=relay?relay.url:'/api/files/'+encodeURIComponent(item.id)+'/'+encodeURIComponent(item.name),credentials=relay?'omit':'same-origin';
+  const probe=await fetch(url,{signal,credentials,headers:{Range:'bytes=0-0'}});
   if(probe.status===200)return probe; // Range ignored: reuse the full original response.
   if(probe.status!==206){await probe.body?.cancel();if(!probe.ok)throw Error('原文件读取失败（HTTP '+probe.status+'）');return fetchVideo(item.id,item.name,signal);}
   const etag=probe.headers.get('etag'),range=probe.headers.get('content-range');
@@ -519,7 +549,7 @@ setInterval(()=>{if(!document.querySelector('#main').hidden)void refreshCatalogs
    const index=next++,start=index*chunkSize,end=Math.min(size,start+chunkSize)-1;
    for(let attempt=0;attempt<3;attempt++){
     try{
-     const r=await fetch(url,{signal:controller.signal,headers:{Range:'bytes='+start+'-'+end,'If-Range':etag}});
+     const r=await fetch(url,{signal:controller.signal,credentials,headers:{Range:'bytes='+start+'-'+end,'If-Range':etag}});
      if(retryable(r.status)){await r.body?.cancel();throw Error('HTTP '+r.status);}
      if(r.status!==206||r.headers.get('etag')!==etag||r.headers.get('content-range')!=='bytes '+start+'-'+end+'/'+size){await r.body?.cancel();throw failure('原文件版本或分段发生变化，已停止保存，请重试。');}
      const data=await bytes(r,controller.signal,n=>{received[index]=n;report();});
@@ -552,14 +582,18 @@ setInterval(()=>{if(!document.querySelector('#main').hidden)void refreshCatalogs
   try{return await window.showSaveFilePicker({suggestedName:name});}
   catch(e){if(e.name==='AbortError')throw e;if(['SecurityError','NotAllowedError','NotSupportedError'].includes(e.name))return null;throw e;}
  }
- async function save(url,handle,expected,signal,onProgress=()=>{}){
+ // source: URL string, or async (renew)=>URL for short-lived signed relay links (re-requested on 403).
+ async function save(source,handle,expected,signal,onProgress=()=>{}){
+  const resolve=typeof source==='function'?source:async()=>source;let url=await resolve(false),renewing=null;
+  const cross=()=>new URL(url,location.href).origin!==location.origin,STEP=cross()?4*CHUNK:CHUNK;
+  async function renew(){if(typeof source!=='function'||!cross())return false;renewing=renewing||resolve(true).then(u=>{url=u;}).finally(()=>{renewing=null;});await renewing;return true;}
   const controller=new AbortController();const abort=()=>controller.abort();
   signal.addEventListener('abort',abort,{once:true});if(signal.aborted)abort();
   let writer=null,writeChain=Promise.resolve();
   async function request(headers){
    const local=new AbortController(),cancel=()=>local.abort();controller.signal.addEventListener('abort',cancel,{once:true});
    if(controller.signal.aborted)cancel();let timer=setTimeout(cancel,30000);
-   try{const response=await fetch(url,{signal:local.signal,headers,cache:'no-store'});clearTimeout(timer);
+   try{const response=await fetch(url,{signal:local.signal,headers,cache:'no-store',credentials:cross()?'omit':'same-origin'});clearTimeout(timer);
     return {response,async read(reader){timer=setTimeout(cancel,90000);try{return await reader.read();}finally{clearTimeout(timer);}},close(){clearTimeout(timer);controller.signal.removeEventListener('abort',cancel);local.abort();}};
    }catch(e){clearTimeout(timer);controller.signal.removeEventListener('abort',cancel);throw e;}
   }
@@ -570,7 +604,9 @@ setInterval(()=>{if(!document.querySelector('#main').hidden)void refreshCatalogs
   try{
    if(controller.signal.aborted)throw stopped();
    writer=await handle.createWritable();
-   const probe=await request({Range:'bytes=0-0'});const r=probe.response;
+   let probe=await request({Range:'bytes=0-0'});
+   if(probe.response.status===403&&await renew()){probe.close();probe=await request({Range:'bytes=0-0'});}
+   const r=probe.response;
    const range=r.headers.get('content-range'),etag=r.headers.get('etag');
    const size=r.status===206?Number(/^bytes 0-0\/(\d+)$/.exec(range)?.[1]):Number(r.headers.get('content-length'));
    if(!r.ok||![200,206].includes(r.status)){probe.close();throw Error('原文件读取失败（HTTP '+r.status+'）');}
@@ -588,16 +624,17 @@ setInterval(()=>{if(!document.querySelector('#main').hidden)void refreshCatalogs
     const probeReader=r.body.getReader();let probeBytes=0;
     try{while(true){const sample=await probe.read(probeReader);if(sample.done)break;probeBytes+=sample.value.byteLength;if(probeBytes>1)throw integrity('原文件探测响应大小异常');}if(probeBytes!==1)throw integrity('原文件探测响应不完整');}
     finally{try{await probeReader.cancel();}catch(e){}probeReader.releaseLock();probe.close();}
-    let next=0,written=0;const inflight=new Map();const count=Math.ceil(size/CHUNK);
+    let next=0,written=0;const inflight=new Map();const count=Math.ceil(size/STEP);
     const report=()=>onProgress(written+[...inflight.values()].reduce((a,b)=>a+b,0),size,'四路分段保存原文件');
     async function worker(){while(next<count){
      if(controller.signal.aborted)throw stopped();
-     const index=next++,start=index*CHUNK,end=Math.min(size,start+CHUNK)-1,wanted=end-start+1;
+     const index=next++,start=index*STEP,end=Math.min(size,start+STEP)-1,wanted=end-start+1;
      for(let attempt=0;attempt<3;attempt++){
       let part=null,reader=null;
       try{
        part=await request({Range:'bytes='+start+'-'+end,'If-Range':etag});const response=part.response;
        if([408,429,500,502,503,504].includes(response.status))throw Error('HTTP '+response.status);
+       if(response.status===403&&await renew())throw Error('下载链接已过期，已重新获取');
        if(response.status!==206||response.headers.get('etag')!==etag||response.headers.get('content-range')!=='bytes '+start+'-'+end+'/'+size)throw integrity('原文件版本或分段变化，已停止保存，请重试。');
        const data=new Uint8Array(wanted);let filled=0;reader=response.body.getReader();
        while(true){const chunk=await part.read(reader);if(chunk.done)break;if(filled+chunk.value.byteLength>wanted)throw integrity('分段响应超出原文件范围');data.set(chunk.value,filled);filled+=chunk.value.byteLength;inflight.set(index,filled);report();}
@@ -648,7 +685,8 @@ setInterval(()=>{if(!document.querySelector('#main').hidden)void refreshCatalogs
   video.hidden=isImage;image.hidden=!isImage;
   if(isImage){video.removeAttribute('src');if(file||remote||!MOBILE){image.src=file?url:url+'?inline=1';}else{image.removeAttribute('src');image.hidden=true;}}
   else{image.removeAttribute('src');video.preload='none';if(file||remote||!MOBILE)video.src=file?url:url+'?inline=1';else video.removeAttribute('src');}
-  download.href=file?url:fileURL(item);download.download=item.name;download.onclick=null;
+  download.href=file?url:(window.RelayLinks?.cached(item.id,item.name)||fileURL(item));download.download=item.name;download.onclick=null;
+  if(!file&&window.RelayLinks)window.RelayLinks.link(item.id,item.name).then(d=>{if(d&&current&&current.items[current.offset]===item)download.href=d.url;});
  }
  function fallback(s,message){
   if(!live(s))return;preview(s.items[s.offset],null,!window.BrowserEnvironment?.wechat);share.hidden=false;share.disabled=true;share.textContent='系统相册保存不可用';next.hidden=true;

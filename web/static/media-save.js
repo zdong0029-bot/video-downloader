@@ -19,7 +19,8 @@
   video.hidden=isImage;image.hidden=!isImage;
   if(isImage){video.removeAttribute('src');if(file||remote||!MOBILE){image.src=file?url:url+'?inline=1';}else{image.removeAttribute('src');image.hidden=true;}}
   else{image.removeAttribute('src');video.preload='none';if(file||remote||!MOBILE)video.src=file?url:url+'?inline=1';else video.removeAttribute('src');}
-  download.href=file?url:fileURL(item);download.download=item.name;download.onclick=null;
+  download.href=file?url:(window.RelayLinks?.cached(item.id,item.name)||fileURL(item));download.download=item.name;download.onclick=null;
+  if(!file&&window.RelayLinks)window.RelayLinks.link(item.id,item.name).then(d=>{if(d&&current&&current.items[current.offset]===item)download.href=d.url;});
  }
  function fallback(s,message){
   if(!live(s))return;preview(s.items[s.offset],null,!window.BrowserEnvironment?.wechat);share.hidden=false;share.disabled=true;share.textContent='系统相册保存不可用';next.hidden=true;

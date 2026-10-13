@@ -18,8 +18,10 @@
   const size=Number(item.size)||0;
   // CDN CORS and authorization differ by source; preserve the established direct path.
   if(size<2*1048576||size>MAX||cache.find(j=>j.id===item.id)?.kind==='symphony')return fetchVideo(item.id,item.name,signal);
-  const url='/api/files/'+encodeURIComponent(item.id)+'/'+encodeURIComponent(item.name);
-  const probe=await fetch(url,{signal,headers:{Range:'bytes=0-0'}});
+  // A ready relay copy is preferred; the signed link carries no cookies (credentials omitted).
+  const relay=await window.RelayLinks?.link(item.id,item.name);
+  const url=relay?relay.url:'/api/files/'+encodeURIComponent(item.id)+'/'+encodeURIComponent(item.name),credentials=relay?'omit':'same-origin';
+  const probe=await fetch(url,{signal,credentials,headers:{Range:'bytes=0-0'}});
   if(probe.status===200)return probe; // Range ignored: reuse the full original response.
   if(probe.status!==206){await probe.body?.cancel();if(!probe.ok)throw Error('原文件读取失败（HTTP '+probe.status+'）');return fetchVideo(item.id,item.name,signal);}
   const etag=probe.headers.get('etag'),range=probe.headers.get('content-range');
@@ -33,7 +35,7 @@
    const index=next++,start=index*chunkSize,end=Math.min(size,start+chunkSize)-1;
    for(let attempt=0;attempt<3;attempt++){
     try{
-     const r=await fetch(url,{signal:controller.signal,headers:{Range:'bytes='+start+'-'+end,'If-Range':etag}});
+     const r=await fetch(url,{signal:controller.signal,credentials,headers:{Range:'bytes='+start+'-'+end,'If-Range':etag}});
      if(retryable(r.status)){await r.body?.cancel();throw Error('HTTP '+r.status);}
      if(r.status!==206||r.headers.get('etag')!==etag||r.headers.get('content-range')!=='bytes '+start+'-'+end+'/'+size){await r.body?.cancel();throw failure('原文件版本或分段发生变化，已停止保存，请重试。');}
      const data=await bytes(r,controller.signal,n=>{received[index]=n;report();});

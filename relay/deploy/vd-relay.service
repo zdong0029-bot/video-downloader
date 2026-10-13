@@ -1,0 +1,22 @@
+# /etc/systemd/system/vd-relay.service
+[Unit]
+Description=video-downloader mainland relay
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+User=vdrelay
+Group=vdrelay
+WorkingDirectory=/opt/vd-relay
+EnvironmentFile=/etc/vd-relay.env
+ExecStart=/opt/vd-relay/.venv/bin/uvicorn server:app --host 127.0.0.1 --port 8080 --proxy-headers --timeout-keep-alive 75
+Restart=always
+RestartSec=3
+NoNewPrivileges=true
+ProtectSystem=strict
+ProtectHome=true
+PrivateTmp=true
+ReadWritePaths=/var/lib/vd-relay
+
+[Install]
+WantedBy=multi-user.target
