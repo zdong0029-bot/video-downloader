@@ -23,7 +23,7 @@ function platformLabel(url){try{return new URL(url).hostname.replace(/^www\./,''
 function catalogJobs(id){return cache.filter(j=>j.catalog_id===id);}
 function catalogFiles(id){
   const files=new Map();
-  for(const j of catalogJobs(id))for(const f of j.files||[])if(f.entry_id)files.set(f.entry_id,{...f,job_id:j.id});
+  for(const j of catalogJobs(id))for(const f of j.files||[])if(f.entry_id&&!/\.(cover|audio)\.[^.]+$/i.test(f.name))files.set(f.entry_id,{...f,job_id:j.id});
   return files;
 }
 function renderCatalogs(){

@@ -2,7 +2,7 @@
 from pathlib import Path
 import gzip
 
-SOURCES=('batch-view.js','media-cache.js','cloud-ui.js','catalog-ui.js','video-account-ui.js','workspace-shell.js','browser-environment.js','relay-links.js','media-transfer.js','original-file-transfer.js','media-save.js','mobile-performance.js')
+SOURCES=('batch-view.js','media-cards.js','media-cache.js','cloud-ui.js','catalog-ui.js','video-account-ui.js','workspace-shell.js','browser-environment.js','relay-links.js','media-transfer.js','original-file-transfer.js','media-save.js','mobile-performance.js')
 def build(root=None):
     root=Path(root) if root else Path(__file__).parent
     static=root/'static'

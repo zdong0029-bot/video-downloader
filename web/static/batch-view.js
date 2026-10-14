@@ -7,7 +7,9 @@ function viewJobs(jobs){
   const groups=new Map(),out=[];
   for(const j of jobs){
     const single=j.batch_id && j.kind!=='collection' && j.kind!=='cloud' && j.kind!=='file'
-      && j.total===1 && (j.files||[]).length<=1 && (!(j.files||[]).length || /\.(mp4|webm|mkv|mov|m4v|avi)$/i.test(j.files[0].name))
+      && j.total===1 && (j.files||[]).filter(f=>partRole(f.name)==='video').length<=1
+      && (j.files||[]).every(f=>['video','cover','audio'].includes(partRole(f.name)))
+      && (!(j.files||[]).length || (j.files||[]).some(f=>partRole(f.name)==='video'))
       && (j.kind==='douyin' || !['queued','running'].includes(j.status));
     if(!single){out.push(j);continue;}
     const id='batch-'+j.batch_id;
@@ -26,13 +28,14 @@ function viewJobs(jobs){
     g.url='同一次提交的单视频链接，统一勾选和下载';
     g.owner=m[0].owner;
     const active=m.filter(j=>['running','queued'].includes(j.status)).length;
-    g.message='已准备 '+g.files.length+' / '+m.length+' 个视频'+(active?'，'+active+' 个处理中':'')+(g.failed?'，'+g.failed+' 个失败':'');
+    g.message='已准备 '+g.files.filter(f=>partRole(f.name)==='video').length+' / '+m.length+' 个视频'+(active?'，'+active+' 个处理中':'')+(g.failed?'，'+g.failed+' 个失败':'');
   }
   return out.sort((a,b)=>b.created-a.created);
 }
 function viewJob(id){return viewJobs(cache).find(j=>j.id===id) || cache.find(j=>j.id===id);}
 function toggleExpanded(id){
-  expandedCards.has(id)?expandedCards.delete(id):expandedCards.add(id);
+  // 任务卡默认展开，只有用户点“收起”才收起
+  collapsedCards.has(id)?collapsedCards.delete(id):collapsedCards.add(id);
   rememberExpanded();repaint();
 }
 

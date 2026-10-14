@@ -45,6 +45,7 @@ import relay_sync
 import video_catalog
 import xhs_images
 import video_accounts, wechat_channels, platform_extractors
+import media_parts, media_tools, tiktok_images
 
 ROOT = Path(__file__).parent
 DOWNLOADS = ROOT / "downloads"
@@ -55,6 +56,12 @@ DOWNLOADS.mkdir(exist_ok=True)
 # 同时下载的任务数。家用场景不需要开太大，避免把上行带宽和代理打满。
 MAX_WORKERS = 2
 _slots = threading.Semaphore(MAX_WORKERS)
+# 单视频/图文链接解析+下载很小，放在独立的通道里并发跑（默认 6 个），
+# 不再和网盘大文件抢那 2 个通道；可用环境变量 DL_VIDEO_WORKERS 调整。
+VIDEO_WORKERS = max(1, int(os.environ.get("DL_VIDEO_WORKERS", "6") or 6))
+_video_slots = threading.Semaphore(VIDEO_WORKERS)
+_douyin_slots = threading.Semaphore(3)   # 抖音每个都要开一个浏览器，限 3 个
+_tool_slots = threading.Semaphore(1)     # 批量工具吃 CPU，一次一个任务（ffmpeg 自己多线程）
 # 同一个网盘账号一次只跑一个分享任务（并行不会更快，还会抢令牌、互相限速）。
 # 在占用总通道之前排队，排队的网盘任务不再挡住视频任务。
 _cloud_queues: dict[str, threading.Lock] = {}
@@ -82,7 +89,7 @@ class FileItem:
 class Job:
     id: str
     url: str
-    kind: Literal["symphony", "douyin", "web", "file", "cloud", "collection"]
+    kind: Literal["symphony", "douyin", "web", "file", "cloud", "collection", "tool"]
     status: Literal["queued", "running", "done", "error", "partial", "cancelled"] = "queued"
     title: str = ""
     message: str = ""
@@ -283,6 +290,42 @@ def _firefox_profile() -> bool:
     return any((p / "cookies.sqlite").is_file() for p in base.iterdir() if p.is_dir())
 
 
+_ff_jar = [0.0, None]
+_ff_jar_lock = threading.Lock()
+
+
+def _firefox_cookies():
+    """Firefox cookie 读一次缓存 10 分钟。以前每个链接都重新拷贝解析 cookie 库，并发时尤其慢。"""
+    import copy
+    from yt_dlp.cookies import extract_cookies_from_browser, YoutubeDLCookieJar
+    with _ff_jar_lock:
+        if _ff_jar[1] is None or time.time() - _ff_jar[0] > 600:
+            _ff_jar[1] = extract_cookies_from_browser("firefox")
+            _ff_jar[0] = time.time()
+        jar = YoutubeDLCookieJar()
+        for c in _ff_jar[1]:
+            jar.set_cookie(copy.copy(c))
+        return jar
+
+
+def _add_parts(job, video: Path, cover_url: str = "", body: bytes | None = None) -> None:
+    """视频旁边再生成封面和音频，让前端能分别勾选。失败不影响视频本身。"""
+    if job.cancelled():
+        return
+    if cover_url and body is None:
+        try:
+            if True:
+                import urllib.request
+                req = urllib.request.Request(cover_url, headers={"User-Agent": "Mozilla/5.0"})
+                body = urllib.request.urlopen(req, timeout=20).read()
+        except Exception:  # noqa: BLE001
+            body = None
+    names = {f.name for f in job.files}
+    for p in media_parts.make_parts(video, body):
+        if p.name not in names:
+            job.files.append(FileItem(p.name, p.stat().st_size, True))
+
+
 def _job_dir(job_id: str) -> Path:
     d = DOWNLOADS / job_id
     d.mkdir(parents=True, exist_ok=True)
@@ -319,7 +362,8 @@ def _run_douyin(job: Job) -> None:
     job.message = "正在用浏览器解析…"
     if job.cancelled():
         raise Cancelled()
-    video = douyin.resolve(job.url)
+    with _douyin_slots:
+        video = douyin.resolve(job.url)
 
     job.title = video.title
     job.message = f"{video.width}x{video.height}"
@@ -330,6 +374,7 @@ def _run_douyin(job: Job) -> None:
                     should_stop=job.cancelled)
     job.files.append(FileItem(path.name, path.stat().st_size, True))
     job.finished = 1
+    _add_parts(job, path, getattr(video, "cover", "") or "")
 
 
 def _run_web(job: Job) -> None:
@@ -343,6 +388,7 @@ def _run_web(job: Job) -> None:
         title,path,media=wechat_channels.download(job.url,out,channel_progress,job.cancelled)
         job.title=title;job.files.append(FileItem(path.name,path.stat().st_size,True));job.finished=1
         job.cloud_note=f"视频号原播放流 {media.get('width',0)}×{media.get('height',0)}；未转码，已通过媒体校验"
+        _add_parts(job, path)
         return
     if xhs_images.supported(job.url):
         def image_progress(done,total,size):
@@ -417,12 +463,30 @@ def _run_web(job: Job) -> None:
     #   Firefox 的 cookie 是明文 SQLite，开着也能读。
     if COOKIES.is_file():
         opts["cookiefile"] = str(COOKIES)
-    elif _firefox_profile():
-        opts["cookiesfrombrowser"] = ("firefox", None, None, None)
+    jar = None
+    if "cookiefile" not in opts and _firefox_profile():
+        try:
+            jar = _firefox_cookies()
+        except Exception:  # noqa: BLE001 - fall back to yt-dlp reading it itself
+            opts["cookiesfrombrowser"] = ("firefox", None, None, None)
 
     job.total = 1
     with yt_dlp.YoutubeDL(opts) as ydl:
+        if jar is not None:
+            ydl.__dict__["cookiejar"] = jar
         platform_extractors.install(ydl)
+        if tiktok_images.supported(job.url):
+            def photo_progress(done, total, size):
+                job.total = total; job.progress = done / total if total else 0
+                getattr(job, "progress_target", job).progress = job.progress
+                job.message = f"TikTok 图文 {done}/{total} · 已接收 {size/1048576:.1f} MB"
+            job.message = "正在解析 TikTok 图文…"
+            job.title, paths = tiktok_images.download(ydl, job.url, out, photo_progress, job.cancelled)
+            job.files.extend(FileItem(p.name, p.stat().st_size, True) for p in paths)
+            job.finished = sum(1 for p in paths if ".audio." not in p.name)
+            job.total = max(job.total, job.finished)
+            job.cloud_note = "图片按平台原图保存，附带图文背景音乐"
+            return
         try:
             info = ydl.extract_info(job.url, download=True)
         except yt_dlp.utils.DownloadError as error:
@@ -436,6 +500,12 @@ def _run_web(job: Job) -> None:
             raise
         if not info:
             raise RuntimeError("平台未返回可下载视频")
+        cover_bytes = None
+        if not info.get("entries") and info.get("thumbnail"):
+            try:
+                cover_bytes = ydl.urlopen(info["thumbnail"]).read()
+            except Exception:  # noqa: BLE001 - falls back to the first frame
+                cover_bytes = None
         job.title = info.get("title") or job.url
         if info.get("entries") is not None:
             job.total = max(job.total, len(list(info["entries"])))
@@ -453,6 +523,8 @@ def _run_web(job: Job) -> None:
         job.files.append(FileItem(p.name, p.stat().st_size, True))
     job.finished = len(got)
     job.total = max(job.total, len(got))
+    for p in got:
+        _add_parts(job, p, body=cover_bytes if len(got) == 1 else None)
 
 
 def _run_collection(job: Job) -> None:
@@ -529,13 +601,16 @@ def _worker_slot(job: Job) -> None:
     if job.cancelled():
         _drop_empty_cancelled(job)
         return
-    with _slots:
+    pool = _slots if job.kind in ("cloud", "file") else _tool_slots if job.kind == "tool" else _video_slots
+    with pool:
         if job.cancelled():
             _drop_empty_cancelled(job)
             return
         job.status = "running"
         try:
-            if job.kind == "collection":
+            if job.kind == "tool":
+                _run_tool(job)
+            elif job.kind == "collection":
                 _run_collection(job)
             elif job.kind == "symphony":
                 _run_symphony(job)
@@ -1345,6 +1420,89 @@ SIGNED_TTL = 7200
 def _sign(job_id: str, name: str, exp: int) -> str:
     import hmac
     return hmac.new(_SIGN_KEY, f"{job_id}\n{name}\n{exp}".encode(), hashlib.sha256).hexdigest()[:32]
+
+
+class ToolRequest(BaseModel):
+    op: Literal["trim", "convert", "md5", "audio"]
+    items: list[dict]
+    params: dict = {}
+
+
+TOOL_NAMES = {"trim": "批量剪辑", "convert": "格式转换", "md5": "修改 MD5", "audio": "视频转音频"}
+
+
+def _run_tool(job: Job) -> None:
+    out = _job_dir(job.id)
+    p = getattr(job, "tool_params", {}) or {}
+    sources = getattr(job, "tool_sources", [])
+    job.total = len(sources)
+    notes = []
+    for i, src in enumerate(sources, 1):
+        if job.cancelled():
+            raise Cancelled()
+        job.progress = (i - 1) / max(1, len(sources))
+        job.message = f"({i}/{len(sources)}) {src.name}"
+        try:
+            if job.url == "tool:trim":
+                res = media_tools.trim(src, out, head=float(p.get("head") or 0), tail=float(p.get("tail") or 0),
+                                       start=p.get("start"), end=p.get("end"))
+            elif job.url == "tool:convert":
+                res = media_tools.convert(src, out, str(p.get("format") or "mp4"))
+            elif job.url == "tool:md5":
+                res = media_tools.remd5(src, out)
+                notes.append(f"{res.name}：{media_tools.md5_of(src)[:8]}… → {media_tools.md5_of(res)[:8]}…")
+            else:
+                res = media_tools.to_audio(src, out, str(p.get("format") or "mp3"))
+            job.files.append(FileItem(res.name, res.stat().st_size, True))
+            job.finished += 1
+        except Exception as error:  # noqa: BLE001
+            job.failed += 1
+            job.failed_entries[src.name] = str(error)[:500]
+            job.message = f"{src.name} 失败：{error}"
+    job.progress = 1.0
+    if notes:
+        job.cloud_note = "MD5 已改变（画面音质不变）"
+
+
+@app.post("/api/tools")
+def run_tool(body: ToolRequest, request: Request, me: Identity = Depends(current_identity)) -> dict:
+    if not body.items:
+        raise HTTPException(400, "请先勾选文件")
+    if len(body.items) > 200:
+        raise HTTPException(400, "一次最多 200 个文件")
+    sources: list[Path] = []
+    for item in body.items:
+        job_id, name = str(item.get("job_id", "")), str(item.get("name", ""))
+        _get_job(job_id, me)
+        sources.append(_safe_file(job_id, name))
+    media = media_parts.VIDEO_EXT | {".m4a", ".mp3", ".opus", ".aac", ".wav"}
+    if body.op in ("trim", "convert", "audio"):
+        sources = [s for s in sources if s.suffix.lower() in (media_parts.VIDEO_EXT if body.op != "audio" else media)]
+        if not sources:
+            raise HTTPException(400, "选中的文件里没有视频")
+    if body.op == "convert" and str(body.params.get("format", "")).lower() not in media_tools.VIDEO_FORMATS:
+        raise HTTPException(400, "请选择目标格式")
+    if body.op == "audio" and str(body.params.get("format", "mp3")).lower() not in media_tools.AUDIO_FORMATS:
+        raise HTTPException(400, "请选择音频格式")
+    if body.op == "trim":
+        try:
+            vals = [float(body.params.get(k) or 0) for k in ("head", "tail")]
+        except (TypeError, ValueError):
+            raise HTTPException(400, "剪辑秒数要填数字") from None
+        if min(vals) < 0 or not any(vals) and body.params.get("end") in (None, ""):
+            raise HTTPException(400, "请填写要去掉的片头或片尾秒数")
+    label = TOOL_NAMES[body.op]
+    extra = {"convert": " → " + str(body.params.get("format", "")).upper(), "audio": " → " + str(body.params.get("format", "mp3")).upper()}.get(body.op, "")
+    job = Job(id=uuid.uuid4().hex[:12], url="tool:" + body.op, kind="tool", owner=me.device,
+              owner_label=_device_label(request.headers.get("user-agent", "")),
+              title=f"{label}{extra} · {len(sources)} 个文件")
+    job.tool_sources = sources
+    job.tool_params = dict(body.params)
+    with _lock:
+        JOBS[job.id] = job
+    task_history.remember(job)
+    threading.Thread(target=_worker, args=(job,), daemon=True).start()
+    return {"created": [job.public()]}
 
 
 class ShortcutItems(BaseModel):

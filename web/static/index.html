@@ -147,6 +147,39 @@
 #cloudCards article{border:1px solid var(--line,#dce2e8);padding:16px;border-radius:12px;margin:12px 0}#cloudCards .row{display:flex;align-items:center;justify-content:space-between;gap:12px;border-top:1px solid #edf0f3;padding:12px 0}#cloudCards .muted{color:#718096;font-size:13px}#cloudCards h2{font-size:17px}#cloudMessage{color:#a45a00}
 .cloud-status-row{display:flex;flex-wrap:wrap;align-items:center;gap:8px;margin:12px 0}#cloudStatus{display:flex;flex-wrap:wrap;gap:7px}.cloud-pill{border:1px solid var(--line);border-radius:20px;padding:6px 10px;font-size:12px;color:var(--muted)}.cloud-ok{color:#0b766b;background:#eafaf6;border-color:#b4e0d7}.cloud-error{color:#b33131;background:#fff1f1}.cloud-controls{display:flex;flex-wrap:wrap;gap:7px;align-items:center}#cloudCards .row{flex-wrap:wrap}#cloudCards h4{margin:0;font-size:16px}
 .category-tabs{display:flex;gap:8px;margin:0 0 14px}.category-tabs button{flex:1;background:var(--card);color:var(--muted);border:1px solid var(--line);padding:11px}.category-tabs button[aria-current="page"]{background:var(--accent);color:#fff;border-color:var(--accent)}.who #loginBtn{font-size:12px;padding:6px 10px}
+  .tool-bar{margin-top:14px;gap:8px;align-items:center}
+  .tool-label{font-size:14px}
+  .tool-dialog{border:1px solid var(--line);border-radius:var(--radius);background:var(--card);color:var(--text);max-width:440px;width:92vw;padding:18px}
+  .tool-dialog h3{margin:0 0 4px}
+  .tool-fields{display:flex;gap:14px;flex-wrap:wrap;margin:12px 0}
+  .tool-fields input,.tool-fields select{width:90px;padding:8px;border:1px solid var(--line);border-radius:8px;background:var(--bg);color:var(--text);font-size:15px}
+  .tool-fields select{width:auto}
+  .tool-dialog .btns{display:flex;gap:10px;justify-content:flex-end}
+  .role-bar{display:flex;flex-wrap:wrap;gap:8px;align-items:center;margin:10px 0 4px}
+  .role-all{display:inline-flex;align-items:center;gap:6px;font-size:14px;padding:6px 12px;border:1px solid var(--line);border-radius:999px;cursor:pointer;user-select:none}
+  .role-all.on{border-color:var(--accent);background:var(--accent-soft);color:var(--accent)}
+  .role-all input,.mpart input{width:16px;height:16px;margin:0}
+  .small-btn{padding:6px 12px;font-size:14px}
+  .mcards{display:grid;gap:10px;margin-top:10px}
+  .mcard{display:flex;gap:12px;padding:10px;border:1px solid var(--line);border-radius:12px;background:var(--bg)}
+  .mcover{position:relative;flex:0 0 auto;width:92px;height:122px;padding:0;border-radius:10px;overflow:hidden;background:var(--line);border:0}
+  .mcover img{width:100%;height:100%;object-fit:cover;display:block}
+  .mplay{position:absolute;inset:auto 6px 6px auto;font-size:12px;background:rgba(0,0,0,.55);color:#fff;border-radius:999px;padding:2px 7px}
+  .mbody{flex:1;min-width:0;display:flex;flex-direction:column;gap:8px}
+  .mtitle-row{display:flex;gap:8px;align-items:flex-start}
+  .mtitle-label{flex:0 0 auto;font-size:12px;color:var(--muted);padding-top:3px}
+  .mtitle{flex:1;min-width:0;font-size:14px;font-weight:600;line-height:1.45;user-select:text;-webkit-user-select:text;cursor:text;word-break:break-word;display:-webkit-box;-webkit-line-clamp:3;-webkit-box-orient:vertical;overflow:hidden}
+  .mparts{display:flex;flex-wrap:wrap;gap:6px}
+  .mpart{display:inline-flex;align-items:center;gap:6px;padding:4px 6px 4px 10px;border:1px solid var(--line);border-radius:999px;font-size:13px;background:var(--card)}
+  .mpart.on{border-color:var(--accent);background:var(--accent-soft)}
+  .mpart label{display:inline-flex;align-items:center;gap:5px;cursor:pointer}
+  .tiny{padding:3px 10px;font-size:12px;font-weight:600;border-radius:999px}
+  .msrc{word-break:break-all}
+  .mlocate:empty{display:none}
+  .job>.role-bar,.job>.mcards{margin-left:18px;margin-right:18px}
+  .job>.mcards{margin-bottom:14px}
+  @media(max-width:720px){.job>.role-bar,.job>.mcards{margin-left:12px;margin-right:12px}.mcover{width:78px;height:104px}}
+  @media(min-width:1200px){.mcards{grid-template-columns:repeat(auto-fill,minmax(520px,1fr))}}
 </style>
 <link rel="stylesheet" href="/workspace.css?v=20261013-transfer-v7">
 </head>
@@ -219,6 +252,16 @@
     <button class="ghost danger" onclick="cancelAll()">全部取消</button>
   </div>
 
+  <div id="toolBar" class="toolbar tool-bar" hidden>
+    <strong class="tool-label">批量工具</strong><span class="count" id="toolCount"></span>
+    <span class="spacer"></span>
+    <div class="btn-group">
+      <button class="ghost" data-tool="trim" onclick="openTool('trim')">✂️ 批量剪辑</button>
+      <button class="ghost" data-tool="convert" onclick="openTool('convert')">🔁 格式转换</button>
+      <button class="ghost" data-tool="md5" onclick="openTool('md5')">🧬 修改 MD5</button>
+      <button class="ghost" data-tool="audio" onclick="openTool('audio')">🎵 视频转音频</button>
+    </div>
+  </div>
   <div class="jobs" id="catalogs" aria-label="主页视频选择"></div>
   <div class="jobs" id="jobs"><div class="empty">还没有任务</div></div>
 </div>
@@ -233,6 +276,17 @@
     </div>
   </div>
 </div>
+
+<dialog id="toolDialog" class="tool-dialog">
+  <h3 id="toolTitle"></h3>
+  <p class="hint" id="toolBody"></p>
+  <div data-for="trim" class="tool-fields"><label>去掉片头 <input id="toolHead" type="number" min="0" step="0.1" value="0"> 秒</label><label>去掉片尾 <input id="toolTail" type="number" min="0" step="0.1" value="0"> 秒</label></div>
+  <div data-for="convert" class="tool-fields"><label>转成 <select id="toolFormat"><option value="mp4">MP4</option><option value="mov">MOV</option><option value="mkv">MKV</option><option value="webm">WebM</option><option value="gif">GIF 动图</option></select></label></div>
+  <div data-for="md5" class="tool-fields"></div>
+  <div data-for="audio" class="tool-fields"><label>音频格式 <select id="toolAudio"><option value="mp3">MP3</option><option value="m4a">M4A（原音轨无损）</option><option value="wav">WAV</option></select></label></div>
+  <p class="hint" id="toolHint" style="color:var(--err)"></p>
+  <div class="btns"><button class="ghost" onclick="document.querySelector('#toolDialog').close()">取消</button><button id="toolGo" onclick="submitTool()">开始处理</button></div>
+</dialog>
 
 <dialog id="previewDialog">
   <div class="row" style="justify-content:space-between;margin-bottom:10px"><strong id="previewTitle">视频预览</strong><button class="ghost" onclick="closePreview()">关闭</button></div>
@@ -359,6 +413,7 @@ function render(jobs){
       `${running} 个下载中` + (act.length > running ? `，${act.length - running} 个排队中` : '');
   }
 
+  MEDIA_TITLES.length=0;updateToolBar();
   if(!jobs.length){jobsEl.innerHTML=(typeof catalogCache!=='undefined'&&catalogCache.some(visibleCatalog))?'':'<div class="empty"><strong>'+(VIEW==='history'?'暂无下载记录':'粘贴链接，开始你的下一次下载')+'</strong><p>'+(VIEW==='history'?'任务结束后保留七天，刷新不会删除文件。':'本轮提交的素材会显示在这里；上一轮任务可到下载记录查看。')+'</p></div>';return;}
 
   jobsEl.innerHTML = viewJobs(jobs).map(j => {
@@ -370,7 +425,8 @@ function render(jobs){
     const nSel = selectedIn(j).length;
     const allSel = files.length > 0 && nSel === files.length;
     const foldable = j.is_group || files.length > 1 || j.total > 1;
-    const open = !foldable || expandedCards.has(j.id);
+    const open = !foldable || !collapsedCards.has(j.id);
+    const mc = mediaCards(j), limit = fileVisible.get(j.id)||(MOBILE?20:60);
 
     // 任务在跑但还没产出文件时也要显示这一行，否则取消按钮没地方放
     const toolbar = (files.length || active) ? `
@@ -403,7 +459,8 @@ function render(jobs){
         </div>
       </div>` : '';
 
-    const fileRows = (open ? files.slice(0,fileVisible.get(j.id)||(MOBILE?20:60)) : []).map(f => {
+    const cardRows = open ? mc.cards.slice(0,limit).map(c=>mediaCardHTML(j,c,mc.cards.length)).join('') : '';
+    const fileRows = (open ? mc.rest.slice(0,limit) : []).map(f => {
       const sourceId=originId(j,f);
       const video = /\.(mp4|webm|mkv|mov|m4v|avi)$/i.test(f.name);
       const image = /\.(jpe?g|png|webp|gif|bmp|avif|heic|heif)$/i.test(f.name);
@@ -436,9 +493,11 @@ function render(jobs){
       ${j.message ? `<div class="msg">${esc(j.message)}</div>` : ''}
       ${VIEW==='history'&&j.expires_at ? `<div class="note">记录保留至 ${esc(new Date(j.expires_at*1000).toLocaleString())}</div>` : ''}
       ${toolbar}
+      ${files.length && open ? roleBar(j) : ''}
       <div data-transfer="${j.id}" role="status" class="hint" ${downloadTransfers.has(j.id) ? "" : "hidden"}></div>
-      ${fileRows ? '<div class="file-heading download-heading"><span></span><span>文件</span><span>画质 / 大小</span><span>状态</span><span>操作</span></div><div class="files">'+fileRows+'</div>' : files.length && !open ? '<div class="note">已收起 '+files.length+' 个文件，已选 '+nSel+' 个。点击全选会自动展开，收起后保留勾选。</div>' : ''}
-      ${open && files.length>(fileVisible.get(j.id)||(MOBILE?20:60)) ? '<div class="load-sentinel" data-more-job="'+j.id+'">已显示 '+(fileVisible.get(j.id)||(MOBILE?20:60))+' / '+files.length+' · 向下滚动继续加载 <button class="ghost" onclick="showMoreFiles(\''+j.id+'\')">继续加载</button></div>' : ''}
+      ${cardRows ? '<div class="mcards">'+cardRows+'</div>' : ''}
+      ${fileRows ? '<div class="file-heading download-heading"><span></span><span>文件</span><span>画质 / 大小</span><span>状态</span><span>操作</span></div><div class="files">'+fileRows+'</div>' : !cardRows && files.length && !open ? '<div class="note">已收起 '+files.length+' 个文件，已选 '+nSel+' 个。点击全选会自动展开，收起后保留勾选。</div>' : ''}
+      ${open && Math.max(mc.cards.length,mc.rest.length)>limit ? '<div class="load-sentinel" data-more-job="'+j.id+'">已显示 '+limit+' / '+Math.max(mc.cards.length,mc.rest.length)+' · 向下滚动继续加载 <button class="ghost" onclick="showMoreFiles(\''+j.id+'\')">继续加载</button></div>' : ''}
       ${j.is_group && j.failed ? '<details class="note"><summary>查看失败链接</summary>'+j.members.filter(m=>m.status==='error').map(m=>'<p>'+esc(m.url)+'<br>'+esc(m.message)+'</p>').join('')+'</details>' : ''}
       ${
         // 有文件时，全选 + 上面那排按钮已经能覆盖整条任务，
@@ -456,6 +515,7 @@ function render(jobs){
   }
   downloadTransfers.forEach((_, id) => updateTransfer(id));
   scheduleListLoading();
+  updateToolBar();
 }
 
 let cache = [];
@@ -508,7 +568,7 @@ function toggleAll(jobId, on){
   if(jobBusy(jobId)) return;
   const job = viewJob(jobId);
   if(!job) return;
-  if(on){expandedCards.add(jobId);rememberExpanded();}
+  if(on){collapsedCards.delete(jobId);}
   (job.files||[]).forEach(f => {
     const k = key(originId(job,f), f.name);
     on ? selected.add(k) : selected.delete(k);
@@ -822,7 +882,7 @@ function setCategory(value){
 }
 function resetFreshWorkspace(){
   for(const key of Object.keys(categoryDrafts))categoryDrafts[key]='';urlEl.value='';
-  workspaceJobs.clear();workspaceCatalogs.clear();workspaceJobPages.clear();selected.clear();expandedCards.clear();
+  workspaceJobs.clear();workspaceCatalogs.clear();workspaceJobPages.clear();selected.clear();expandedCards.clear();collapsedCards.clear();
   if(typeof catalogChosen!=='undefined')catalogChosen.clear();
   VIEW='workspace';hintEl.textContent='';$('#taskSearch').value='';$('#taskStatus').value='all';
   updateCount();updateCategoryUI();repaint();if(typeof renderCatalogs==='function')renderCatalogs();
@@ -1070,6 +1130,6 @@ function scheduleListLoading(){
 
 
 
-<script src="/site-runtime.js?v=20261014-shortcut-v1"></script>
+<script src="/site-runtime.js?v=20261015-media-v1"></script>
 </body>
 </html>
