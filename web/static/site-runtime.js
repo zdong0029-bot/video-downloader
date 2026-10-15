@@ -51,7 +51,7 @@ function showMoreFiles(id){fileVisible.set(id,(fileVisible.get(id)||(MOBILE?20:6
 // Source: media-cards.js
 // Video results as cards: cover, copyable title, and separately selectable video / cover / audio.
 const collapsedCards=new Set();
-const MEDIA_TITLES=[];
+const MEDIA_TITLES=[],MEDIA_LINKS=[];
 function partRole(name){
   if(/\.cover\.(jpe?g|png|webp)$/i.test(name))return 'cover';
   if(/\.audio\.(m4a|mp3|opus|aac|wav)$/i.test(name))return 'audio';
@@ -82,6 +82,13 @@ function copyText(text){
   const t=document.createElement('textarea');t.value=text;t.style.position='fixed';t.style.opacity='0';
   document.body.appendChild(t);t.select();try{document.execCommand('copy');}finally{t.remove();}
   return Promise.resolve();
+}
+function cardLink(job,c){
+  if(job.is_group){const m=(job.members||[]).find(m=>m.id===c.jobId);if(m&&m.url)return m.url;}
+  return c.source_url||job.url||'';
+}
+function copyLink(i,btn){
+  copyText(MEDIA_LINKS[i]||'').then(()=>{if(btn){const old=btn.textContent;btn.textContent='已复制 ✓';setTimeout(()=>btn.textContent=old,1200);}});
 }
 function copyTitle(i,btn){
   copyText(MEDIA_TITLES[i]||'').then(()=>{if(btn){const old=btn.textContent;btn.textContent='已复制 ✓';setTimeout(()=>btn.textContent=old,1200);}});
@@ -123,11 +130,12 @@ function mediaCardHTML(job,c,count){
       :'<button class="ghost tiny" '+busyAttr+'onclick="saveFile(\''+c.jobId+'\','+arg(f.name)+')">保存</button>';
     return '<div class="mline'+(on?' on':'')+'"><label><span class="mbox"><input type="checkbox" '+busyAttr+(on?'checked ':'')+'onchange="toggleOne(\''+c.jobId+'\','+arg(f.name)+',this.checked)"></span><span class="mlabel">'+icon+' '+label+'</span><span class="fsize">'+fmtSize(f.size)+'</span></label>'+save+'</div>';
   };
-  const src=c.source_url?' title="来源：'+esc(c.source_url)+'"':'';
+  const link=cardLink(job,c);MEDIA_LINKS.push(link);const li=MEDIA_LINKS.length-1;
   return '<div class="mcard">'
-    +'<button class="mcover" title="预览视频" onclick="previewFile(\''+c.jobId+'\','+arg(v.name)+')"><img alt="封面" loading="lazy" src="'+img+'" onerror="this.style.visibility=\'hidden\'"><span class="mplay">▶</span></button>'
+    +'<button class="mcover" title="点击观看" onclick="previewFile(\''+c.jobId+'\','+arg(v.name)+')"><img alt="封面" loading="lazy" src="'+img+'" onerror="this.style.visibility=\'hidden\'"><span class="mplay">▶</span></button>'
     +'<div class="mlines">'
-    +'<div class="mline mtitle-line"'+src+'><span class="mbox"></span><span class="mlabel">标题</span><span class="mtitle" title="点击选中，可直接复制">'+esc(t)+'</span><button class="ghost tiny" onclick="copyTitle('+ti+',this)">复制</button>'
+    +(link?'<div class="mline mlink-line"><span class="mbox"></span><span class="mlabel">原链接</span><a class="mlink" href="'+esc(link)+'" target="_blank" rel="noopener noreferrer" title="'+esc(link)+'">'+esc(link)+'</a><button class="ghost tiny" onclick="copyLink('+li+',this)">复制</button></div>':'')
+    +'<div class="mline mtitle-line"><span class="mbox"></span><span class="mlabel">标题</span><span class="mtitle" title="'+esc(t)+'">'+esc(t)+'</span><button class="ghost tiny" onclick="copyTitle('+ti+',this)">复制</button>'
     +(!MOBILE&&LOCAL?'<button class="ghost tiny" title="定位视频" onclick="revealFile(\''+c.jobId+'\','+arg(v.name)+')">📁</button>':'')+'</div>'
     +part('video','视频','🎬')+part('cover','封面','🖼')+part('audio','音频','🎵')
     +'</div></div>';
@@ -143,12 +151,22 @@ const TOOL_INFO={
 function selectedItems(){
   return [...selected].map(k=>{const [job_id,name]=k.split('\u0000');return {job_id,name};});
 }
+function allVisibleVideos(){
+  const out=[];
+  for(const job of viewJobs(cache.filter(visibleJob)))for(const c of mediaCards(job).cards)out.push({job_id:c.jobId,name:c.parts.video.name});
+  return out;
+}
+function toolTargets(op){
+  let items=selectedItems();
+  if(op!=='md5')items=items.filter(i=>partRole(i.name)==='video');
+  return items.length?{items,auto:false}:{items:allVisibleVideos(),auto:true};
+}
 function updateToolBar(){
   const bar=document.querySelector('#toolBar');if(!bar)return;
   const items=selectedItems(),vids=items.filter(i=>partRole(i.name)==='video').length;
-  bar.hidden=VIEW==='history'&&!items.length||CATEGORY==='cloud'&&!items.length;
-  const n=document.querySelector('#toolCount');if(n)n.textContent=items.length?'已选 '+items.length+' 个文件（视频 '+vids+' 个）':'勾选文件后可用';
-  bar.querySelectorAll('button[data-tool]').forEach(b=>{b.disabled=!(b.dataset.tool==='md5'?items.length:vids);});
+  bar.hidden=false;
+  const n=document.querySelector('#toolCount');if(n)n.textContent=items.length?'已选 '+items.length+' 个文件（视频 '+vids+' 个）':'不勾选时处理当前列表全部视频';
+  bar.querySelectorAll('button[data-tool]').forEach(b=>{b.disabled=false;});
 }
 let toolOp='';
 function openTool(op){
@@ -156,7 +174,10 @@ function openTool(op){
   document.querySelector('#toolTitle').textContent=info.title;
   document.querySelector('#toolBody').textContent=info.body;
   document.querySelectorAll('#toolDialog [data-for]').forEach(el=>el.hidden=el.dataset.for!==op);
-  document.querySelector('#toolHint').textContent='';
+  const t=toolTargets(op);
+  document.querySelector('#toolHint').textContent=t.items.length?(t.auto?'没有勾选文件，将处理当前列表全部 '+t.items.length+' 个视频':'将处理选中的 '+t.items.length+' 个'+(op==='md5'?'文件':'视频')):'当前列表还没有视频，先在上面提取视频再用这些工具';
+  document.querySelector('#toolGo').disabled=!t.items.length;
+  document.querySelector('#toolHint').style.color=t.items.length?'var(--muted)':'';
   document.querySelector('#toolDialog').showModal();
 }
 async function submitTool(){
@@ -164,14 +185,13 @@ async function submitTool(){
   if(toolOp==='trim'){params.head=document.querySelector('#toolHead').value||0;params.tail=document.querySelector('#toolTail').value||0;}
   if(toolOp==='convert')params.format=document.querySelector('#toolFormat').value;
   if(toolOp==='audio')params.format=document.querySelector('#toolAudio').value;
-  let items=selectedItems();
-  if(toolOp!=='md5')items=items.filter(i=>partRole(i.name)==='video');
-  if(!items.length){hint.textContent='没有选中可处理的视频';return;}
+  const items=toolTargets(toolOp).items;
+  if(!items.length){hint.style.color='';hint.textContent='当前列表还没有视频';return;}
   const btn=document.querySelector('#toolGo');btn.disabled=true;
   try{
     const r=await fetch('/api/tools',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({op:toolOp,items,params})});
     const data=await r.json().catch(()=>({}));
-    if(!r.ok){hint.textContent=data.detail||'提交失败';return;}
+    if(!r.ok){hint.style.color='';hint.textContent=data.detail||'提交失败';return;}
     acceptSubmission(data,'video');
     document.querySelector('#toolDialog').close();
     hintEl.textContent=TOOL_INFO[toolOp].title+'已开始，处理好的文件会出现在列表最上面的新任务里。';hintEl.style.color='';
