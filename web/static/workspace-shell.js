@@ -11,6 +11,7 @@
  const mediaTab=make('button','','视频图片提取');mediaTab.id='mediaExtractTab';mediaTab.type='button';mediaTab.onclick=()=>window.openDownload('video');
  const profileTab=make('button','','主页 / 合集');profileTab.id='profileExtractTab';profileTab.type='button';profileTab.onclick=()=>window.openDownload('profile');
  subnav.append(mediaTab,profileTab);q('#cloudTab').textContent='网盘下载';
+ const toolBar=q('#toolBar');if(toolBar){toolBar.className='sidebar-tools';toolBar.setAttribute('aria-label','批量工具');q('#videoTab').after(toolBar);}
  const adminNav=make('nav' ,'sidebar-nav admin-navigation');adminNav.setAttribute('aria-label','管理导航');
  const foot=make('div','sidebar-footer');
  const label=make('div','sidebar-label','工作空间');

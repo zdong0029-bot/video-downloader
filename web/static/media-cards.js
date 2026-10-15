@@ -66,19 +66,20 @@ function mediaCardHTML(job,c,count){
   const enc=n=>encodeURIComponent(n),arg=n=>esc(JSON.stringify(n));
   const img=cov?'/api/files/'+c.jobId+'/'+enc(cov.name)+'?inline=1':'/api/thumb/'+c.jobId+'/'+enc(v.name);
   const part=(role,label,icon)=>{
-    const f=c.parts[role];if(!f)return '<div class="mpart none">'+icon+' 无'+label+'</div>';
+    const f=c.parts[role];if(!f)return '<div class="mline none"><span class="mbox"></span><span class="mlabel">'+icon+' '+label+'</span><span class="fsize">无</span></div>';
     const on=selected.has(key(c.jobId,f.name));
     const save=MOBILE&&role!=='audio'?'<button class="ghost tiny" onclick="previewFile(\''+c.jobId+'\','+arg(f.name)+')">存相册</button>'
       :'<button class="ghost tiny" '+busyAttr+'onclick="saveFile(\''+c.jobId+'\','+arg(f.name)+')">保存</button>';
-    return '<div class="mpart'+(on?' on':'')+'"><label><input type="checkbox" '+busyAttr+(on?'checked ':'')+'onchange="toggleOne(\''+c.jobId+'\','+arg(f.name)+',this.checked)"> '+icon+' '+label+' <span class="fsize">'+fmtSize(f.size)+'</span></label>'+save+'</div>';
+    return '<div class="mline'+(on?' on':'')+'"><label><span class="mbox"><input type="checkbox" '+busyAttr+(on?'checked ':'')+'onchange="toggleOne(\''+c.jobId+'\','+arg(f.name)+',this.checked)"></span><span class="mlabel">'+icon+' '+label+'</span><span class="fsize">'+fmtSize(f.size)+'</span></label>'+save+'</div>';
   };
   const src=c.source_url?' title="来源：'+esc(c.source_url)+'"':'';
   return '<div class="mcard">'
     +'<button class="mcover" title="预览视频" onclick="previewFile(\''+c.jobId+'\','+arg(v.name)+')"><img alt="封面" loading="lazy" src="'+img+'" onerror="this.style.visibility=\'hidden\'"><span class="mplay">▶</span></button>'
-    +'<div class="mtitle-row"'+src+'><span class="mtitle" title="点击选中，可直接复制">'+esc(t)+'</span><button class="ghost tiny" onclick="copyTitle('+ti+',this)">复制</button></div>'
+    +'<div class="mlines">'
+    +'<div class="mline mtitle-line"'+src+'><span class="mbox"></span><span class="mlabel">标题</span><span class="mtitle" title="点击选中，可直接复制">'+esc(t)+'</span><button class="ghost tiny" onclick="copyTitle('+ti+',this)">复制</button>'
+    +(!MOBILE&&LOCAL?'<button class="ghost tiny" title="定位视频" onclick="revealFile(\''+c.jobId+'\','+arg(v.name)+')">📁</button>':'')+'</div>'
     +part('video','视频','🎬')+part('cover','封面','🖼')+part('audio','音频','🎵')
-    +(!MOBILE&&LOCAL?'<button class="ghost tiny mlocate" title="定位视频" onclick="revealFile(\''+c.jobId+'\','+arg(v.name)+')">📁</button>':'')
-    +'</div>';
+    +'</div></div>';
 }
 
 // ---- Batch tools on the selected files ----
@@ -95,7 +96,7 @@ function updateToolBar(){
   const bar=document.querySelector('#toolBar');if(!bar)return;
   const items=selectedItems(),vids=items.filter(i=>partRole(i.name)==='video').length;
   bar.hidden=VIEW==='history'&&!items.length||CATEGORY==='cloud'&&!items.length;
-  const n=document.querySelector('#toolCount');if(n)n.textContent=items.length?'已选 '+items.length+' 个文件（视频 '+vids+' 个）':'先在下方勾选文件';
+  const n=document.querySelector('#toolCount');if(n)n.textContent=items.length?'已选 '+items.length+' 个文件（视频 '+vids+' 个）':'勾选文件后可用';
   bar.querySelectorAll('button[data-tool]').forEach(b=>{b.disabled=!(b.dataset.tool==='md5'?items.length:vids);});
 }
 let toolOp='';
