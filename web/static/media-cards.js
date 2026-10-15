@@ -114,16 +114,17 @@ function updateToolBar(){
   const bar=document.querySelector('#toolBar');if(!bar)return;
   const items=selectedItems(),vids=items.filter(i=>partRole(i.name)==='video').length;
   bar.hidden=false;
-  const n=document.querySelector('#toolCount');if(n)n.textContent=items.length?'已勾选的 '+vids+' 个视频会一起带过去':'打开工具页，可上传或挑选视频';
+  const n=document.querySelector('#toolCount');if(n)n.textContent=items.length?'已选 '+items.length+' 个文件（视频 '+vids+' 个）':'不勾选时处理当前列表全部视频';
   bar.querySelectorAll('button[data-tool]').forEach(b=>{b.disabled=false;});
 }
 let toolOp='';
 function openTool(op){
-  // 打开独立的批量工具页：可上传本地视频；当前勾选的视频一并带过去
+  // 右侧切换成批量工具界面（侧栏不变）：带上勾选的视频，没勾选就带当前列表全部视频；界面里还能上传本地视频
   const sizes=new Map();for(const j of cache)for(const f of j.files||[])sizes.set(j.id+'\u0000'+f.name,f.size);
-  const items=selectedItems().filter(i=>partRole(i.name)==='video').map(i=>({job_id:i.job_id,name:i.name,size:sizes.get(i.job_id+'\u0000'+i.name)||0}));
+  const items=toolTargets(op).items.map(i=>({job_id:i.job_id,name:i.name,size:sizes.get(i.job_id+'\u0000'+i.name)||0}));
+  if(typeof window.openToolView==='function'){window.openToolView(op,items);return;}
   try{localStorage.setItem('vd-tool-items',JSON.stringify({t:Date.now(),items}));}catch{}
-  const w=window.open('/tools.html?op='+op,'_blank');if(!w)location.href='/tools.html?op='+op;
+  location.href='/tools.html?op='+op;
 }
 async function submitTool(){
   const params={},hint=document.querySelector('#toolHint');

@@ -165,16 +165,17 @@ function updateToolBar(){
   const bar=document.querySelector('#toolBar');if(!bar)return;
   const items=selectedItems(),vids=items.filter(i=>partRole(i.name)==='video').length;
   bar.hidden=false;
-  const n=document.querySelector('#toolCount');if(n)n.textContent=items.length?'已勾选的 '+vids+' 个视频会一起带过去':'打开工具页，可上传或挑选视频';
+  const n=document.querySelector('#toolCount');if(n)n.textContent=items.length?'已选 '+items.length+' 个文件（视频 '+vids+' 个）':'不勾选时处理当前列表全部视频';
   bar.querySelectorAll('button[data-tool]').forEach(b=>{b.disabled=false;});
 }
 let toolOp='';
 function openTool(op){
-  // 打开独立的批量工具页：可上传本地视频；当前勾选的视频一并带过去
+  // 右侧切换成批量工具界面（侧栏不变）：带上勾选的视频，没勾选就带当前列表全部视频；界面里还能上传本地视频
   const sizes=new Map();for(const j of cache)for(const f of j.files||[])sizes.set(j.id+'\u0000'+f.name,f.size);
-  const items=selectedItems().filter(i=>partRole(i.name)==='video').map(i=>({job_id:i.job_id,name:i.name,size:sizes.get(i.job_id+'\u0000'+i.name)||0}));
+  const items=toolTargets(op).items.map(i=>({job_id:i.job_id,name:i.name,size:sizes.get(i.job_id+'\u0000'+i.name)||0}));
+  if(typeof window.openToolView==='function'){window.openToolView(op,items);return;}
   try{localStorage.setItem('vd-tool-items',JSON.stringify({t:Date.now(),items}));}catch{}
-  const w=window.open('/tools.html?op='+op,'_blank');if(!w)location.href='/tools.html?op='+op;
+  location.href='/tools.html?op='+op;
 }
 async function submitTool(){
   const params={},hint=document.querySelector('#toolHint');
@@ -545,7 +546,19 @@ setInterval(()=>{if(!document.querySelector('#main').hidden)void refreshCatalogs
  navButton('管理概览','overview');navButton('访问统计','stats');navButton('网盘账号','cloud','cloudAccountsBtn');navButton('平台授权','platforms');navButton('全部任务','tasks','scopeBtn');navButton('服务检查','services');navButton('管理员账号','users','adminBtn');
  const visitorNote=make('p','sidebar-help','原文件下载 · 最高可用画质');
  foot.append(visitorNote,q('#loginBtn'),q('#logoutBtn'));
- top.remove();content.append(header,subnav,panel,download);main.replaceChildren(aside,content);
+ const toolView=make('section','tool-view');toolView.id='toolView';toolView.hidden=true;
+ const toolFrame=document.createElement('iframe');toolFrame.title='批量工具';toolFrame.className='tool-frame';toolView.append(toolFrame);
+ let TOOL='';const TOOL_TITLES={trim:'批量剪辑',convert:'格式转换',md5:'修改 MD5',audio:'视频转音频'};
+ window.openToolView=function(op,items=[]){
+   mode='download';TOOL=op;
+   const w=toolFrame.contentWindow;
+   if(toolFrame.dataset.ready==='1'&&w&&typeof w.setOp==='function'){w.setOp(op);if(items.length)w.addServer(items);}
+   else{try{localStorage.setItem('vd-tool-items',JSON.stringify({t:Date.now(),items}));}catch{}toolFrame.dataset.ready='0';toolFrame.src='/tools.html?embed=1&op='+op;
+     toolFrame.onload=()=>{toolFrame.dataset.ready='1';};}
+   layout();
+ };
+ window.addEventListener('message',e=>{if(e.origin===location.origin&&e.data&&e.data.toolHeight)toolFrame.style.height=Math.max(500,e.data.toolHeight)+'px';});
+ top.remove();content.append(header,subnav,panel,download,toolView);main.replaceChildren(aside,content);
  q('#videoTab').onclick=()=>window.openDownload('video');q('#cloudTab').onclick=()=>window.openDownload('cloud');q('#historyTab').onclick=()=>window.openDownload(null,'history');
  const sectionNames={stats:'访问统计',overview:'管理概览',cloud:'网盘账号',platforms:'平台授权',tasks:'全部任务',services:'服务检查',users:'管理员账号'};
  function layout(){
@@ -557,14 +570,17 @@ setInterval(()=>{if(!document.querySelector('#main').hidden)void refreshCatalogs
    q('#logoutBtn').hidden=!ME;q('#loginBtn').hidden=!!ME;
    q('#whoName').hidden=!ME;q('#scopeBtn').textContent='全部任务';
    for(const b of adminNav.querySelectorAll('button'))b.setAttribute('aria-current',b.dataset.adminSection===section?'page':'false');
+   const inTool=mode!=='admin'&&!!TOOL;toolView.hidden=!inTool;if(inTool){download.hidden=true;subnav.hidden=true;}
+   main.dataset.tool=inTool?TOOL:'';
+   for(const b of document.querySelectorAll('#toolBar button[data-tool]'))b.setAttribute('aria-current',inTool&&b.dataset.tool===TOOL?'page':'false');
    const visible={stats:[statsCard],overview:[statsCard,cloud,platformStack,taskSummary,cleanup],cloud:[cloud,cleanup],platforms:[platformStack],services:[service],users:[userCard]}[section]||[];
    for(const child of panel.children)child.hidden=!visible.includes(child);
    if(mode==='admin'){
      title.textContent=sectionNames[section];description.textContent=section==='stats'?'每天的访客和下载量，按本机日期统计':section==='overview'?'集中管理后台账号、平台授权和下载任务':'后台管理仅对管理员开放';
      if(section==='tasks'){q('#downloadForm').hidden=true;q('#workspaceTitle').textContent='全部下载记录';q('#workspaceNote').textContent='按来源分组 · 可搜索和筛选所有访客的任务';}
    }else{
-     title.textContent=VIEW==='history'?'下载记录':CATEGORY==='cloud'?'网盘下载':'视频 / 图片';
-     description.textContent=VIEW==='history'?'任务结束后保留七天，记录和文件分别管理。':'粘贴链接，整理素材，选择后下载。';
+     title.textContent=inTool?'批量工具 · '+TOOL_TITLES[TOOL]:VIEW==='history'?'下载记录':CATEGORY==='cloud'?'网盘下载':'视频 / 图片';
+     description.textContent=inTool?'上传本地视频或用下载列表里的视频，一次处理一批。':VIEW==='history'?'任务结束后保留七天，记录和文件分别管理。':'粘贴链接，整理素材，选择后下载。';
    }
  }
  window.openAdmin=function(target='overview'){
@@ -579,7 +595,7 @@ setInterval(()=>{if(!document.querySelector('#main').hidden)void refreshCatalogs
    if(['overview','stats'].includes(target))void renderStats(target==='stats');
  };
  window.openDownload=function(category=null,view='workspace'){
-   mode='download';SCOPE='browser';
+   mode='download';SCOPE='browser';TOOL='';
    if(category)setCategory(category);else setView(view);
    layout();void refresh(true);if(typeof refreshCatalogs==='function')void refreshCatalogs(true);
  };

@@ -1,5 +1,6 @@
 <!doctype html>
 <html lang="zh-CN">
+<script>if(new URLSearchParams(location.search).get('embed'))document.documentElement.classList.add('embed');</script>
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
@@ -60,6 +61,9 @@
   .pick-row img{width:30px;height:40px;object-fit:cover;border-radius:5px;background:#eef1f6;flex:none}
   .pick-row span{overflow:hidden;text-overflow:ellipsis;white-space:nowrap;flex:1}
   .hidden{display:none!important}
+  html.embed body{background:transparent}
+  html.embed .page{max-width:none;padding:0 0 20px}
+  html.embed .top,html.embed .tabs{display:none}
   @media(max-width:860px){.grid{grid-template-columns:1fr}.tabs{grid-template-columns:repeat(2,1fr)}.item{grid-template-columns:minmax(0,1fr) 70px 90px 24px}.results .item{grid-template-columns:minmax(0,1fr) 70px 90px}}
 </style>
 </head>
@@ -129,6 +133,7 @@ const OPS={
   audio:{name:'视频转音频',desc:'提取每个视频的音轨。M4A 直接拷贝原音轨（无损），MP3 用最高质量 VBR。'}
 };
 const VIDEO=/\.(mp4|mov|mkv|webm|m4v|avi|flv|ts|3gp)$/i, AUDIO=/\.(m4a|mp3|opus|aac|wav|flac)$/i;
+const EMBED=document.documentElement.classList.contains('embed');
 let op=new URLSearchParams(location.search).get('op');if(!OPS[op])op='convert';
 let items=[];            // {id, name, size, file?, job_id?, server_name?, state, pct, error}
 let uploadJob='', running=false, resultJob='';
@@ -137,7 +142,7 @@ const esc=s=>String(s).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;',
 let seq=0;
 
 function setOp(next){
-  op=next;history.replaceState(null,'','?op='+op);
+  if(!OPS[next])return;op=next;history.replaceState(null,'','?'+(EMBED?'embed=1&':'')+'op='+op);
   document.querySelectorAll('.tab').forEach(t=>t.setAttribute('aria-selected',t.dataset.op===op));
   document.querySelectorAll('[data-for]').forEach(el=>el.classList.toggle('hidden',el.dataset.for!==op));
   $('#opDesc').textContent=OPS[op].desc;
@@ -273,6 +278,7 @@ $('#pick').addEventListener('toggle',()=>{if($('#pick').open)loadPick();});
 // 从下载工作台带过来的勾选
 try{const s=JSON.parse(localStorage.getItem('vd-tool-items')||'null');localStorage.removeItem('vd-tool-items');if(s&&Date.now()-s.t<60000&&s.items?.length)addServer(s.items);}catch{}
 setOp(op);
+if(EMBED&&parent!==window){const post=()=>parent.postMessage({toolHeight:document.documentElement.scrollHeight},location.origin);new ResizeObserver(post).observe(document.body);post();}
 </script>
 </body>
 </html>
