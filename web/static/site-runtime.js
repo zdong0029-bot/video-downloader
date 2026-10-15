@@ -117,19 +117,19 @@ function mediaCardHTML(job,c,count){
   const enc=n=>encodeURIComponent(n),arg=n=>esc(JSON.stringify(n));
   const img=cov?'/api/files/'+c.jobId+'/'+enc(cov.name)+'?inline=1':'/api/thumb/'+c.jobId+'/'+enc(v.name);
   const part=(role,label,icon)=>{
-    const f=c.parts[role];if(!f)return '';
+    const f=c.parts[role];if(!f)return '<div class="mpart none">'+icon+' 无'+label+'</div>';
     const on=selected.has(key(c.jobId,f.name));
     const save=MOBILE&&role!=='audio'?'<button class="ghost tiny" onclick="previewFile(\''+c.jobId+'\','+arg(f.name)+')">存相册</button>'
       :'<button class="ghost tiny" '+busyAttr+'onclick="saveFile(\''+c.jobId+'\','+arg(f.name)+')">保存</button>';
     return '<div class="mpart'+(on?' on':'')+'"><label><input type="checkbox" '+busyAttr+(on?'checked ':'')+'onchange="toggleOne(\''+c.jobId+'\','+arg(f.name)+',this.checked)"> '+icon+' '+label+' <span class="fsize">'+fmtSize(f.size)+'</span></label>'+save+'</div>';
   };
+  const src=c.source_url?' title="来源：'+esc(c.source_url)+'"':'';
   return '<div class="mcard">'
     +'<button class="mcover" title="预览视频" onclick="previewFile(\''+c.jobId+'\','+arg(v.name)+')"><img alt="封面" loading="lazy" src="'+img+'" onerror="this.style.visibility=\'hidden\'"><span class="mplay">▶</span></button>'
-    +'<div class="mbody"><div class="mtitle-row"><span class="mtitle-label">标题</span><span class="mtitle" title="点击选中，可直接复制">'+esc(t)+'</span><button class="ghost tiny" onclick="copyTitle('+ti+',this)">复制</button></div>'
-    +'<div class="mparts">'+part('video','视频','🎬')+part('cover','封面','🖼')+part('audio','音频','🎵')+'</div>'
-    +(job.is_group&&c.source_url?'<div class="fsize msrc">来源：'+esc(c.source_url)+'</div>':'')
-    +(!MOBILE?'<div class="mlocate">'+(LOCAL?'<button class="ghost tiny" onclick="revealFile(\''+c.jobId+'\','+arg(v.name)+')">📁 定位视频</button>':'')+'</div>':'')
-    +'</div></div>';
+    +'<div class="mtitle-row"'+src+'><span class="mtitle" title="点击选中，可直接复制">'+esc(t)+'</span><button class="ghost tiny" onclick="copyTitle('+ti+',this)">复制</button></div>'
+    +part('video','视频','🎬')+part('cover','封面','🖼')+part('audio','音频','🎵')
+    +(!MOBILE&&LOCAL?'<button class="ghost tiny mlocate" title="定位视频" onclick="revealFile(\''+c.jobId+'\','+arg(v.name)+')">📁</button>':'')
+    +'</div>';
 }
 
 // ---- Batch tools on the selected files ----

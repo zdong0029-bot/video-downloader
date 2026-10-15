@@ -160,26 +160,23 @@
   .role-all.on{border-color:var(--accent);background:var(--accent-soft);color:var(--accent)}
   .role-all input,.mpart input{width:16px;height:16px;margin:0}
   .small-btn{padding:6px 12px;font-size:14px}
-  .mcards{display:grid;gap:10px;margin-top:10px}
-  .mcard{display:flex;gap:12px;padding:10px;border:1px solid var(--line);border-radius:12px;background:var(--bg)}
-  .mcover{position:relative;flex:0 0 auto;width:92px;height:122px;padding:0;border-radius:10px;overflow:hidden;background:var(--line);border:0}
+  .mcards{display:flex;flex-direction:column;gap:6px;margin-top:10px}
+  .mcard{display:grid;grid-template-columns:52px minmax(0,1fr) 150px 150px 150px auto;gap:12px;align-items:center;padding:6px 10px;border:1px solid var(--line);border-radius:10px;background:var(--bg)}
+  .mcover{position:relative;width:52px;height:68px;padding:0;border-radius:8px;overflow:hidden;background:var(--line);border:0}
   .mcover img{width:100%;height:100%;object-fit:cover;display:block}
-  .mplay{position:absolute;inset:auto 6px 6px auto;font-size:12px;background:rgba(0,0,0,.55);color:#fff;border-radius:999px;padding:2px 7px}
-  .mbody{flex:1;min-width:0;display:flex;flex-direction:column;gap:8px}
-  .mtitle-row{display:flex;gap:8px;align-items:flex-start}
-  .mtitle-label{flex:0 0 auto;font-size:12px;color:var(--muted);padding-top:3px}
-  .mtitle{flex:1;min-width:0;font-size:14px;font-weight:600;line-height:1.45;user-select:text;-webkit-user-select:text;cursor:text;word-break:break-word;display:-webkit-box;-webkit-line-clamp:3;-webkit-box-orient:vertical;overflow:hidden}
-  .mparts{display:flex;flex-wrap:wrap;gap:6px}
-  .mpart{display:inline-flex;align-items:center;gap:6px;padding:4px 6px 4px 10px;border:1px solid var(--line);border-radius:999px;font-size:13px;background:var(--card)}
+  .mplay{position:absolute;inset:auto 3px 3px auto;font-size:9px;background:rgba(0,0,0,.55);color:#fff;border-radius:999px;padding:1px 5px}
+  .mtitle-row{display:flex;gap:8px;align-items:center;min-width:0}
+  .mtitle{flex:1;min-width:0;font-size:14px;font-weight:600;line-height:1.4;user-select:text;-webkit-user-select:text;cursor:text;word-break:break-word;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}
+  .mpart{display:flex;align-items:center;justify-content:space-between;gap:4px;padding:4px 6px 4px 8px;border:1px solid var(--line);border-radius:999px;font-size:13px;background:var(--card);white-space:nowrap}
   .mpart.on{border-color:var(--accent);background:var(--accent-soft)}
-  .mpart label{display:inline-flex;align-items:center;gap:5px;cursor:pointer}
+  .mpart.none{justify-content:center;color:var(--muted);border-style:dashed;background:transparent}
+  .mpart label{display:inline-flex;align-items:center;gap:4px;cursor:pointer}
   .tiny{padding:3px 10px;font-size:12px;font-weight:600;border-radius:999px}
-  .msrc{word-break:break-all}
   .mlocate:empty{display:none}
   .job>.role-bar,.job>.mcards{margin-left:18px;margin-right:18px}
   .job>.mcards{margin-bottom:14px}
-  @media(max-width:720px){.job>.role-bar,.job>.mcards{margin-left:12px;margin-right:12px}.mcover{width:78px;height:104px}}
-  @media(min-width:1200px){.mcards{grid-template-columns:repeat(auto-fill,minmax(520px,1fr))}}
+  @media(max-width:900px){.mcard{grid-template-columns:52px repeat(3,minmax(0,1fr));row-gap:6px}.mcover{grid-row:span 2}.mtitle-row{grid-column:2 / -1}.mlocate{display:none}.mpart{font-size:12px}}
+  @media(max-width:720px){.job>.role-bar,.job>.mcards{margin-left:12px;margin-right:12px}}
 </style>
 <link rel="stylesheet" href="/workspace.css?v=20261013-transfer-v7">
 </head>
