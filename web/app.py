@@ -24,6 +24,7 @@ from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any, Literal
 from urllib.parse import quote
+import link_identity
 
 import yt_dlp
 from fastapi import Cookie, Depends, FastAPI, HTTPException, Request, Response
@@ -1223,9 +1224,10 @@ def create_job(body: NewJob, request: Request,
     batch_id = uuid.uuid4().hex[:16] if len(items) > 1 else ""
 
     for item in items:
-        if item in seen:
+        ident = link_identity.video_key(item)
+        if ident in seen:
             continue
-        seen.add(item)
+        seen.add(ident)
         if _workspace_url(item, request):
             rejected.append(item);continue
 
