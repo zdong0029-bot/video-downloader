@@ -25,6 +25,7 @@ from pathlib import Path
 from typing import Any, Literal
 from urllib.parse import quote
 import link_identity
+import stats
 
 import yt_dlp
 from fastapi import Cookie, Depends, FastAPI, HTTPException, Request, Response
@@ -687,6 +688,10 @@ def _worker_slot(job: Job) -> None:
                 job.message = str(e)
 
         job.completed_at=time.time()
+        if job.kind != "tool" or job.url != "tool:upload":
+            done_files = [f for f in job.files if f.done]
+            stats.add_usage("profile" if job.kind == "collection" else stats.category_of(job.kind),
+                            links=1 if job.kind == "tool" else 0, files=len(done_files), size=sum(f.size for f in done_files))
         task_history.remember(job)
         if job.files:
             _save_meta(job)
@@ -721,6 +726,19 @@ relay_sync.restore(_relay_known)
 
 COOKIE = "sid"        # 管理员会话
 DEVICE = "did"        # 设备/浏览器标识
+
+
+@app.middleware("http")
+async def _count_visitors(request: Request, call_next):
+    """每个浏览器每天只记一次访客（见 stats.py）；只看 /api/ 请求，静态资源不算。"""
+    response = await call_next(request)
+    if request.url.path.startswith("/api/") and request.cookies.get(DEVICE):
+        try:
+            admin = auth.user_of_token(request.cookies.get(COOKIE))
+            stats.record_visit(request.cookies.get(DEVICE, ""), request.headers.get("user-agent", ""), bool(admin and admin.is_admin))
+        except Exception:  # noqa: BLE001
+            pass
+    return response
 
 
 @dataclass
@@ -1271,6 +1289,9 @@ def create_job(body: NewJob, request: Request,
             "或以 http(s):// 开头的视频链接，一行一个。",
         )
 
+    for cat in ("video", "cloud"):
+        stats.add_usage(cat, links=sum(1 for j in created if stats.category_of(j.get("kind", "")) == cat))
+    stats.add_usage("profile", links=len(catalogs))
     return {"created": created, "existing": existing, "rejected": rejected, "catalogs": catalogs}
 
 
@@ -1505,6 +1526,63 @@ def run_tool(body: ToolRequest, request: Request, me: Identity = Depends(current
     task_history.remember(job)
     threading.Thread(target=_worker, args=(job,), daemon=True).start()
     return {"created": [job.public()]}
+
+
+UPLOAD_EXT = media_parts.VIDEO_EXT | {".m4a", ".mp3", ".opus", ".aac", ".wav", ".flac"}
+UPLOAD_MAX = 8 * 1024 ** 3
+
+
+@app.post("/api/tools/upload")
+async def tool_upload(request: Request, name: str, job: str = "", me: Identity = Depends(current_identity)) -> dict:
+    """批量工具页：浏览器把本地视频一个个原样传上来（请求体就是文件本身），放进同一个“上传素材”任务里。"""
+    clean = re.sub(r'[\\/:*?"<>|\x00-\x1f]', "_", Path(name or "").name).strip(" .")[:150]
+    if not clean or Path(clean).suffix.lower() not in UPLOAD_EXT:
+        raise HTTPException(400, "只支持视频或音频文件（mp4 / mov / mkv / webm / m4a / mp3 等）")
+    if job:
+        target = _get_job(job, me)
+        if target.url != "tool:upload":
+            raise HTTPException(400, "上传任务不对")
+        if len(target.files) >= 200:
+            raise HTTPException(400, "一次最多 200 个文件")
+    else:
+        target = Job(id=uuid.uuid4().hex[:12], url="tool:upload", kind="tool", status="running", owner=me.device,
+                     owner_label=_device_label(request.headers.get("user-agent", "")), title="上传的素材")
+        with _lock:
+            JOBS[target.id] = target
+    folder = _job_dir(target.id)
+    stem, ext, n = Path(clean).stem, Path(clean).suffix, 1
+    while (folder / clean).exists() or any(f.name == clean for f in target.files):
+        n += 1
+        clean = f"{stem} ({n}){ext}"
+    part = folder / (clean + ".uploading")
+    size = 0
+    try:
+        with part.open("wb") as fh:
+            async for chunk in request.stream():
+                size += len(chunk)
+                if size > UPLOAD_MAX:
+                    raise HTTPException(413, "单个文件不能超过 8 GB")
+                fh.write(chunk)
+        if not size:
+            raise HTTPException(400, "文件是空的")
+        part.replace(folder / clean)
+    except BaseException:
+        part.unlink(missing_ok=True)
+        raise
+    target.files.append(FileItem(clean, size, True))
+    target.total = target.finished = len(target.files)
+    target.status = "done"
+    target.progress = 1.0
+    target.title = f"上传的素材 · {len(target.files)} 个文件"
+    target.message = f"已上传 {len(target.files)} 个"
+    target.completed_at = time.time()
+    _save_meta(target)
+    return {"job_id": target.id, "name": clean, "size": size}
+
+
+@app.get("/api/admin/stats")
+def admin_stats(days: int = 14, me: Identity = Depends(admin_only)) -> dict:
+    return stats.summary(days)
 
 
 class ShortcutItems(BaseModel):

@@ -85,7 +85,7 @@ function copyText(text){
 }
 function cardLink(job,c){
   if(job.is_group){const m=(job.members||[]).find(m=>m.id===c.jobId);if(m&&m.url)return m.url;}
-  return c.source_url||job.url||'';
+  const u=c.source_url||job.url||'';return /^https?:\/\//i.test(u)?u:'';
 }
 function copyLink(i,btn){
   copyText(MEDIA_LINKS[i]||'').then(()=>{if(btn){const old=btn.textContent;btn.textContent='已复制 ✓';setTimeout(()=>btn.textContent=old,1200);}});
@@ -165,20 +165,16 @@ function updateToolBar(){
   const bar=document.querySelector('#toolBar');if(!bar)return;
   const items=selectedItems(),vids=items.filter(i=>partRole(i.name)==='video').length;
   bar.hidden=false;
-  const n=document.querySelector('#toolCount');if(n)n.textContent=items.length?'已选 '+items.length+' 个文件（视频 '+vids+' 个）':'不勾选时处理当前列表全部视频';
+  const n=document.querySelector('#toolCount');if(n)n.textContent=items.length?'已勾选的 '+vids+' 个视频会一起带过去':'打开工具页，可上传或挑选视频';
   bar.querySelectorAll('button[data-tool]').forEach(b=>{b.disabled=false;});
 }
 let toolOp='';
 function openTool(op){
-  toolOp=op;const info=TOOL_INFO[op];
-  document.querySelector('#toolTitle').textContent=info.title;
-  document.querySelector('#toolBody').textContent=info.body;
-  document.querySelectorAll('#toolDialog [data-for]').forEach(el=>el.hidden=el.dataset.for!==op);
-  const t=toolTargets(op);
-  document.querySelector('#toolHint').textContent=t.items.length?(t.auto?'没有勾选文件，将处理当前列表全部 '+t.items.length+' 个视频':'将处理选中的 '+t.items.length+' 个'+(op==='md5'?'文件':'视频')):'当前列表还没有视频，先在上面提取视频再用这些工具';
-  document.querySelector('#toolGo').disabled=!t.items.length;
-  document.querySelector('#toolHint').style.color=t.items.length?'var(--muted)':'';
-  document.querySelector('#toolDialog').showModal();
+  // 打开独立的批量工具页：可上传本地视频；当前勾选的视频一并带过去
+  const sizes=new Map();for(const j of cache)for(const f of j.files||[])sizes.set(j.id+'\u0000'+f.name,f.size);
+  const items=selectedItems().filter(i=>partRole(i.name)==='video').map(i=>({job_id:i.job_id,name:i.name,size:sizes.get(i.job_id+'\u0000'+i.name)||0}));
+  try{localStorage.setItem('vd-tool-items',JSON.stringify({t:Date.now(),items}));}catch{}
+  const w=window.open('/tools.html?op='+op,'_blank');if(!w)location.href='/tools.html?op='+op;
 }
 async function submitTool(){
   const params={},hint=document.querySelector('#toolHint');
@@ -542,14 +538,16 @@ setInterval(()=>{if(!document.querySelector('#main').hidden)void refreshCatalogs
  const taskSummary=make('section','admin-module');taskSummary.id='adminTaskSummary';taskSummary.append(make('h3','','近期任务'));
  const summaryRows=make('div','summary-rows');taskSummary.append(summaryRows);
  const all=make('button','ghost','查看全部任务 →');all.onclick=()=>window.openAdmin('tasks');taskSummary.append(all);
- panel.className='admin-board';panel.removeAttribute('style');panel.replaceChildren(cloud,platformStack,taskSummary,cleanup,service,userCard);
+ const statsCard=make('section','admin-module stats-module');statsCard.id='adminStats';
+ statsCard.append(make('h3','','今日数据'));const statsBody=make('div','stats-body');statsBody.append(make('p','note','正在读取…'));statsCard.append(statsBody);
+ panel.className='admin-board';panel.removeAttribute('style');panel.replaceChildren(statsCard,cloud,platformStack,taskSummary,cleanup,service,userCard);
  function navButton(text,key,id){const b=id?q('#'+id):make('button');b.textContent=text;b.type='button';b.dataset.adminSection=key;b.onclick=()=>window.openAdmin(key);adminNav.append(b);return b;}
- navButton('管理概览','overview');navButton('网盘账号','cloud','cloudAccountsBtn');navButton('平台授权','platforms');navButton('全部任务','tasks','scopeBtn');navButton('服务检查','services');navButton('管理员账号','users','adminBtn');
+ navButton('管理概览','overview');navButton('访问统计','stats');navButton('网盘账号','cloud','cloudAccountsBtn');navButton('平台授权','platforms');navButton('全部任务','tasks','scopeBtn');navButton('服务检查','services');navButton('管理员账号','users','adminBtn');
  const visitorNote=make('p','sidebar-help','原文件下载 · 最高可用画质');
  foot.append(visitorNote,q('#loginBtn'),q('#logoutBtn'));
  top.remove();content.append(header,subnav,panel,download);main.replaceChildren(aside,content);
  q('#videoTab').onclick=()=>window.openDownload('video');q('#cloudTab').onclick=()=>window.openDownload('cloud');q('#historyTab').onclick=()=>window.openDownload(null,'history');
- const sectionNames={overview:'管理概览',cloud:'网盘账号',platforms:'平台授权',tasks:'全部任务',services:'服务检查',users:'管理员账号'};
+ const sectionNames={stats:'访问统计',overview:'管理概览',cloud:'网盘账号',platforms:'平台授权',tasks:'全部任务',services:'服务检查',users:'管理员账号'};
  function layout(){
    main.dataset.layout=mode;main.dataset.adminSection=section;
    visitorNav.hidden=mode==='admin';adminNav.hidden=mode!=='admin';
@@ -559,10 +557,10 @@ setInterval(()=>{if(!document.querySelector('#main').hidden)void refreshCatalogs
    q('#logoutBtn').hidden=!ME;q('#loginBtn').hidden=!!ME;
    q('#whoName').hidden=!ME;q('#scopeBtn').textContent='全部任务';
    for(const b of adminNav.querySelectorAll('button'))b.setAttribute('aria-current',b.dataset.adminSection===section?'page':'false');
-   const visible={overview:[cloud,platformStack,taskSummary,cleanup],cloud:[cloud,cleanup],platforms:[platformStack],services:[service],users:[userCard]}[section]||[];
+   const visible={stats:[statsCard],overview:[statsCard,cloud,platformStack,taskSummary,cleanup],cloud:[cloud,cleanup],platforms:[platformStack],services:[service],users:[userCard]}[section]||[];
    for(const child of panel.children)child.hidden=!visible.includes(child);
    if(mode==='admin'){
-     title.textContent=sectionNames[section];description.textContent=section==='overview'?'集中管理后台账号、平台授权和下载任务':'后台管理仅对管理员开放';
+     title.textContent=sectionNames[section];description.textContent=section==='stats'?'每天的访客和下载量，按本机日期统计':section==='overview'?'集中管理后台账号、平台授权和下载任务':'后台管理仅对管理员开放';
      if(section==='tasks'){q('#downloadForm').hidden=true;q('#workspaceTitle').textContent='全部下载记录';q('#workspaceNote').textContent='按来源分组 · 可搜索和筛选所有访客的任务';}
    }else{
      title.textContent=VIEW==='history'?'下载记录':CATEGORY==='cloud'?'网盘下载':'视频 / 图片';
@@ -578,12 +576,38 @@ setInterval(()=>{if(!document.querySelector('#main').hidden)void refreshCatalogs
    if(['overview','platforms'].includes(target))window.refreshVideoAccounts?.();
    if(target==='users')void loadUsers();
    renderSummary();
+   if(['overview','stats'].includes(target))void renderStats(target==='stats');
  };
  window.openDownload=function(category=null,view='workspace'){
    mode='download';SCOPE='browser';
    if(category)setCategory(category);else setView(view);
    layout();void refresh(true);if(typeof refreshCatalogs==='function')void refreshCatalogs(true);
  };
+ const fmtBytes=n=>n>=1073741824?(n/1073741824).toFixed(2)+' GB':n>=1048576?(n/1048576).toFixed(1)+' MB':n>0?Math.max(1,Math.round(n/1024))+' KB':'0 B';
+ async function renderStats(full){
+   if(!ME)return;
+   let d;try{const r=await fetch('/api/admin/stats?days=14',{cache:'no-store'});if(!r.ok)throw Error();d=await r.json();}catch{statsBody.replaceChildren(make('p','note','统计读取失败，稍后再试。'));return;}
+   const t=d.today,y=d.yesterday||{};
+   const diff=(a,b)=>b==null?'':a===b?'与昨天持平':(a>b?'比昨天 +':'比昨天 ')+(a-b);
+   const tile=(label,value,sub,extra)=>'<div class="stat-tile"><span>'+label+'</span><b>'+value+'</b><small>'+sub+'</small>'+(extra?'<small class="stat-diff">'+extra+'</small>':'')+'</div>';
+   const dev=[t.desktop?'电脑 '+t.desktop:'',t.mobile?'手机 '+t.mobile:'',t.tablet?'平板 '+t.tablet:''].filter(Boolean).join(' · ')||'还没有访客';
+   let html='<div class="stat-grid">'
+     +tile('今日访客',t.visitors,dev,diff(t.visitors,y.visitors))
+     +tile('新访客',t.new,'第一次来的浏览器',diff(t.new,y.new))
+     +tile('当前在线',d.online,'近 5 分钟有操作','累计 '+d.all_time_devices+' 个浏览器')
+     +tile('视频下载',(t.video_files+t.profile_files)+' 个文件','提交 '+(t.video_links+t.profile_links)+' 个链接 · '+fmtBytes(t.video_bytes+t.profile_bytes),diff(t.video_files+t.profile_files,(y.video_files||0)+(y.profile_files||0)))
+     +tile('网盘下载',t.cloud_files+' 个文件','提交 '+t.cloud_links+' 个链接 · '+fmtBytes(t.cloud_bytes),diff(t.cloud_files,y.cloud_files))
+     +tile('批量工具',t.tool_links+' 次','产出 '+t.tool_files+' 个文件',diff(t.tool_links,y.tool_links))
+     +'</div>';
+   if(full){
+     html+='<table class="stat-table"><thead><tr><th>日期</th><th>访客</th><th>新访客</th><th>视频文件</th><th>网盘文件</th><th>工具</th><th>下载量</th></tr></thead><tbody>'
+       +d.days.map(r=>'<tr><td>'+r.day.slice(5)+'</td><td>'+r.visitors+'</td><td>'+r.new+'</td><td>'+(r.video_files+r.profile_files)+'</td><td>'+r.cloud_files+'</td><td>'+r.tool_links+'</td><td>'+fmtBytes(r.video_bytes+r.profile_bytes+r.cloud_bytes)+'</td></tr>').join('')
+       +'</tbody></table>';
+   }
+   html+='<p class="note stat-rule">'+d.rule+(t.admin?' 今天管理员浏览器 '+t.admin+' 个。':'')+(full?'':' <a href="#" onclick="openAdmin(\'stats\');return false">查看近 14 天 →</a>')+'</p>';
+   statsBody.innerHTML=html;
+ }
+ setInterval(()=>{if(mode==='admin'&&['overview','stats'].includes(section)&&!document.hidden)void renderStats(section==='stats');},30000);
  function renderSummary(){
    if(!ME)return;summaryRows.replaceChildren();
    const recent=(typeof cache!=='undefined'?cache:[]).slice(0,4);

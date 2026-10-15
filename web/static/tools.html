@@ -1,0 +1,278 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>批量工具 · 下载工作台</title>
+<style>
+  :root{--bg:#f6f8fc;--card:#fff;--text:#18202f;--muted:#6b768a;--line:#e3e8f1;--accent:#1465ff;--accent-soft:#edf4ff;--ok:#16803c;--err:#c62828;--warn:#b45309}
+  *{box-sizing:border-box}
+  body{margin:0;background:var(--bg);color:var(--text);font:15px/1.55 -apple-system,BlinkMacSystemFont,"Segoe UI","Microsoft YaHei",sans-serif}
+  a{color:var(--accent)}
+  .page{max-width:1080px;margin:0 auto;padding:22px 20px 60px}
+  .top{display:flex;align-items:center;justify-content:space-between;gap:12px;margin-bottom:18px}
+  .top h1{margin:0;font-size:22px}
+  .top p{margin:2px 0 0;color:var(--muted);font-size:13px}
+  .back{font-size:14px;text-decoration:none;border:1px solid var(--line);background:#fff;padding:8px 14px;border-radius:9px;color:var(--text);white-space:nowrap}
+  .tabs{display:grid;grid-template-columns:repeat(4,1fr);gap:10px;margin-bottom:16px}
+  .tab{display:flex;flex-direction:column;gap:2px;text-align:left;padding:12px 14px;border:1px solid var(--line);border-radius:12px;background:#fff;cursor:pointer;color:var(--text);font:inherit}
+  .tab b{font-size:15px}
+  .tab span{font-size:12px;color:var(--muted)}
+  .tab[aria-selected=true]{border-color:var(--accent);background:var(--accent-soft);box-shadow:0 0 0 1px var(--accent) inset}
+  .grid{display:grid;grid-template-columns:minmax(0,1fr) 320px;gap:16px;align-items:start}
+  .card{background:var(--card);border:1px solid var(--line);border-radius:14px;padding:16px}
+  .card h2{margin:0 0 10px;font-size:16px}
+  .step{display:inline-flex;width:22px;height:22px;border-radius:50%;background:var(--accent);color:#fff;font-size:12px;align-items:center;justify-content:center;margin-right:6px;vertical-align:1px}
+  .drop{border:2px dashed #c8d3e6;border-radius:12px;padding:26px 14px;text-align:center;cursor:pointer;background:#fbfcff;transition:.15s}
+  .drop.over{border-color:var(--accent);background:var(--accent-soft)}
+  .drop strong{display:block;font-size:16px}
+  .drop small{color:var(--muted)}
+  .row{display:flex;gap:8px;flex-wrap:wrap;align-items:center}
+  button{font:inherit;cursor:pointer;border-radius:9px}
+  .btn{padding:10px 16px;border:0;background:var(--accent);color:#fff;font-weight:600}
+  .btn:disabled{opacity:.45;cursor:not-allowed}
+  .ghost{padding:7px 12px;border:1px solid var(--line);background:#fff;color:var(--text);font-size:13px}
+  .ghost:disabled{opacity:.45;cursor:not-allowed}
+  .list{margin-top:12px;border:1px solid var(--line);border-radius:10px;overflow:hidden}
+  .list:empty{display:none}
+  .item{display:grid;grid-template-columns:minmax(0,1fr) 80px 150px 28px;gap:10px;align-items:center;padding:8px 12px;border-top:1px solid var(--line);font-size:13px}
+  .item:first-child{border-top:0}
+  .item .name{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+  .item .src{font-size:11px;color:var(--muted);margin-left:6px}
+  .muted{color:var(--muted)}
+  .bar{height:6px;background:#eef1f6;border-radius:99px;overflow:hidden}
+  .bar i{display:block;height:100%;background:var(--accent);width:0;transition:width .2s}
+  .x{border:0;background:none;color:var(--muted);font-size:16px;padding:0}
+  .ok{color:var(--ok)} .err{color:var(--err)}
+  .summary{display:flex;justify-content:space-between;margin-top:10px;font-size:13px;color:var(--muted)}
+  label.f{display:block;margin:10px 0 4px;font-size:13px;color:var(--muted)}
+  input[type=number],select{width:100%;padding:9px 10px;border:1px solid var(--line);border-radius:9px;font:inherit;background:#fff}
+  .pair{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+  .desc{font-size:13px;color:var(--muted);margin:0 0 6px}
+  .go{width:100%;margin-top:14px;padding:12px}
+  .status{margin-top:10px;font-size:13px}
+  .results .item{grid-template-columns:minmax(0,1fr) 80px 120px}
+  details.pick{margin-top:12px}
+  details.pick summary{cursor:pointer;font-size:14px;color:var(--accent)}
+  .picklist{max-height:300px;overflow:auto;margin-top:8px;border:1px solid var(--line);border-radius:10px}
+  .pick-row{display:flex;gap:10px;align-items:center;padding:6px 10px;border-top:1px solid var(--line);font-size:13px}
+  .pick-row:first-child{border-top:0}
+  .pick-row img{width:30px;height:40px;object-fit:cover;border-radius:5px;background:#eef1f6;flex:none}
+  .pick-row span{overflow:hidden;text-overflow:ellipsis;white-space:nowrap;flex:1}
+  .hidden{display:none!important}
+  @media(max-width:860px){.grid{grid-template-columns:1fr}.tabs{grid-template-columns:repeat(2,1fr)}.item{grid-template-columns:minmax(0,1fr) 70px 90px 24px}.results .item{grid-template-columns:minmax(0,1fr) 70px 90px}}
+</style>
+</head>
+<body>
+<div class="page">
+  <div class="top">
+    <div><h1>批量工具</h1><p>上传一批视频或从已下载的视频里挑，一次处理完，处理好的文件可以直接下载。</p></div>
+    <a class="back" href="/">← 返回下载工作台</a>
+  </div>
+
+  <div class="tabs" role="tablist">
+    <button class="tab" role="tab" data-op="trim"><b>✂️ 批量剪辑</b><span>统一去掉片头 / 片尾</span></button>
+    <button class="tab" role="tab" data-op="convert"><b>🔁 格式转换</b><span>MP4 / MOV / MKV / WebM / GIF</span></button>
+    <button class="tab" role="tab" data-op="md5"><b>🧬 修改 MD5</b><span>画面声音不变，MD5 变新</span></button>
+    <button class="tab" role="tab" data-op="audio"><b>🎵 视频转音频</b><span>MP3 / M4A / WAV</span></button>
+  </div>
+
+  <div class="grid">
+    <div class="card">
+      <h2><span class="step">1</span>添加视频</h2>
+      <div class="drop" id="drop" tabindex="0">
+        <strong>把视频拖到这里，或点击选择文件</strong>
+        <small>可一次选多个 · 单个最大 8 GB · 最多 200 个</small>
+      </div>
+      <input id="fileInput" type="file" accept="video/*,audio/*,.mkv,.mov,.m4a,.flac" multiple hidden>
+      <details class="pick" id="pick">
+        <summary>从已下载的视频里添加</summary>
+        <div class="row" style="margin-top:8px"><button class="ghost" id="pickAll">全选</button><button class="ghost" id="pickAdd">添加选中</button><span class="muted" id="pickNote" style="font-size:12px"></span></div>
+        <div class="picklist" id="pickList"></div>
+      </details>
+      <div class="list" id="list"></div>
+      <div class="summary"><span id="count">还没有添加视频</span><button class="ghost" id="clear">清空列表</button></div>
+    </div>
+
+    <div class="card">
+      <h2><span class="step">2</span>设置并开始</h2>
+      <p class="desc" id="opDesc"></p>
+      <div data-for="trim">
+        <div class="pair">
+          <div><label class="f">去掉片头（秒）</label><input id="head" type="number" min="0" step="0.1" value="0"></div>
+          <div><label class="f">去掉片尾（秒）</label><input id="tail" type="number" min="0" step="0.1" value="0"></div>
+        </div>
+      </div>
+      <div data-for="convert"><label class="f">转成</label><select id="format"><option value="mp4">MP4</option><option value="mov">MOV</option><option value="mkv">MKV</option><option value="webm">WebM</option><option value="gif">GIF 动图</option></select></div>
+      <div data-for="audio"><label class="f">音频格式</label><select id="audioFormat"><option value="mp3">MP3（通用）</option><option value="m4a">M4A（原音轨无损）</option><option value="wav">WAV</option></select></div>
+      <button class="btn go" id="go" disabled>开始处理</button>
+      <div class="status" id="status"></div>
+      <div class="bar hidden" id="jobBar" style="margin-top:8px"><i></i></div>
+    </div>
+  </div>
+
+  <div class="card results hidden" id="resultCard" style="margin-top:16px">
+    <div class="row" style="justify-content:space-between;margin-bottom:8px">
+      <h2 style="margin:0"><span class="step">3</span>处理结果</h2>
+      <div class="row"><button class="ghost" id="downloadAll">全部下载</button><button class="ghost" id="again">再处理一批</button></div>
+    </div>
+    <div class="list" id="results"></div>
+  </div>
+</div>
+
+<script>
+const $=s=>document.querySelector(s);
+const OPS={
+  trim:{name:'批量剪辑',desc:'每个视频去掉相同秒数的片头 / 片尾，画质按近无损重新编码，分辨率和帧率不变。'},
+  convert:{name:'格式转换',desc:'MP4 / MOV / MKV 之间直接换封装，不重新编码（无损、很快）；WebM、GIF 需要重新编码。'},
+  md5:{name:'修改 MD5',desc:'只改文件元数据，画面和声音完全不变，每个文件得到新的 MD5。'},
+  audio:{name:'视频转音频',desc:'提取每个视频的音轨。M4A 直接拷贝原音轨（无损），MP3 用最高质量 VBR。'}
+};
+const VIDEO=/\.(mp4|mov|mkv|webm|m4v|avi|flv|ts|3gp)$/i, AUDIO=/\.(m4a|mp3|opus|aac|wav|flac)$/i;
+let op=new URLSearchParams(location.search).get('op');if(!OPS[op])op='convert';
+let items=[];            // {id, name, size, file?, job_id?, server_name?, state, pct, error}
+let uploadJob='', running=false, resultJob='';
+const fmt=n=>n>=1073741824?(n/1073741824).toFixed(2)+' GB':n>=1048576?(n/1048576).toFixed(1)+' MB':Math.max(1,Math.round(n/1024))+' KB';
+const esc=s=>String(s).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+let seq=0;
+
+function setOp(next){
+  op=next;history.replaceState(null,'','?op='+op);
+  document.querySelectorAll('.tab').forEach(t=>t.setAttribute('aria-selected',t.dataset.op===op));
+  document.querySelectorAll('[data-for]').forEach(el=>el.classList.toggle('hidden',el.dataset.for!==op));
+  $('#opDesc').textContent=OPS[op].desc;
+  render();
+}
+function usable(name){return op==='audio'||op==='md5'?VIDEO.test(name)||AUDIO.test(name):VIDEO.test(name);}
+function addLocal(files){
+  let skipped=0;
+  for(const f of files){
+    if(!VIDEO.test(f.name)&&!AUDIO.test(f.name)){skipped++;continue;}
+    if(items.some(i=>i.file&&i.file.name===f.name&&i.file.size===f.size))continue;
+    if(items.length>=200){skipped++;continue;}
+    items.push({id:++seq,name:f.name,size:f.size,file:f,state:'waiting',pct:0});
+  }
+  render();
+  if(skipped)status('有 '+skipped+' 个文件不是视频 / 音频或超过 200 个，已跳过','err');
+}
+function addServer(list){
+  for(const f of list){
+    if(items.some(i=>i.job_id===f.job_id&&i.server_name===f.name))continue;
+    if(items.length>=200)break;
+    items.push({id:++seq,name:f.name,size:f.size||0,job_id:f.job_id,server_name:f.name,state:'ready',pct:100,downloaded:true});
+  }
+  render();
+}
+function render(){
+  const list=$('#list');
+  list.innerHTML=items.map(i=>{
+    const bad=!usable(i.name);
+    const st=i.state==='uploading'?'<div class="bar"><i style="width:'+i.pct+'%"></i></div>'
+      :i.state==='error'?'<span class="err" title="'+esc(i.error||'')+'">上传失败</span>'
+      :bad?'<span class="muted">此工具不处理</span>'
+      :i.state==='ready'?'<span class="ok">'+(i.downloaded?'已下载的视频':'已上传 ✓')+'</span>':'<span class="muted">待上传</span>';
+    return '<div class="item"><div class="name" title="'+esc(i.name)+'">'+esc(i.name)+(i.downloaded?'<span class="src">下载列表</span>':'')+'</div><div class="muted">'+fmt(i.size)+'</div><div>'+st+'</div><button class="x" title="移除" '+(running?'disabled ':'')+'onclick="removeItem('+i.id+')">✕</button></div>';
+  }).join('');
+  const n=items.filter(i=>usable(i.name)).length;
+  $('#count').textContent=items.length?'共 '+items.length+' 个，'+OPS[op].name+'可处理 '+n+' 个 · '+fmt(items.reduce((a,i)=>a+i.size,0)):'还没有添加视频';
+  $('#go').disabled=running||!n;
+  $('#go').textContent=running?'处理中…':'开始'+OPS[op].name+(n?'（'+n+' 个）':'');
+}
+window.removeItem=id=>{if(running)return;items=items.filter(i=>i.id!==id);render();};
+function status(text,cls=''){const el=$('#status');el.textContent=text;el.className='status '+cls;}
+
+function upload(item){
+  return new Promise((resolve,reject)=>{
+    const x=new XMLHttpRequest();
+    x.open('POST','/api/tools/upload?name='+encodeURIComponent(item.file.name)+(uploadJob?'&job='+uploadJob:''));
+    x.upload.onprogress=e=>{if(e.lengthComputable){item.pct=Math.round(e.loaded/e.total*100);render();}};
+    x.onload=()=>{let d={};try{d=JSON.parse(x.responseText)}catch{}
+      if(x.status>=200&&x.status<300){uploadJob=d.job_id;item.job_id=d.job_id;item.server_name=d.name;item.state='ready';item.pct=100;render();resolve();}
+      else{item.state='error';item.error=d.detail||('HTTP '+x.status);render();reject(Error(item.error));}};
+    x.onerror=()=>{item.state='error';item.error='网络中断';render();reject(Error('网络中断'));};
+    item.state='uploading';item.pct=0;render();x.send(item.file);
+  });
+}
+async function start(){
+  const todo=items.filter(i=>usable(i.name));
+  if(!todo.length||running)return;
+  if(op==='trim'&&!(+$('#head').value>0||+$('#tail').value>0)){status('先填要去掉的片头或片尾秒数','err');return;}
+  running=true;render();$('#resultCard').classList.add('hidden');
+  try{
+    const local=todo.filter(i=>i.state!=='ready');
+    // 先建任务再两路并发上传
+    let done=0;
+    if(local.length){
+      status('正在上传 0 / '+local.length+' …');
+      await upload(local[0]).catch(()=>{});done++;status('正在上传 '+done+' / '+local.length+' …');
+      const queue=local.slice(1);
+      await Promise.all([0,1].map(async()=>{while(queue.length){const it=queue.shift();await upload(it).catch(()=>{});done++;status('正在上传 '+done+' / '+local.length+' …');}}));
+    }
+    const ready=todo.filter(i=>i.state==='ready');
+    if(!ready.length)throw Error('没有上传成功的文件，请检查网络后重试');
+    const params=op==='trim'?{head:$('#head').value||0,tail:$('#tail').value||0}:op==='convert'?{format:$('#format').value}:op==='audio'?{format:$('#audioFormat').value}:{};
+    status('已提交，正在处理…');
+    const r=await fetch('/api/tools',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({op,params,items:ready.map(i=>({job_id:i.job_id,name:i.server_name}))})});
+    const d=await r.json().catch(()=>({}));
+    if(!r.ok)throw Error(d.detail||'提交失败');
+    resultJob=d.created[0].id;
+    await watch();
+  }catch(e){status(e.message,'err');}
+  finally{running=false;render();}
+}
+async function watch(){
+  $('#jobBar').classList.remove('hidden');
+  for(;;){
+    const r=await fetch('/api/jobs?scope=browser',{cache:'no-store'});
+    const jobs=r.ok?await r.json():[];
+    const j=jobs.find(x=>x.id===resultJob);
+    if(j){
+      const total=j.total||1,pct=Math.round(((j.finished+j.failed)/total+(j.status==='running'?j.progress/total:0))*100);
+      $('#jobBar i').style.width=Math.min(100,j.status==='done'||j.status==='partial'?100:pct)+'%';
+      if(j.status==='queued')status('排队中：前面还有工具任务在跑，轮到后自动开始');
+      else if(j.status==='running')status('处理中 '+(j.finished+j.failed)+' / '+total+(j.message?' · '+j.message:''));
+      else{showResults(j);return;}
+    }
+    await new Promise(r=>setTimeout(r,1200));
+  }
+}
+function showResults(j){
+  $('#jobBar').classList.add('hidden');
+  const ok=j.status==='done'||j.status==='partial';
+  status(ok?'完成 '+j.finished+' 个'+(j.failed?'，失败 '+j.failed+' 个':'')+(j.cloud_note?' · '+j.cloud_note:''):(j.message||'处理失败'),ok&&!j.failed?'ok':'err');
+  const files=j.files||[];
+  const fails=Object.entries(j.failed_entries||{});
+  $('#results').innerHTML=files.map(f=>'<div class="item"><div class="name" title="'+esc(f.name)+'">'+esc(f.name)+'</div><div class="muted">'+fmt(f.size)+'</div><div class="row"><a class="ghost" href="/api/files/'+j.id+'/'+encodeURIComponent(f.name)+'" download>下载</a>'+(/\.(mp4|mov|webm|mp3|m4a|wav|gif)$/i.test(f.name)?'<a class="ghost" href="/api/files/'+j.id+'/'+encodeURIComponent(f.name)+'?inline=1" target="_blank" rel="noopener">预览</a>':'')+'</div></div>').join('')
+    +fails.map(([n,e])=>'<div class="item"><div class="name err" title="'+esc(e)+'">'+esc(n)+' · 失败</div><div></div><div class="muted" title="'+esc(e)+'">'+esc(e.slice(0,40))+'</div></div>').join('');
+  $('#resultCard').classList.remove('hidden');
+  $('#downloadAll').onclick=async()=>{for(const f of files){const a=document.createElement('a');a.href='/api/files/'+j.id+'/'+encodeURIComponent(f.name);a.download=f.name;document.body.append(a);a.click();a.remove();await new Promise(r=>setTimeout(r,700));}};
+  $('#resultCard').scrollIntoView({behavior:'smooth',block:'start'});
+}
+
+async function loadPick(){
+  const r=await fetch('/api/jobs?scope=browser',{cache:'no-store'});const jobs=r.ok?await r.json():[];
+  const rows=[];
+  for(const j of jobs){if(j.url==='tool:upload')continue;for(const f of j.files||[])if(VIDEO.test(f.name))rows.push({job_id:j.id,name:f.name,size:f.size,title:j.title});}
+  $('#pickNote').textContent=rows.length?'共 '+rows.length+' 个（近七天）':'近七天还没有下载过视频';
+  $('#pickList').innerHTML=rows.map((f,i)=>'<label class="pick-row"><input type="checkbox" data-i="'+i+'"><img loading="lazy" src="/api/thumb/'+f.job_id+'/'+encodeURIComponent(f.name)+'" onerror="this.style.visibility=\'hidden\'"><span title="'+esc(f.name)+'">'+esc(f.name)+'</span><small class="muted">'+fmt(f.size)+'</small></label>').join('');
+  $('#pickAll').onclick=()=>{const boxes=[...document.querySelectorAll('#pickList input')];const on=!boxes.every(b=>b.checked);boxes.forEach(b=>b.checked=on);};
+  $('#pickAdd').onclick=()=>{addServer([...document.querySelectorAll('#pickList input:checked')].map(b=>rows[+b.dataset.i]));document.querySelectorAll('#pickList input').forEach(b=>b.checked=false);};
+}
+
+document.querySelectorAll('.tab').forEach(t=>t.onclick=()=>setOp(t.dataset.op));
+const drop=$('#drop'),input=$('#fileInput');
+drop.onclick=()=>input.click();drop.onkeydown=e=>{if(e.key==='Enter'||e.key===' ')input.click();};
+input.onchange=()=>{addLocal([...input.files]);input.value='';};
+['dragenter','dragover'].forEach(ev=>drop.addEventListener(ev,e=>{e.preventDefault();drop.classList.add('over');}));
+['dragleave','drop'].forEach(ev=>drop.addEventListener(ev,e=>{e.preventDefault();drop.classList.remove('over');}));
+drop.addEventListener('drop',e=>addLocal([...e.dataTransfer.files]));
+$('#go').onclick=start;
+$('#clear').onclick=()=>{if(!running){items=[];uploadJob='';render();}};
+$('#again').onclick=()=>{items=[];uploadJob='';$('#resultCard').classList.add('hidden');status('');render();window.scrollTo({top:0,behavior:'smooth'});};
+$('#pick').addEventListener('toggle',()=>{if($('#pick').open)loadPick();});
+// 从下载工作台带过来的勾选
+try{const s=JSON.parse(localStorage.getItem('vd-tool-items')||'null');localStorage.removeItem('vd-tool-items');if(s&&Date.now()-s.t<60000&&s.items?.length)addServer(s.items);}catch{}
+setOp(op);
+</script>
+</body>
+</html>

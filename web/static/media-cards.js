@@ -34,7 +34,7 @@ function copyText(text){
 }
 function cardLink(job,c){
   if(job.is_group){const m=(job.members||[]).find(m=>m.id===c.jobId);if(m&&m.url)return m.url;}
-  return c.source_url||job.url||'';
+  const u=c.source_url||job.url||'';return /^https?:\/\//i.test(u)?u:'';
 }
 function copyLink(i,btn){
   copyText(MEDIA_LINKS[i]||'').then(()=>{if(btn){const old=btn.textContent;btn.textContent='已复制 ✓';setTimeout(()=>btn.textContent=old,1200);}});
@@ -114,20 +114,16 @@ function updateToolBar(){
   const bar=document.querySelector('#toolBar');if(!bar)return;
   const items=selectedItems(),vids=items.filter(i=>partRole(i.name)==='video').length;
   bar.hidden=false;
-  const n=document.querySelector('#toolCount');if(n)n.textContent=items.length?'已选 '+items.length+' 个文件（视频 '+vids+' 个）':'不勾选时处理当前列表全部视频';
+  const n=document.querySelector('#toolCount');if(n)n.textContent=items.length?'已勾选的 '+vids+' 个视频会一起带过去':'打开工具页，可上传或挑选视频';
   bar.querySelectorAll('button[data-tool]').forEach(b=>{b.disabled=false;});
 }
 let toolOp='';
 function openTool(op){
-  toolOp=op;const info=TOOL_INFO[op];
-  document.querySelector('#toolTitle').textContent=info.title;
-  document.querySelector('#toolBody').textContent=info.body;
-  document.querySelectorAll('#toolDialog [data-for]').forEach(el=>el.hidden=el.dataset.for!==op);
-  const t=toolTargets(op);
-  document.querySelector('#toolHint').textContent=t.items.length?(t.auto?'没有勾选文件，将处理当前列表全部 '+t.items.length+' 个视频':'将处理选中的 '+t.items.length+' 个'+(op==='md5'?'文件':'视频')):'当前列表还没有视频，先在上面提取视频再用这些工具';
-  document.querySelector('#toolGo').disabled=!t.items.length;
-  document.querySelector('#toolHint').style.color=t.items.length?'var(--muted)':'';
-  document.querySelector('#toolDialog').showModal();
+  // 打开独立的批量工具页：可上传本地视频；当前勾选的视频一并带过去
+  const sizes=new Map();for(const j of cache)for(const f of j.files||[])sizes.set(j.id+'\u0000'+f.name,f.size);
+  const items=selectedItems().filter(i=>partRole(i.name)==='video').map(i=>({job_id:i.job_id,name:i.name,size:sizes.get(i.job_id+'\u0000'+i.name)||0}));
+  try{localStorage.setItem('vd-tool-items',JSON.stringify({t:Date.now(),items}));}catch{}
+  const w=window.open('/tools.html?op='+op,'_blank');if(!w)location.href='/tools.html?op='+op;
 }
 async function submitTool(){
   const params={},hint=document.querySelector('#toolHint');
